@@ -56,24 +56,26 @@ README screenshots are captures of the local fixture. JavaScript syntax, manifes
 
 ## Installed Chrome
 
-Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer's Chrome profile, with Octotree disabled. These checks used actual extension messaging/storage and live public pages, without a PAT:
+Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer's Chrome profile, with Octotree disabled. The installed directory was synchronized with the `fe8f277` source. Chrome's extension Details page confirmed the directory, and the extension's Reload action displayed its restarted confirmation. The service worker was inactive immediately afterward; refreshing the repository tabs successfully initialized the extension. The following checks were repeated after Reload using actual extension messaging/storage and live public pages, without a PAT:
 
 - GitHub `ziqq/Codetree`: repository tree, branches, file search and Refresh worked; the sidebar background matched the page's computed background.
 - GitHub `octocat/Hello-World`, PR #1: native-header `View full` opened a validated 7-row preview with the sidebar closed and the native file collapsed. Local Viewed marking and unmarking succeeded.
-- GitLab `gitlab-org/cli`, MR !3991: both native-header buttons appeared; a collapsed file opened with the sidebar closed. The complete `label_list.go` preview had 206 rows with unchanged context and highlighted changes; next-file navigation opened the 275-row test file.
+- GitLab `gitlab-org/cli`, MR !3991: both native-header buttons appeared; a collapsed file opened with the sidebar closed. The complete `label_list.go` preview contained 206 diff lines with unchanged context and highlighted changes; scrolling reached the last head-revision line. Next-file navigation opened the 275-line test-file preview.
 - GitLab local Viewed marking/unmarking, repository folder loading and the open-MR list worked. The unauthenticated Approved filter showed token guidance; switching back to All restored results.
 
-These browser checks exercised the initially installed runtime. Reloading after the navigation fixes and repeating the current-source smoke check remains pending; race coverage uses the production handlers with controlled RPC completion above. Authenticated provider writes remain unverified.
+The current-source smoke check passed after Reload. No Code Tree-specific errors were identified in the captured page logs; both pages also recorded an unattributed `MessageNotSentError`, whose source could not be established from the available log data. Local Viewed marks were restored to unmarked after verification. Public-page interactions verify the normal flows; the asynchronous race cases use the production handlers with controlled RPC completion above. Authenticated provider writes remain unverified.
 
 ## CI and packaging checks
 
 Local ESLint, CSS lint, JavaScript syntax, manifest/CSP/asset/icon/doc/YAML/lockfile/changelog validation and pinned `actionlint` checks passed. The installed development dependency audit reported no vulnerabilities. No linter rules were weakened to accept the existing source.
 
-The runtime builder checks its allowlist against manifest/imported/HTML assets, places `manifest.json` at the ZIP root and verifies all source bytes, CRCs, metadata and SHA-256. Before license adoption, the missing license rejected publication even for a matching tag. After the maintainer approved the strict Code Tree Source-Available License 1.0, the local matching-tag check passed and the mismatched tag remained rejected. The licensed ZIP contains 14 runtime/privacy/license files; two local builds matched byte-for-byte. GitHub Actions execution is recorded separately after the workflow runs.
+The runtime builder checks its allowlist against manifest/imported/HTML assets, places `manifest.json` at the ZIP root and verifies all source bytes, CRCs, metadata and SHA-256. Before license adoption, the missing license rejected publication even for a matching tag. After the maintainer approved the strict Code Tree Source-Available License 1.0, the local matching-tag check passed and the mismatched tag remained rejected. The licensed ZIP contains 14 runtime/privacy/license files; two local builds matched byte-for-byte.
+
+All steps in the actual [Verify Code Tree run for `fe8f277`](https://github.com/ziqq/Codetree/actions/runs/37025445689) passed, including the 31 regressions, workflow validation, dependency audit and packaging. Its downloaded ZIP matched the checkout build and a separate clean `git archive` build byte-for-byte. The runtime ZIP is 145,292 bytes; SHA-256: `88f297c2ce1afe81441ea9c56638c7779416f22af029ff16af64d5b4d1e1f925`. No tag or release was created.
 
 ## Pending environments
 
-- Reloading the installed Chrome extension after the navigation fixes and repeating the current-source smoke check; explicit worker restart/lifecycle coverage.
+- Full browser restart and repeated service-worker eviction beyond the confirmed extension Reload and subsequent initialization.
 - Private GitHub/GitLab repositories with real PATs.
 - Native GitHub Viewed writes and authenticated GitLab discussions/review endpoints.
 - Live GitHub Enterprise Server and self-managed GitLab, including older layouts/versions.
