@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Code Tree · Settings</title>
+  <link rel="stylesheet" href="options.css">
+  <script src="core.js" defer></script>
+  <script src="options.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="product-icon" aria-hidden="true">⌘</div>
+      <div><p class="eyebrow">CODE TREE</p><h1>Settings</h1><p class="intro">Your repositories, with a little more room to explore.</p></div>
+      <span class="version">v0.2.0</span>
+    </header>
+    <section class="card" aria-labelledby="appearance-title">
+      <div class="section-heading"><h2 id="appearance-title">Appearance</h2><p>Make the sidebar and code feel at home.</p></div>
+      <form id="appearance-form" class="settings-grid">
+        <label>Sidebar position<select name="dock"><option value="left">Left</option><option value="right">Right</option></select></label>
+        <label>File icons<select name="iconTheme"><option value="color">Color</option><option value="outline">Outline</option><option value="minimal">Minimal</option></select></label>
+        <label>Sidebar width<input name="width" type="number" min="240" max="600" step="1" required></label>
+        <label>Code size<input name="fontSize" type="number" min="10" max="24" required></label>
+        <label class="wide">Code font<select name="fontFamily"><option value="default">System monospace</option><option>JetBrains Mono</option><option>Fira Code</option><option>Cascadia Code</option><option>Source Code Pro</option><option>Menlo</option><option>Consolas</option></select><small>Named fonts must be installed on your computer. Otherwise the system monospace font is used.</small></label>
+        <label class="checkbox wide"><input name="pinned" type="checkbox"> Keep the sidebar pinned</label>
+        <div class="font-preview wide" id="font-preview"><span class="code-muted">// A familiar place for your code</span><br>const tree = await repository.getFiles();</div>
+        <div class="form-actions wide"><button type="submit" class="primary">Save appearance</button><span id="appearance-status" role="status"></span></div>
+      </form>
+    </section>
+    <section class="card" aria-labelledby="accounts-title">
+      <div class="section-heading"><h2 id="accounts-title">Accounts</h2><p>Connect GitHub, GitLab and your own server.</p></div>
+      <div id="accounts" class="accounts" aria-live="polite"></div>
+      <form id="account-form" class="account-form">
+        <label>Provider<select name="provider"><option value="github">GitHub</option><option value="gitlab">GitLab</option></select></label>
+        <label>Website<input name="origin" type="url" value="https://github.com" placeholder="https://github.example.com" required autocomplete="off"><small id="host-note">Use github.com or the HTTPS origin of your GitHub Enterprise Server.</small></label>
+        <label>Account label <span class="optional">optional</span><input name="label" maxlength="60" placeholder="Personal, work…" autocomplete="off"></label>
+        <label>Personal access token<input name="token" type="password" placeholder="Paste your token" required autocomplete="off" spellcheck="false"><small>The token is verified directly with the selected host. It stays in this browser's extension storage.</small></label>
+        <div class="permission-note" id="github-permissions"><strong>GitHub token permissions</strong><p>For a fine-grained token, select the repositories you need and grant <b>Contents: read</b> and <b>Pull requests: read</b>. Organization approval or SSO authorization may also be required. GitHub may require additional permission to sync viewed-file marks; the sidebar reports failures.</p><p>With a classic token, private repositories need the <code>repo</code> scope. Public browsing works without a token, subject to GitHub's API limits.</p></div>
+        <div class="permission-note" id="gitlab-permissions" hidden><strong>GitLab token permissions</strong><p>Use a personal access token with <code>read_api</code> to read private projects, merge requests, discussions and review-state filters. Your account must have access to the project.</p><p>Viewed-file marks are local to this browser. Public browsing works without a token, subject to GitLab's API limits. Review-state filters require a token and compatible server endpoints.</p></div>
+        <div class="form-actions"><button id="connect-button" type="submit" class="primary">Connect account</button><span id="account-status" role="status" aria-live="polite"></span></div>
+      </form>
+    </section>
+    <section class="card details" aria-labelledby="shortcuts-title">
+      <div><h2 id="shortcuts-title">Keyboard shortcuts</h2><p><kbd>Shift</kbd> + <kbd>D</kbd><span>Toggle the sidebar</span></p><p><kbd>Shift</kbd> + <kbd>S</kbd><span>Search files</span></p><p class="muted">In the tree, use the arrow keys and Enter to navigate.</p></div>
+      <div><h2>Your data</h2><p class="muted">Bookmarks and preferences are local to this browser profile. There is no account with us, subscription, analytics or backend.</p><p class="muted">Repository data goes directly between the extension and the selected GitHub or GitLab server. Tokens are kept out of page scripts and content-script storage access.</p></div>
+    </section>
+    <footer>Original implementation · Code Tree</footer>
+    <p id="page-error" role="alert"></p>
+  </main>
+</body>
+</html>
