@@ -1,0 +1,21 @@
+{
+  "name": "code-tree-development",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Development checks and packaging for Code Tree; the extension has no runtime dependencies.",
+  "license": "UNLICENSED",
+  "engines": {"node": "^20.19.0 || ^22.13.0 || >=24"},
+  "scripts": {
+    "lint": "eslint . && stylelint sidebar.css options.css",
+    "check": "npm run lint && node scripts/check.mjs",
+    "package": "python3 scripts/package.py",
+    "verify": "npm run check && npm run package"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.13.0",
+    "stylelint": "17.16.0",
+    "yaml": "2.9.1"
+  }
+}

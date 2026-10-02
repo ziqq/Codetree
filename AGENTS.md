@@ -1,6 +1,6 @@
 # Code Tree
 
-Code Tree is a dependency-free Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no backend, npm package, build system or cloud service.
+Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies, backend or cloud service. A private npm package provides development checks, and Python packages the unchanged runtime files.
 
 ## General rules
 
@@ -14,7 +14,7 @@ Code Tree is a dependency-free Chrome/Chromium Manifest V3 extension for GitHub/
 
 ## Environment setup
 
-Load the repository root as an unpacked extension in Chrome/Chromium 114+. Reload the extension and refresh repository tabs after changes. Node.js is used for syntax checks; npm dependency installation is unnecessary.
+Load the repository root as an unpacked extension in Chrome/Chromium 114+. Reload the extension and refresh repository tabs after changes. Use Node.js 24, `npm ci` and Python 3 for the full development/packaging checks; these tools are not needed by users loading the extension.
 
 ## Project structure
 
@@ -25,15 +25,17 @@ Load the repository root as an unpacked extension in Chrome/Chromium 114+. Reloa
 - `sidebar.css`: isolated UI styles; page styles are constructed in `content.js`.
 - `options.*`: appearance and account settings.
 - `manifest.json`, `icons/`: distribution metadata and original assets.
+- `scripts/`, `.github/workflows/`: validation, deterministic runtime packaging and releases by stable tag.
 - `docs/`, `PRIVACY.md`: feature boundaries and validation/data records.
 
 ## Key commands
 
 ```sh
 git status --short
-for file in core.js background.js gitlab.js content.js options.js; do
-  node --check "$file" || exit 1
-done
+npm ci
+npm run verify
+npm audit --audit-level=high
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
@@ -55,6 +57,6 @@ No committed automated test suite exists. Follow the implementation-approval rul
 
 Verify affected browser interactions and use real public APIs when possible. Separate fixture proof, live read-only API proof, Chrome installation, authenticated writes and self-managed servers. Preserve unrelated failures and user changes.
 
-Keep fixtures, archives, temporary screenshots and secrets out of the runtime package. Identify fixture images in README. Stage intended paths, inspect archive contents and verify the remote before an authorized push. Do not create tags, releases or store submissions without a request.
+Keep fixtures, archives, development tools, temporary screenshots and secrets out of the runtime package. Identify fixture images in README. Stage intended paths, inspect archive contents and verify the remote before an authorized push. Follow [Checks and releases](docs/RELEASING.md); tags must match manifest/development/changelog versions and an approved license. Do not create tags, releases or store submissions without a request.
 
 License selection belongs to the maintainer. Do not apply a permissive license or grant commercial rights without authorization.

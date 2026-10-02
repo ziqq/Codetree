@@ -32,12 +32,20 @@ Checked for the new implementation:
 - GitLab lazy folder loading and search for a nested file after loading all folders.
 - Provider selection in Settings, updated GitLab origin and permission guidance.
 - Added/deleted file previews and absence of browser console errors on the fixture/settings pages.
+- Theme correction: GitHub light/dark, GitLab light/dark and an arbitrary GitHub token palette. In every case the sidebar's computed background and foreground matched the page; controls inherited the provider's subtle-surface token.
+- Full-file viewer retained the GitLab page background and opened from a native header with the sidebar closed after the theme change.
 
 Additional local broker checks verified GitHub, GitLab and custom GitLab account validation with synthetic tokens, custom-host script registration, token-free state responses, host-bound headers, disabled redirects/cookies and four rejected requests without a network call. These include cross-host access, untrusted account changes and invalid source project/file paths.
 
 Earlier local checks covered GitHub review filters, comments, Viewed, bookmarks, slash-containing branches, docking and preferences; core patch mismatch/truncation errors; empty repositories and 404 responses; host/token isolation; a 50,000-file synthetic tree with visible-row rendering. Those checks do not establish performance on real devices or live authenticated servers.
 
 README screenshots are captures of the local fixture. JavaScript syntax, manifest references and final archive contents are checked separately during packaging.
+
+## CI and packaging checks
+
+Local ESLint, CSS lint, JavaScript syntax, manifest/CSP/asset/icon/doc/YAML/lockfile/changelog validation and pinned `actionlint` checks passed. The installed development dependency audit reported no vulnerabilities. No linter rules were weakened to accept the existing source.
+
+The runtime builder checks its allowlist against manifest/imported/HTML assets, places `manifest.json` at the ZIP root and verifies all source bytes, CRCs, metadata and SHA-256. A mismatched tag was rejected, and the current pending license rejected publication even for a matching tag. GitHub Actions execution is recorded separately after the workflow runs.
 
 ## Pending environments
 

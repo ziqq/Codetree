@@ -1,0 +1,66 @@
+name: Release Code Tree
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-tree-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify tagged source
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+
+  publish:
+    name: Publish validated ZIP
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download validated extension
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: code-tree-${{ github.sha }}
+          path: dist
+
+      - name: Verify downloaded release bytes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/package.py --tag "$RELEASE_TAG" --verify "dist/code-tree-${RELEASE_TAG#v}.zip"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          version = os.environ['RELEASE_TAG'][1:]
+          changelog = pathlib.Path('CHANGELOG.md').read_text(encoding='utf-8')
+          section = re.search(r'^## ' + re.escape(version) + r'\n(.*?)(?=^## |\Z)', changelog, re.MULTILINE | re.DOTALL)
+          if section is None:
+              raise SystemExit('Release changelog section is missing.')
+          pathlib.Path('dist/release-notes.md').write_text(section.group(1).strip() + '\n', encoding='utf-8')
+          PY
+          gh release create "$RELEASE_TAG" \
+            "dist/code-tree-${RELEASE_TAG#v}.zip" \
+            "dist/code-tree-${RELEASE_TAG#v}.sha256" \
+            --verify-tag \
+            --title "Code Tree ${RELEASE_TAG#v}" \
+            --notes-file dist/release-notes.md

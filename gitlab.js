@@ -27,7 +27,7 @@
     let ref = project.default_branch;
     if (context.tail) {
       if (context.refHint && (context.tail === context.refHint || context.tail.startsWith(context.refHint + '/'))) ref = context.refHint;
-      else if (context.tail === ref || context.tail.startsWith(ref + '/')) {}
+      else if (context.tail === ref || context.tail.startsWith(ref + '/')) { /* Keep the matching default branch. */ }
       else {
         const first = context.tail.split('/')[0];
         if (/^[a-f\d]{40}$/i.test(first)) ref = first;

@@ -13,17 +13,20 @@
 
 ## Environment setup
 
-Chrome/Chromium 114+ is the target. Node.js is useful for syntax checks. There are no npm dependencies, bundler or generated assets to install.
+Chrome/Chromium 114+ is the target. The extension has no runtime dependencies or bundler. Use Node.js 24, locked npm development tools and Python 3 for CI and packaging.
 
 Load the repository root through **Load unpacked** in `chrome://extensions`. After edits, reload the extension and refresh the tab. Inspect its service worker through the Chrome extension card when debugging API/storage behavior.
 
 ```sh
-for file in core.js background.js gitlab.js content.js options.js; do
-  node --check "$file" || exit 1
-done
+npm ci
+npm run verify
+npm audit --audit-level=high
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
 No committed automated test suite currently exists. Syntax checks are not functional tests. After implementation approval, add focused regression coverage for real previous failures.
+
+See [Checks and releases](docs/RELEASING.md) for the exact CI gates, runtime allowlist, tag/version validation and artifact verification. Development dependencies, fixtures and screenshots must not enter the runtime ZIP.
 
 ## Manual validation
 

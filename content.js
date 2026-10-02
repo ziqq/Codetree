@@ -54,7 +54,7 @@
         const route = payload?.codeViewRepoRoute || payload?.codeViewBlobRoute;
         if (route?.refInfo?.name) return route.refInfo.name;
         if (payload?.refInfo?.name) return payload.refInfo.name;
-      } catch {}
+      } catch { /* Other embedded payloads may not be valid repository route data. */ }
     }
     return '';
   }
@@ -69,12 +69,14 @@
   function requestName() { return state.context?.provider === 'gitlab' ? 'merge request' : 'pull request'; }
   function isDark() {
     if (document.documentElement.classList.contains('gl-dark') || document.body?.classList.contains('gl-dark')) return true;
+    if (document.documentElement.classList.contains('gl-light') || document.body?.classList.contains('gl-light')) return false;
     const mode = document.documentElement.getAttribute('data-color-mode');
     return mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   }
   function layout() {
     const prefs = state.preferences; const available = Boolean(state.context);
     host.dataset.theme = isDark() ? 'dark' : 'light'; host.dataset.icons = prefs.iconTheme;
+    host.dataset.provider = state.context?.provider || 'github';
     host.style.setProperty('--panel-width', `${prefs.width}px`);
     host.style.setProperty('--code-font', C.fontFamilies[prefs.fontFamily]);
     host.style.setProperty('--code-size', `${prefs.fontSize}px`);
@@ -87,8 +89,8 @@
     const fontStyle = prefs.fontFamily !== 'default' || prefs.fontSize !== 12
       ? `.blob-code,.blob-code-inner,.react-code-text,[data-testid="code-cell"],pre code,.rd-line-text,.line_content,.blob-content pre{font-family:${C.fontFamilies[prefs.fontFamily]}!important;font-size:${prefs.fontSize}px!important;}` : '';
     pageStyle.textContent = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
-      .code-tree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
-      .code-tree-view-full:hover{border-color:var(--fgColor-accent,#58a6ff)}.code-tree-view-full:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}.code-tree-view-full:disabled{opacity:.5;cursor:default}.code-tree-view-full .icon{height:15px;width:15px}`;
+      .code-tree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
+      .code-tree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.code-tree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.code-tree-view-full:disabled{opacity:.5;cursor:default}.code-tree-view-full .icon{height:15px;width:15px}`;
     requestTreeRender();
   }
   async function setPreferences(value) {
@@ -609,7 +611,7 @@
     const shell = viewerShell(node.path, `${comments.length} inline comments`, 'File review comments');
     for (const comment of comments) {
       const metadata = el('div', {class: 'comment-meta'}, [el('strong', {text: comment.user?.login || 'unknown'}), el('span', {text: `${comment.path}${comment.line || comment.original_line ? `:${comment.line || comment.original_line}` : ''}${comment.line == null && comment.original_line ? ' · outdated' : ''}`})]);
-      try { if (new URL(comment.html_url).origin === state.context.origin) metadata.append(el('a', {href: comment.html_url, text: `View on ${providerName()}`, target: '_blank', rel: 'noopener noreferrer'})); } catch {}
+      try { if (new URL(comment.html_url).origin === state.context.origin) metadata.append(el('a', {href: comment.html_url, text: `View on ${providerName()}`, target: '_blank', rel: 'noopener noreferrer'})); } catch { /* Keep the comment text while omitting an invalid external link. */ }
       shell.body.append(el('div', {class: 'comment-card'}, [metadata, el('div', {class: 'comment-body', text: comment.body})]));
     }
     if (!comments.length) shell.body.append(empty('No inline comments', 'There are no review comments for this file.', 'comment'));

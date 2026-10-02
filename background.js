@@ -85,7 +85,7 @@ function client(context, store, override) {
     if (!response.ok) {
       const fail = message => { const error = new Error(message); error.status = response.status; throw error; };
       let message = '';
-      try { message = (await response.json()).message || ''; } catch {}
+      try { message = (await response.json()).message || ''; } catch { /* Non-JSON errors use the status message below. */ }
       if (response.status === 401) fail(account ? `${label} rejected this token. Update the account in Settings.` : `${label} requires an account for this operation. Add a token in Settings.`);
       if ((response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') || response.status === 429) {
         const reset = Number(response.headers.get('X-RateLimit-Reset'));
@@ -155,7 +155,7 @@ async function initialize(context, api) {
   let ref = repository.default_branch;
   if (context.tail) {
     if (context.refHint && (context.tail === context.refHint || context.tail.startsWith(context.refHint + '/'))) ref = context.refHint;
-    else if (context.tail === ref || context.tail.startsWith(ref + '/')) {}
+    else if (context.tail === ref || context.tail.startsWith(ref + '/')) { /* Keep the matching default branch. */ }
     else {
       const first = context.tail.split('/')[0];
       if (/^[a-f\d]{40}$/i.test(first)) ref = first;
@@ -168,7 +168,7 @@ async function initialize(context, api) {
               const name = item.ref.slice(`refs/${type}/`.length);
               if (context.tail === name || context.tail.startsWith(name + '/')) candidates.push(name);
             }
-          } catch {}
+          } catch { /* A ref namespace may be unavailable; the commit lookup validates the fallback. */ }
         }
         ref = candidates.sort((a, b) => b.length - a.length)[0] || first;
       }
@@ -281,7 +281,7 @@ async function listPulls(context, api, filter) {
         throw new Error('The pull request list exceeds the pagination limit.');
       });
     } catch (error) {
-      if (filter !== 'all') throw new Error(`Review filters are unavailable: ${error.message}`);
+      if (filter !== 'all') throw new Error(`Review filters are unavailable: ${error.message}`, {cause: error});
     }
   }
   if (!data) {
@@ -332,7 +332,7 @@ async function handle(message, sender) {
   const store = await readStore();
   const isOptions = sender.url === chrome.runtime.getURL('options.html');
   let senderOrigin;
-  try { senderOrigin = new URL(sender.url || '').origin; } catch {}
+  try { senderOrigin = new URL(sender.url || '').origin; } catch { /* Invalid senders are rejected by the origin check below. */ }
   if (!isOptions && (!sender.tab || !origins(store).has(senderOrigin))) throw new Error('This page cannot access extension data.');
   if (message.type === 'STATE') return publicState(store);
   if (message.type === 'OPTIONS') { await chrome.runtime.openOptionsPage(); return true; }

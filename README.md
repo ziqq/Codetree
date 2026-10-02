@@ -38,7 +38,7 @@ See [Features](docs/FEATURES.md) for provider differences. This is an independen
 git clone https://github.com/ziqq/Codetree.git
 ```
 
-No dependency installation or build step is needed. After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
+No dependency installation or build step is needed to load the extension. After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
 
 ## Getting started
 
@@ -110,16 +110,17 @@ docs/              Feature details and verification record
 
 ## Development
 
-Use the repository root as an unpacked extension. JavaScript uses two-space indentation, single quotes and explicit DOM construction.
+Use the repository root as an unpacked extension. JavaScript uses two-space indentation, single quotes and explicit DOM construction. Node.js/npm are development tools only; Python 3 creates the distributable ZIP.
 
 ```sh
-for file in core.js background.js gitlab.js content.js options.js; do
-  node --check "$file" || exit 1
-done
+npm ci
+npm run verify
 ```
 
-Syntax checks do not exercise Chrome's extension environment. Read [Contributing](CONTRIBUTING.md), [Verification](docs/VERIFICATION.md), [Changelog](CHANGELOG.md) and [AGENTS.md](AGENTS.md).
+CI checks JavaScript/CSS, manifest/CSP/assets, documentation, workflow syntax, locked dependencies and reproducible packaging on push/PR. Stable tags `vX.Y.Z` run the same checks before publishing a GitHub Release containing the runtime ZIP and SHA-256. Tags must match the manifest/changelog version and publication requires an approved license. See [Checks and releases](docs/RELEASING.md).
+
+Automated checks do not exercise Chrome's installed extension environment. Read [Contributing](CONTRIBUTING.md), [Verification](docs/VERIFICATION.md), [Changelog](CHANGELOG.md) and [AGENTS.md](AGENTS.md).
 
 ## License
 
-The maintainer is selecting terms that restrict commercial use. Publishing this repository grants no commercial license. The final license will be recorded here and in `LICENSE` before the licensed release is published.
+The maintainer intends to allow free use at work and in commercial projects while restricting sale/monetization of the extension. The precise license is pending approval; publishing this repository does not grant a commercial license. The approved terms will be recorded here and in `LICENSE` before a licensed release is published.

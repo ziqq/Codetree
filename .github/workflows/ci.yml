@@ -1,0 +1,70 @@
+name: Verify Code Tree
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Stable tag to validate before producing release artifacts
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, validate and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - name: Install development tools
+        run: npm ci
+
+      - name: Check source, assets and documentation
+        run: npm run check
+
+      - name: Lint workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Check committed whitespace
+        run: git show --format= --check HEAD
+
+      - name: Audit development dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build and verify extension ZIP
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            python3 scripts/package.py --tag "$RELEASE_TAG"
+          else
+            python3 scripts/package.py
+          fi
+          python3 scripts/package.py --output "$RUNNER_TEMP/code-tree-rebuild"
+          cmp dist/*.zip "$RUNNER_TEMP"/code-tree-rebuild/*.zip
+
+      - name: Upload validated extension
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: code-tree-${{ github.sha }}
+          path: |
+            dist/code-tree-*.zip
+            dist/code-tree-*.sha256
+          if-no-files-found: error
+          retention-days: 14
