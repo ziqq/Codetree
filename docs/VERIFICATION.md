@@ -65,6 +65,10 @@ Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer
 
 The current-source smoke check passed after Reload. No Code Tree-specific errors were identified in the captured page logs; both pages also recorded an unattributed `MessageNotSentError`, whose source could not be established from the available log data. Local Viewed marks were restored to unmarked after verification. Public-page interactions verify the normal flows; the asynchronous race cases use the production handlers with controlled RPC completion above. Authenticated provider writes remain unverified.
 
+Follow-up checks used new Chrome tabs with fresh captured logs. GitHub tree loading, Refresh and page reload, plus GitLab full-file preview, completed with no error entries; the earlier `MessageNotSentError` was not reproduced. Chrome's extension Details page did not display a recorded error for Code Tree. This does not establish the source of the earlier message.
+
+Two idle/wake cycles were confirmed through Chrome's actual extension Details UI. With the worker shown inactive, GitHub Refresh loaded the repository tree; refreshing Details showed the worker active. After another 40-second idle period, Details showed the worker inactive again. Opening the GitLab full-file preview then loaded all 206 diff lines, and refreshed Details showed the worker active. The sidebar's initially closed preference was restored after the checks. The actual Settings page had no connected accounts, so real PAT, private-repository and authenticated review checks still require an account and selected repository URLs.
+
 ## CI and packaging checks
 
 Local ESLint, CSS lint, JavaScript syntax, manifest/CSP/asset/icon/doc/YAML/lockfile/changelog validation and pinned `actionlint` checks passed. The installed development dependency audit reported no vulnerabilities. No linter rules were weakened to accept the existing source.
@@ -75,7 +79,7 @@ All steps in the actual [Verify Code Tree run for `fe8f277`](https://github.com/
 
 ## Pending environments
 
-- Full browser restart and repeated service-worker eviction beyond the confirmed extension Reload and subsequent initialization.
+- Full browser restart.
 - Private GitHub/GitLab repositories with real PATs.
 - Native GitHub Viewed writes and authenticated GitLab discussions/review endpoints.
 - Live GitHub Enterprise Server and self-managed GitLab, including older layouts/versions.

@@ -45,3 +45,22 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 ## Current boundaries
 
 OAuth, cloud sync, configurable shortcuts, per-window pinning and a persistent tree cache are absent. Named fonts are not downloaded. The viewer has no syntax highlighting. GitLab native Viewed synchronization is absent. These boundaries are also listed in README so they are not confused with implemented functionality.
+
+## Octotree comparison
+
+Checked against the current [Octotree feature guide](https://www.octotree.io/features) on 2026-10-02. Code Tree is a working beta with independent equivalents for the ten listed Pro capability groups. The table separates implemented behavior from verified environments; it is not a claim of complete product parity.
+
+| Octotree Pro capability | Code Tree status |
+| --- | --- |
+| PR/commit changed-file tree | Implemented with statistics, comments and Viewed marks. Public GitHub comments and local Viewed are verified; authenticated GitHub writes and GitLab discussions remain pending. |
+| Full-file diffs | Verified on real GitHub/GitLab pages, including a closed sidebar and collapsed native file. Text limits and unavailable-preview states are documented. |
+| Request list and review filters | Lists are verified on public pages. Five review filters are implemented and fixture-tested; real authenticated filtering remains pending. |
+| Branch selection | Branch menus/search and branch-root navigation are implemented; public branch loading is verified. |
+| Code font settings | Font/size settings are implemented and fixture-tested. Named fonts require local installation. |
+| File icon themes | Three original styles are implemented and fixture-tested. |
+| Unlimited bookmarks | Local repository/file/issue/request bookmarks are implemented, without a product count limit; browser storage limits apply. |
+| Sidebar docking | Left/right docking, pinning, hover opening and resizing are implemented and fixture-tested. |
+| Multiple accounts | PAT accounts and automatic/manual selection are implemented; real multi-account verification remains pending. |
+| GitHub Enterprise | HTTPS custom-host support is implemented; a live Enterprise Server has not been verified. |
+
+The guide also describes configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache. Code Tree currently has fixed shortcuts, one shared pin preference, fixed page routing, click-to-open folders and a service-worker memory cache. OAuth is absent. GitLab repository/MR support is an additional provider implementation, with the differences above.
