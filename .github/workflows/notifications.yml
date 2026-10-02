@@ -1,0 +1,53 @@
+name: Notifications
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  new-items:
+    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    uses: ziqq/actions/.github/workflows/notify-events.yml@7737ce8c4d87c656b7ccf5f78138d8d7e53a1b62
+    with:
+      notify-issues: true
+      notify-pull-requests: true
+    secrets:
+      DISCORD_WEBHOOKS: ${{ secrets.DISCORD_WEBHOOKS }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_TARGETS: ${{ secrets.TELEGRAM_TARGETS }}
+
+  release-published:
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted notification template
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Notify about published release
+        uses: ziqq/actions/notify@ccd1a799683cd461a45d9303ac6fcb2792f8f5d2
+        with:
+          providers: discord,telegram
+          template-path: .github/notify/templates/release.md
+          variables: |
+            {
+              "release_tag": ${{ toJSON(github.event.release.tag_name) }},
+              "release_name": ${{ toJSON(github.event.release.name) }},
+              "release_url": ${{ toJSON(github.event.release.html_url) }}
+            }
+          failure-policy: required
+          timeout-ms: "10000"
+          max-attempts: "5"
+          discord-webhooks: ${{ secrets.DISCORD_WEBHOOKS }}
+          telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram-targets: ${{ secrets.TELEGRAM_TARGETS }}
