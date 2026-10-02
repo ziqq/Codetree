@@ -91,6 +91,8 @@ The runtime builder checks its allowlist against manifest/imported/HTML assets, 
 
 All steps in the actual [Verify Code Tree run for `fe8f277`](https://github.com/ziqq/Codetree/actions/runs/37025445689) passed, including the 31 regressions, workflow validation, dependency audit and packaging. Its downloaded ZIP matched the checkout build and a separate clean `git archive` build byte-for-byte. The runtime ZIP is 145,292 bytes; SHA-256: `88f297c2ce1afe81441ea9c56638c7779416f22af029ff16af64d5b4d1e1f925`. No tag or release was created.
 
+The follow-up [Verify Code Tree run for `3b41a65`](https://github.com/ziqq/Codetree/actions/runs/37046485013) also passed every step: 31 existing regressions, JavaScript/CSS/static checks, workflow validation, dependency audit, reproducible packaging and artifact upload. Its downloaded ZIP matched both the checkout package and a clean committed archive byte-for-byte. This build contains 17 files and is 189,412 bytes; SHA-256: `27dc501ca370365ec79a9fd417c7cdda11c19142c1e03e5757b1db27478a25bc`. The audit found no vulnerabilities. No tag, release or store publication was made.
+
 ## Pending environments
 
 - Full browser restart.
