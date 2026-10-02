@@ -81,7 +81,15 @@ The existing 31 regressions still pass; no test file was added or changed for th
 
 On an actual private GitHub PR accessible through website sign-in, the missing native **View full** button was reproduced: the extension had no API account, initialization returned 404 and header insertion depended on successful API data. After fixing insertion and reloading the installed extension, the same file header displayed the button with the sidebar closed. Clicking it displayed an explicit access error with **Connect account in Settings** and **Retry**. Native Viewed state and review drafts were not changed. Private full-file content still requires an extension account; website sign-in alone does not establish API access. Private source screenshots remain local and are not included in this repository.
 
-The final cache/refresh refinements and navigation/highlighting implementation passed local checks. Repeating their installed-Chrome smoke check was interrupted by the locked Mac. Live OAuth remains unavailable until registered client IDs are supplied; actual sign-in, browser authorization and provider-side refresh are not proven by the simulations.
+After unlocking the Mac, the installed extension was reloaded from the synchronized source and the live smoke check resumed:
+
+- GitHub `ziqq/Codetree`: repository loading and file search worked; filtering for `core.js` returned that file. The default toggle closed the sidebar, the search shortcut opened/focused search, and typing the toggle shortcut in the input did not close it.
+- Toggling the window pin propagated to another Code Tree tab in the same Chrome window. The original pinned state and closed-sidebar preference were restored afterward. Isolation between different windows remains covered by the synthetic broker check above.
+- GitLab MR !3991: the native button opened the complete 206-line Go diff with lexical keyword/string colors and 40 rendered rows for the current viewport/buffer.
+- GitHub commit `3b41a65`: native headers had no diff IDs, revealing a separate insertion gap. Using each React header's nearest file region fixed it. After another extension Reload, the native `core.js` button opened its validated 298-line full diff with lexical JavaScript colors; no header had duplicate controls, and the captured fresh page logs had no errors.
+- A new private GitHub PR tab retained its native button with the sidebar closed, but still had no connected extension account. Private file content remains pending account connection. Website review drafts and native Viewed state were not changed.
+
+The Mac locked again while opening Settings for the PAT handoff, so its final native Settings state was not confirmed. Custom shortcut bindings/page-display rules/folder-click choices use the production helper checks above; this smoke used their default settings. Live OAuth remains unavailable until registered client IDs are supplied; actual sign-in, browser authorization and provider-side refresh are not proven by the simulations.
 
 ## CI and packaging checks
 

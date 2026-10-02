@@ -334,7 +334,12 @@
   function injectHeaderButtons() {
     if (!['pull', 'commit'].includes(state.context?.kind)) return;
     const epoch = state.epoch;
-    const cards = document.querySelectorAll('[id^="diff-"][role="region"], [id^="diff-"].file, .file[data-path], .diffcard[data-path], article.rd-diff-file, .diff-file, .file-holder');
+    const cards = new Set(document.querySelectorAll('[id^="diff-"][role="region"], [id^="diff-"].file, .file[data-path], .diffcard[data-path], article.rd-diff-file, .diff-file, .file-holder'));
+    if (state.context.provider === 'github') {
+      for (const header of document.querySelectorAll('[class*="DiffFileHeader-module__diff-file-header"]')) {
+        const card = header.closest('[role="region"]'); if (card) cards.add(card);
+      }
+    }
     for (const card of cards) {
       let path = card.getAttribute('data-path') || card.getAttribute('data-file-path') || card.querySelector('[data-file-path]')?.getAttribute('data-file-path');
       if (!path && state.context.provider === 'gitlab') {
