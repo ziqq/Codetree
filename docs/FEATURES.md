@@ -26,7 +26,7 @@ Both providers require a token for review-state filters. GitLab reviewer/approva
 
 ## Full-file review
 
-The native button is inserted into a changed file's header. A rerendered header gets one button; a route change clears the old bindings. The sidebar can stay closed. Text previews include all unchanged context, additions and removals, old/new line numbers and previous/next file navigation.
+The native button is inserted into a changed file's header. A rerendered header gets one button; a route change clears the old bindings. The sidebar can stay closed. Headers with a native file path receive the button even when API access fails; clicking offers account connection/retry guidance. Website sign-in and extension API authentication are separate. Text previews include all unchanged context, additions and removals, old/new line numbers and previous/next file navigation.
 
 An unchanged rename loads the previous path at the base revision and the new path at the head revision. Added/deleted files use an empty opposite revision. Known binary extensions have disabled native buttons; encoding, binary content and size checks also run in the broker.
 
@@ -36,15 +36,19 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 
 ## Shared appearance and navigation
 
-- Left/right sidebar, pinning, hover opening, resizing and labeled collapsed edge tab.
+- Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Code Tree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.
 - Three original icon styles: Color, Outline and Minimal.
 - System monospace and locally installed named code fonts, with configurable size.
-- Fixed keyboard shortcuts and arrow-key tree navigation.
+- Configurable toggle/search shortcuts, up to eight comma-separated alternatives per action; blank disables the action. Ctrl/Cmd/Alt/Shift/Mod, single keys and named navigation/function keys are supported. Typing, composition, AltGraph and key repeats do not trigger them; browser-reserved combinations may take priority. Arrow-key tree navigation remains available.
+- All-repository or code/review page scope and up to 64 full-URL exclusions. Patterns use a literal URL with * wildcards. Hidden pages do not load the sidebar or insert View full controls.
+- Folder-name click can expand/collapse a folder or just focus its row; its disclosure button and keyboard navigation always work.
+- Persistent revision/account/host-scoped tree cache, capped at 48 entries/4 MiB/24 hours. Refresh and account changes clear it; storage quota failure falls back to uncached persistence. File text/comments remain in bounded worker memory only.
+- Original lexical syntax colors for JavaScript/TypeScript, Dart, Go, Rust, Python, Ruby, PHP, Java, Kotlin, Swift, C/C++, C#, shell, SQL, CSS, JSON, YAML, TOML, HTML/XML and Markdown. Each revision has independent multiline string/comment state. Tokenization yields in chunks, supports cancellation and falls back to complete plain text past 200,000 tokens per revision. Embedded-language/semantic parsing is not implemented.
 - Local bookmarks for repository-host pages, without a product-imposed count limit; browser storage limits still apply.
 
 ## Current boundaries
 
-OAuth, cloud sync, configurable shortcuts, per-window pinning and a persistent tree cache are absent. Named fonts are not downloaded. The viewer has no syntax highlighting. GitLab native Viewed synchronization is absent. These boundaries are also listed in README so they are not confused with implemented functionality.
+GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no registered client IDs and cannot complete live OAuth sign-in yet. See [OAuth setup](OAUTH.md). Cloud sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
 
 ## Octotree comparison
 
@@ -63,4 +67,4 @@ Checked against the current [Octotree feature guide](https://www.octotree.io/fea
 | Multiple accounts | PAT accounts and automatic/manual selection are implemented; real multi-account verification remains pending. |
 | GitHub Enterprise | HTTPS custom-host support is implemented; a live Enterprise Server has not been verified. |
 
-The guide also describes configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache. Code Tree currently has fixed shortcuts, one shared pin preference, fixed page routing, click-to-open folders and a service-worker memory cache. OAuth is absent. GitLab repository/MR support is an additional provider implementation, with the differences above.
+The guide also describes configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache; independent equivalents are now implemented. OAuth is prepared pending registration and live verification. GitLab repository/MR support is an additional provider implementation, with the differences above.

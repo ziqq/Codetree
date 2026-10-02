@@ -2,12 +2,16 @@
   'use strict';
   const C = globalThis.CodeTree;
   const appearance = document.getElementById('appearance-form');
+  const navigation = document.getElementById('navigation-form');
   const accountForm = document.getElementById('account-form');
   const accounts = document.getElementById('accounts');
   const accountStatus = document.getElementById('account-status');
   const appearanceStatus = document.getElementById('appearance-status');
   const connect = document.getElementById('connect-button');
   const preview = document.getElementById('font-preview');
+  const githubSignIn = document.getElementById('oauth-github'); const gitlabSignIn = document.getElementById('oauth-gitlab');
+  const oauthStatus = document.getElementById('oauth-status'); const deviceBox = document.getElementById('oauth-device');
+  let oauthInfo; let device; let pollTimer; let signingIn = false;
   let state;
   async function rpc(type, value = {}) {
     const result = await chrome.runtime.sendMessage({type, ...value});
@@ -17,6 +21,42 @@
   function status(element, text, error = false) {
     element.textContent = text; element.className = error ? 'error' : 'success';
   }
+  function signInButtons() { githubSignIn.disabled = !oauthInfo?.github || signingIn; gitlabSignIn.disabled = !oauthInfo?.gitlab || signingIn; }
+  function showDevice(value) {
+    device = value; signingIn = Boolean(value); deviceBox.hidden = !value; clearTimeout(pollTimer); signInButtons();
+    if (!value) return;
+    document.getElementById('oauth-code').textContent = value.userCode;
+    status(oauthStatus, 'Waiting for GitHub authorization…');
+    pollTimer = setTimeout(pollDevice, value.interval * 1000);
+  }
+  async function pollDevice() {
+    const active = device; if (!active) return;
+    try {
+      const result = await rpc('OAUTH_GITHUB_POLL', {id: active.id});
+      if (device?.id !== active.id) return;
+      if (result.pending) showDevice(result.pending);
+      else { showDevice(null); state = result.state; renderAccounts(); status(oauthStatus, 'Connected. Refresh your repository tab.'); }
+    } catch (error) { if (device?.id === active.id) { showDevice(null); status(oauthStatus, error.message, true); } }
+  }
+  githubSignIn.addEventListener('click', async () => {
+    signingIn = true; signInButtons();
+    try { showDevice(await rpc('OAUTH_GITHUB_START', {access: document.getElementById('oauth-access').value, label: accountForm.elements.label.value.trim()})); }
+    catch (error) { signingIn = false; signInButtons(); status(oauthStatus, error.message, true); }
+  });
+  gitlabSignIn.addEventListener('click', async () => {
+    signingIn = true; signInButtons();
+    try {
+      const granted = await chrome.permissions.request({permissions: ['identity']});
+      if (!granted) throw new Error('Browser sign-in permission was not granted. You can use a personal access token.');
+      state = await rpc('OAUTH_GITLAB', {label: accountForm.elements.label.value.trim()}); renderAccounts(); status(oauthStatus, 'Connected. Refresh your repository tab.');
+    } catch (error) { status(oauthStatus, error.message, true); }
+    finally { signingIn = false; signInButtons(); }
+  });
+  document.getElementById('oauth-cancel').addEventListener('click', async () => {
+    const id = device?.id; showDevice(null);
+    try { if (id) await rpc('OAUTH_CANCEL', {id}); status(oauthStatus, 'Sign-in cancelled.'); }
+    catch (error) { status(oauthStatus, error.message, true); }
+  });
   function showFont() {
     preview.style.fontFamily = C.fontFamilies[appearance.elements.fontFamily.value];
     preview.style.fontSize = `${appearance.elements.fontSize.value || 12}px`;
@@ -62,6 +102,14 @@
     try { state.preferences = await rpc('PREFERENCES', {value}); status(appearanceStatus, 'Saved. Refresh your repository page to apply.'); }
     catch (error) { status(appearanceStatus, error.message, true); }
   });
+  navigation.addEventListener('submit', async event => {
+    event.preventDefault();
+    const value = {pageScope: navigation.elements.pageScope.value, hidePatterns: navigation.elements.hidePatterns.value,
+      folderClick: navigation.elements.folderClick.checked, toggleShortcut: navigation.elements.toggleShortcut.value.trim(), searchShortcut: navigation.elements.searchShortcut.value.trim()};
+    const output = document.getElementById('navigation-status');
+    try { C.validateNavigation(value); state.preferences = await rpc('PREFERENCES', {value}); status(output, 'Saved. Refresh your repository page to apply.'); }
+    catch (error) { status(output, error.message, true); }
+  });
   accountForm.addEventListener('submit', async event => {
     event.preventDefault();
     let origin;
@@ -84,9 +132,14 @@
   rpc('STATE').then(value => {
     state = value;
     for (const [key, value] of Object.entries(state.preferences)) {
-      const field = appearance.elements.namedItem(key);
+      const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
       if (field) { if (field.type === 'checkbox') field.checked = value; else field.value = value; }
     }
     showFont(); showProvider(); renderAccounts();
+    return rpc('OAUTH_INFO');
+  }).then(value => {
+    oauthInfo = value; signInButtons();
+    document.getElementById('oauth-note').textContent = value.github || value.gitlab ? 'GitLab OAuth requests read_api. Custom servers use personal access tokens below.' : 'OAuth is not configured in this build. Use a personal access token below.';
+    if (value.device) showDevice(value.device);
   }).catch(error => { document.getElementById('page-error').textContent = error.message; });
 })();

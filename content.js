@@ -62,7 +62,7 @@
     const provider = state.public?.hosts?.find(host => host.origin === location.origin)?.provider || (location.hostname === 'gitlab.com' ? 'gitlab' : 'github');
     if (provider === 'gitlab' && document.body?.dataset.page?.startsWith('groups:')) return null;
     const context = C.route(location.href, provider);
-    if (!context) return null;
+    if (!C.pageVisible(location.href, context, state.preferences)) return null;
     return {...context, viewer: provider === 'gitlab' ? document.body?.dataset.currentUserUsername || '' : meta('user-login') || meta('octolytics-actor-login'), refHint: refHint()};
   }
   function providerName() { return state.context?.provider === 'gitlab' ? 'GitLab' : 'GitHub'; }
@@ -85,8 +85,11 @@
     panel.hidden = !available || !prefs.open; handle.hidden = !available || prefs.open;
     resize.hidden = !available || !prefs.open;
     pinButton.classList.toggle('active', prefs.pinned); pinButton.setAttribute('aria-pressed', String(prefs.pinned));
+    const closeLabel = `Close sidebar${prefs.toggleShortcut ? ` · ${prefs.toggleShortcut}` : ''}`;
+    closeButton.title = closeLabel; closeButton.setAttribute('aria-label', closeLabel);
+    searchHint.textContent = prefs.searchShortcut.split(',')[0];
     const padding = available && prefs.open && prefs.pinned ? prefs.width : 0;
-    const fontStyle = prefs.fontFamily !== 'default' || prefs.fontSize !== 12
+    const fontStyle = available && (prefs.fontFamily !== 'default' || prefs.fontSize !== 12)
       ? `.blob-code,.blob-code-inner,.react-code-text,[data-testid="code-cell"],pre code,.rd-line-text,.line_content,.blob-content pre{font-family:${C.fontFamilies[prefs.fontFamily]}!important;font-size:${prefs.fontSize}px!important;}` : '';
     pageStyle.textContent = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
       .code-tree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
@@ -98,9 +101,13 @@
     await rpc('PREFERENCES', {value});
   }
   const panel = el('aside', {class: 'panel', 'aria-label': 'Code Tree'});
-  const pinButton = button('pin', 'Pin sidebar', run(() => setPreferences({pinned: !state.preferences.pinned, open: true})));
+  const pinButton = button('pin', 'Pin sidebar in this window', run(async () => {
+    state.preferences.pinned = await rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
+    await setPreferences({open: true});
+  }));
+  const closeButton = button('close', 'Close sidebar', run(() => setPreferences({open: false})));
   const brandbar = el('div', {class: 'brandbar'}, [C.icon('tree'), el('span', {class: 'brand', text: 'Code Tree'}), pinButton,
-    button('close', 'Close sidebar · Shift+D', run(() => setPreferences({open: false})))]);
+    closeButton]);
   const repository = el('div', {class: 'repository'});
   const branchLabel = el('span', {class: 'branch-label', text: 'Loading branch…'});
   const branchButton = el('button', {type: 'button', class: 'branch-button', 'aria-label': 'Switch branch', 'aria-expanded': 'false'}, [C.icon('branch'), branchLabel, C.icon('chevron', 'chevron')]);
@@ -115,7 +122,8 @@
     tabButtons[id] = tab; tabs.append(tab);
   }
   const search = el('input', {type: 'search', placeholder: 'Find a file…', 'aria-label': 'Search files and folders'});
-  const searchbar = el('div', {class: 'searchbar'}, [C.icon('search'), search, el('span', {class: 'keyhint', text: '⇧ S'})]);
+  const searchHint = el('span', {class: 'keyhint'});
+  const searchbar = el('div', {class: 'searchbar'}, [C.icon('search'), search, searchHint]);
   const toolbar = el('div', {class: 'toolbar'});
   const notice = el('div', {class: 'notice', role: 'status', 'aria-live': 'polite'});
   const body = el('div', {class: 'body', role: 'tabpanel', 'aria-label': 'Files'});
@@ -207,6 +215,7 @@
     state.query = ''; search.value = ''; state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
     state.tab = 'files'; state.selected = ''; state.focus = 0; state.lazy = false; state.loadingAll = false;
     layout(); if (!context) return;
+    scheduleHeaderButtons();
     render();
     try {
       const [publicData, info] = await Promise.all([rpc('STATE').then(value => {
@@ -323,8 +332,8 @@
     injectHeaderButtons();
   }
   function injectHeaderButtons() {
-    if (!state.diff || !fullViewPaths.size) return;
-    const diff = state.diff; const epoch = state.epoch;
+    if (!['pull', 'commit'].includes(state.context?.kind)) return;
+    const epoch = state.epoch;
     const cards = document.querySelectorAll('[id^="diff-"][role="region"], [id^="diff-"].file, .file[data-path], .diffcard[data-path], article.rd-diff-file, .diff-file, .file-holder');
     for (const card of cards) {
       let path = card.getAttribute('data-path') || card.getAttribute('data-file-path') || card.querySelector('[data-file-path]')?.getAttribute('data-file-path');
@@ -336,21 +345,43 @@
         }
       }
       const file = fullViewPaths.get(path) || fullViewPaths.get(card.id);
-      if (!file) continue;
+      if (!path) path = file?.filename;
+      if (!path) continue;
       const header = card.querySelector('[class*="DiffFileHeader-module__diff-file-header"], .rd-diff-file-header, .file-header, .diffhead');
       if (!header || header.querySelector('.code-tree-view-full')) continue;
       const actions = header.querySelector('.rd-diff-file-info, .file-actions') || (header.className.includes('DiffFileHeader-module__') ? header.lastElementChild : header);
-      const binary = /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|ttf|otf|woff2?|pdf|zip|gz|7z|rar|mp[34]|mov|ogg|wav|wasm|exe|dll|so|dylib)$/i.test(file.filename);
-      const full = el('button', {type: 'button', class: 'code-tree-view-full', 'aria-label': `View full file: ${file.filename}`,
+      const filename = file?.filename || path;
+      const binary = /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|ttf|otf|woff2?|pdf|zip|gz|7z|rar|mp[34]|mov|ogg|wav|wasm|exe|dll|so|dylib)$/i.test(filename);
+      const full = el('button', {type: 'button', class: 'code-tree-view-full', 'aria-label': `View full file: ${filename}`,
         title: binary ? 'Binary file: text preview unavailable' : 'See the whole file with its changes · Code Tree', disabled: binary ? '' : null,
-        onClick: event => { event.preventDefault(); event.stopPropagation(); if (epoch === state.epoch && state.diff === diff) run(() => showDiff(diffNode(file)))(); }}, [C.icon('eye'), document.createTextNode('View full')]);
-      card.setAttribute('data-code-tree-file', file.filename);
+        onClick: event => { event.preventDefault(); event.stopPropagation(); if (epoch === state.epoch) run(() => showHeaderDiff(filename, card.id))(); }}, [C.icon('eye'), document.createTextNode('View full')]);
+      card.setAttribute('data-code-tree-file', filename);
       if (actions === header) header.insertBefore(full, header.querySelector('.view') || null);
       else actions.prepend(full);
     }
   }
+  async function showHeaderDiff(path, cardId) {
+    const file = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+    if (file && state.diff) { await showDiff(diffNode(file)); return; }
+    const shell = viewerShell(path, 'Full-file preview'); const epoch = state.epoch;
+    shell.body.replaceChildren(empty('Loading file revisions', `Loading this review from ${providerName()}…`, 'refresh'));
+    try {
+      const diff = await rpc('DIFF');
+      if (epoch !== state.epoch || shell.generation !== viewerGeneration) return;
+      state.diff = diff; await prepareHeaderButtons(diff, epoch);
+      if (epoch !== state.epoch || shell.generation !== viewerGeneration) return;
+      const matched = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+      if (!matched) throw new Error('This file is not in the current review. Refresh the page and try again.');
+      await showDiff(diffNode(matched));
+    } catch (error) {
+      if (epoch !== state.epoch || shell.generation !== viewerGeneration) return;
+      shell.body.replaceChildren(empty('Full-file preview unavailable', error.message, 'account'));
+      shell.bottom.prepend(el('button', {type: 'button', text: 'Connect account in Settings', onClick: run(() => rpc('OPTIONS'))}),
+        el('button', {type: 'button', text: 'Retry', onClick: run(() => showHeaderDiff(path, cardId))}));
+    }
+  }
   function scheduleHeaderButtons() {
-    if (state.diff && !headerFrame) headerFrame = requestAnimationFrame(() => { headerFrame = 0; injectHeaderButtons(); });
+    if (['pull', 'commit'].includes(state.context?.kind) && !headerFrame) headerFrame = requestAnimationFrame(() => { headerFrame = 0; injectHeaderButtons(); });
   }
   function renderToolbar() {
     toolbar.replaceChildren();
@@ -427,7 +458,12 @@
       const node = state.flat[index]; const folder = node.type === 'tree';
       const row = el('div', {class: `tree-row${node.path === state.selected ? ' selected' : ''}${node.viewed ? ' viewed' : ''}`, role: 'treeitem', 'aria-level': node.depth, 'aria-label': node.path, tabindex: index === state.focus ? '0' : '-1', 'data-path': node.path, title: node.previous_filename ? `${node.previous_filename} → ${node.path}` : node.path});
       row.style.top = `${index * 29}px`; row.style.setProperty('--indent', `${9 + (node.depth - 1) * 14}px`);
-      if (folder) { row.setAttribute('aria-expanded', String(Boolean(state.query) || state.expanded.has(node.path))); row.append(C.icon('chevron', 'disclosure')); }
+      if (folder) {
+        row.setAttribute('aria-expanded', String(Boolean(state.query) || state.expanded.has(node.path)));
+        row.append(el('button', {type: 'button', class: 'disclosure', 'aria-label': `Toggle folder: ${node.path}`, onClick: event => {
+          event.stopPropagation(); state.focus = index; run(() => toggleFolder(node))();
+        }}, [C.icon('chevron')]));
+      }
       else row.append(el('span', {class: 'spacer'}));
       const kind = folder ? 'folder' : C.fileKind(node.path); row.append(C.icon(kind, 'file-icon')); row.lastChild.classList.add(`kind-${kind}`);
       row.append(highlight(node.name, state.query));
@@ -459,7 +495,7 @@
           }
         }
       }
-      row.addEventListener('click', run(async () => { state.focus = index; if (folder) await toggleFolder(node); else await openFile(node); }));
+      row.addEventListener('click', run(async () => { state.focus = index; if (folder) { if (state.preferences.folderClick) await toggleFolder(node); else row.focus(); } else await openFile(node); }));
       row.addEventListener('keydown', run(event => treeKey(event, node, index)));
       fragment.append(row);
     }
@@ -600,6 +636,13 @@
       if (shell.generation !== viewerGeneration) return;
       if (C.lines(before).length + C.lines(after).length > 100000) throw new Error(`This file exceeds the 100,000 combined line text-preview limit. Open it on ${providerName()}.`);
       const rows = C.fullDiff(before, after, node.patch);
+      const current = () => shell.generation === viewerGeneration;
+      const [oldSyntax, newSyntax] = await Promise.all([
+        globalThis.CodeTreeSyntax.tokenize(before, node.previous_filename || node.path, current),
+        globalThis.CodeTreeSyntax.tokenize(after, node.path, current),
+      ]);
+      if (!current()) return;
+      if (oldSyntax.limited || newSyntax.limited) { oldSyntax.lines = []; newSyntax.lines = []; }
       const rowHeight = Math.max(22, state.preferences.fontSize + 8);
       const code = el('div', {class: 'code-spacer'}); code.style.height = `${rows.length * rowHeight}px`;
       const maxLength = rows.reduce((max, row) => Math.max(max, row.text.length), 0);
@@ -611,7 +654,14 @@
         const fragment = document.createDocumentFragment();
         for (let index = start; index < end; index++) {
           const row = rows[index];
-          const element = el('div', {class: `code-row ${row.type}`}, [el('span', {class: 'line-number', text: row.oldLine || ''}), el('span', {class: 'line-number', text: row.newLine || ''}), el('span', {class: 'line-sign', text: row.type === 'added' ? '+' : row.type === 'removed' ? '−' : ' '}), el('span', {class: 'line-text', text: row.text})]);
+          const text = el('span', {class: 'line-text'}); let position = 0;
+          const tokens = row.type === 'removed' ? oldSyntax.lines[row.oldLine - 1] : newSyntax.lines[row.newLine - 1];
+          for (const token of tokens || []) {
+            text.append(document.createTextNode(row.text.slice(position, token.start)), el('span', {class: `syntax-${token.type}`, text: row.text.slice(token.start, token.end)}));
+            position = token.end;
+          }
+          text.append(document.createTextNode(row.text.slice(position)));
+          const element = el('div', {class: `code-row ${row.type}`}, [el('span', {class: 'line-number', text: row.oldLine || ''}), el('span', {class: 'line-number', text: row.newLine || ''}), el('span', {class: 'line-sign', text: row.type === 'added' ? '+' : row.type === 'removed' ? '−' : ' '}), text]);
           element.style.top = `${index * rowHeight}px`; fragment.append(element);
         }
         code.replaceChildren(fragment);
@@ -619,6 +669,7 @@
       shell.body.replaceChildren(code);
       shell.body.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(draw); }, {passive: true});
       shell.bottom.prepend(el('span', {class: 'adds', text: `+${node.adds}`}), el('span', {class: 'dels', text: `−${node.dels}`}), el('span', {text: `${rows.length} lines · UTF-8`}));
+      if (oldSyntax.limited || newSyntax.limited) shell.bottom.append(el('span', {text: 'Syntax limit reached · plain text'}));
       if (before.endsWith('\n') !== after.endsWith('\n') || before.includes('\r\n') !== after.includes('\r\n')) shell.bottom.append(el('span', {text: 'Line-ending / final newline changed'}));
       draw();
     } catch (error) { if (shell.generation === viewerGeneration) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff')); }
@@ -634,13 +685,16 @@
     }
     if (!comments.length) shell.body.append(empty('No inline comments', 'There are no review comments for this file.', 'comment'));
   }
-  document.addEventListener('keydown', run(async event => {
+  document.addEventListener('keydown', event => {
     const editing = event.composedPath().some(node => node instanceof Element && (node.matches('input,textarea,select') || node.isContentEditable));
-    if (!state.context || editing || event.ctrlKey || event.metaKey || event.altKey || !event.shiftKey) return;
-    if (event.key.toLowerCase() === 'd') { event.preventDefault(); await setPreferences({open: !state.preferences.open}); }
-    else if (event.key.toLowerCase() === 's') { event.preventDefault(); await setPreferences({open: true}); search.focus(); }
-  }));
-  chrome.runtime.onMessage.addListener(message => { if (message.type === 'TOGGLE') run(() => setPreferences({open: !state.preferences.open}))(); });
+    if (!state.context || editing || event.repeat || event.isComposing || event.getModifierState('AltGraph')) return;
+    if (C.shortcutMatches(state.preferences.toggleShortcut, event)) { event.preventDefault(); run(() => setPreferences({open: !state.preferences.open}))(); }
+    else if (C.shortcutMatches(state.preferences.searchShortcut, event)) { event.preventDefault(); run(async () => { await setPreferences({open: true}); search.focus(); })(); }
+  });
+  chrome.runtime.onMessage.addListener(message => {
+    if (message.type === 'TOGGLE') run(() => setPreferences({open: !state.preferences.open}))();
+    if (message.type === 'WINDOW_PIN_CHANGED') { state.preferences.pinned = message.pinned; layout(); }
+  });
   const themeObserver = new MutationObserver(layout);
   themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ['class', 'data-color-mode', 'data-dark-theme', 'data-light-theme']});
   if (document.body) {

@@ -41,6 +41,7 @@ requireValue((await text('options.html')).match(/class="version">v([\d.]+)</)?.[
 requireValue((await text('README.md')).match(/\*\*Version ([\d.]+) /)?.[1] === manifest.version, 'The README version label differs from the manifest.');
 requireValue(JSON.stringify(lock.packages[''].devDependencies) === JSON.stringify(development.devDependencies), 'package-lock.json differs from package.json; run npm install.');
 requireValue(new Set(manifest.permissions).size === 3 && ['storage', 'scripting', 'activeTab'].every(value => manifest.permissions.includes(value)), 'Unexpected extension permissions.');
+requireValue(JSON.stringify(manifest.optional_permissions) === '["identity"]' && manifest.minimum_chrome_version === '116', 'Expected optional OAuth identity permission and Chrome 116 lifecycle support.');
 requireValue(manifest.host_permissions.every(value => ['https://github.com/*', 'https://api.github.com/*', 'https://gitlab.com/*'].includes(value)), 'Unexpected fixed host permission.');
 const policy = manifest.content_security_policy.extension_pages;
 requireValue(policy.includes("script-src 'self'") && policy.includes("object-src 'none'") && !/unsafe-|https?:|\*/.test(policy), 'Extension CSP must prohibit remote or unsafe executable code.');

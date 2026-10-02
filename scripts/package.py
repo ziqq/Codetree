@@ -10,7 +10,8 @@ from zipfile import ZIP_STORED, BadZipFile, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNTIME = (
-    'manifest.json', 'core.js', 'background.js', 'gitlab.js', 'content.js',
+    'manifest.json', 'core.js', 'syntax.js', 'background.js', 'gitlab.js', 'content.js',
+    'oauth-config.js', 'oauth.js',
     'sidebar.css', 'options.html', 'options.js', 'options.css',
     'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png', 'PRIVACY.md',
 )
@@ -42,7 +43,7 @@ def validate_assets(manifest, files):
             for call in re.findall(r'importScripts\(([^)]+)\)', source):
                 assets.extend(re.findall(r"['\"]([^'\"]+)['\"]", call))
         else:
-            assets.extend(re.findall(r"(?:src|href)=['\"]([^'\"]+)['\"]", source))
+            assets.extend(re.findall(r"<(?:script|link|img)\b[^>]*\b(?:src|href)=['\"]([^'\"]+)['\"]", source, re.IGNORECASE))
     for name in assets:
         if name not in files:
             raise ValueError(f'Manifest/runtime asset missing from package allowlist: {name}')

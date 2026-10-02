@@ -9,9 +9,14 @@
 - **ADDED**: push/PR CI with JavaScript/CSS/workflow checks, manifest/CSP/assets/docs validation, locked dependency audit and verified runtime packaging
 - **ADDED**: stable-tag GitHub Releases with version/license gates, reproducible ZIP, SHA-256 and verification of downloaded CI artifacts
 - **ADDED**: Code Tree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
+- **ADDED**: configurable toggle/search shortcuts, page scopes, URL exclusions, folder click settings and pinning per browser window
+- **ADDED**: account/host/revision-scoped persistent tree cache with expiration, size limits and refresh/account invalidation
+- **ADDED**: original bounded lexical syntax highlighting for full-file review, with independent old/new revision state
+- **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
 - **CHANGED**: product name from `GitHub Code Tree` to `Code Tree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip
+- **CHANGED**: minimum Chrome version to 116 for OAuth authorization-window lifecycle support
 - **FIXED**: GitLab discussions requiring authentication no longer block a public MR/commit diff; unavailable comments are reported separately
 - **FIXED**: unauthenticated API operations report that an account is required instead of saying a token was rejected
 - **FIXED**: invalid repository/source identifiers with dot segments are rejected before requesting an API endpoint
@@ -21,6 +26,7 @@
 - **FIXED**: full-file patch validation normalizes CRLF consistently with source files
 - **FIXED**: tag releases invoke the existing labeler and notification actions directly after publication instead of relying on suppressed `GITHUB_TOKEN` release events
 - **FIXED**: delayed refresh and branch responses cannot overwrite the active repository after navigation; errors from an old PR/MR filter cannot hide current results
+- **FIXED**: native View full controls remain visible when API authentication fails and provide account connection/retry guidance
 
 ## 0.1.0
 

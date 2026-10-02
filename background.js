@@ -1,12 +1,19 @@
 'use strict';
 importScripts('core.js');
 importScripts('gitlab.js');
+importScripts('oauth-config.js');
+importScripts('oauth.js');
 
 const C = globalThis.CodeTree;
 const cache = new Map();
 const pending = new Map();
+const refreshing = new Map();
 let cacheBytes = 0;
 let writes = Promise.resolve();
+let sessionWrites = Promise.resolve();
+let cacheGeneration = 0; let treeCacheReady; let treeWrites = Promise.resolve();
+const trees = new Map();
+const treeTTL = 24 * 60 * 60000;
 const storageReady = chrome.storage.local.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'});
 
 async function readStore() {
@@ -33,14 +40,74 @@ function putCache(key, value, ttl) {
   }
   cache.set(key, {value, expires: Date.now() + ttl, size}); cacheBytes += size;
 }
-function clearCache() { cache.clear(); cacheBytes = 0; }
+async function clearCache() {
+  cacheGeneration++; cache.clear(); cacheBytes = 0; pending.clear();
+  if (treeCacheReady) await treeCacheReady;
+  trees.clear(); await persistTrees();
+}
 async function memo(key, ttl, callback, fresh = false) {
   const hit = cache.get(key);
   if (!fresh && hit?.expires > Date.now()) return hit.value;
-  if (pending.has(key)) return pending.get(key);
-  const promise = callback().then(value => { putCache(key, value, ttl); return value; }).finally(() => pending.delete(key));
+  if (!fresh && pending.has(key)) return pending.get(key);
+  const generation = cacheGeneration;
+  const promise = callback().then(value => { if (generation === cacheGeneration && pending.get(key) === promise) putCache(key, value, ttl); return value; })
+    .finally(() => { if (pending.get(key) === promise) pending.delete(key); });
   pending.set(key, promise);
   return promise;
+}
+function pruneTrees() {
+  let size = 0;
+  for (const [key, entry] of trees) { if (entry.expires <= Date.now()) trees.delete(key); else size += entry.size; }
+  while (trees.size && (trees.size > 48 || size > 4 * 1024 * 1024)) {
+    const oldest = trees.keys().next().value; size -= trees.get(oldest).size; trees.delete(oldest);
+  }
+}
+function persistTrees() {
+  const result = treeWrites.then(async () => {
+    await storageReady; pruneTrees();
+    try { await chrome.storage.local.set({treeCache: {version: 1, entries: [...trees]}}); }
+    catch { await chrome.storage.local.remove('treeCache'); trees.clear(); }
+  });
+  treeWrites = result.catch(() => {}); return result;
+}
+function readTrees() {
+  if (!treeCacheReady) {
+    const generation = cacheGeneration;
+    treeCacheReady = storageReady.then(() => chrome.storage.local.get('treeCache')).then(({treeCache}) => {
+      if (generation !== cacheGeneration || treeCache?.version !== 1 || !Array.isArray(treeCache.entries)) return;
+      for (const [key, entry] of treeCache.entries) {
+        if (typeof key === 'string' && Number.isFinite(entry?.expires) && entry.expires > Date.now() && entry.expires <= Date.now() + treeTTL && Array.isArray(entry.value?.entries)) {
+          trees.set(key, {...entry, size: (JSON.stringify(entry.value).length + key.length) * 2 + 128});
+        }
+      }
+      pruneTrees();
+    }).catch(() => {});
+  }
+  return treeCacheReady;
+}
+async function treeMemo(key, callback, fresh = false) {
+  const generation = cacheGeneration;
+  await readTrees();
+  if (generation !== cacheGeneration) return callback();
+  const hit = trees.get(key);
+  if (!fresh && hit?.expires > Date.now()) return hit.value;
+  const value = await memo(key, treeTTL, callback, fresh);
+  if (generation === cacheGeneration && cache.get(key)?.value === value) {
+    trees.delete(key); trees.set(key, {value, expires: Date.now() + treeTTL, size: (JSON.stringify(value).length + key.length) * 2 + 128});
+    await persistTrees();
+  }
+  return value;
+}
+function windowPin(windowId, pinned, initial = false) {
+  const result = sessionWrites.then(async () => {
+    const {windowPins = {}} = await chrome.storage.session.get('windowPins');
+    if (initial && typeof windowPins[windowId] === 'boolean') return windowPins[windowId];
+    windowPins[windowId] = pinned;
+    const keys = Object.keys(windowPins); while (keys.length > 100) delete windowPins[keys.shift()];
+    await chrome.storage.session.set({windowPins});
+    return pinned;
+  });
+  sessionWrites = result.catch(() => {}); return result;
 }
 function origins(store) {
   return new Set(['https://github.com', 'https://gitlab.com', ...(store.accounts || []).map(account => account.origin)]);
@@ -67,8 +134,26 @@ function accountFor(context, store) {
   if (context.viewer) return accounts.find(account => account.login.toLowerCase() === context.viewer.toLowerCase()) || null;
   return accounts.length === 1 ? accounts[0] : null;
 }
+async function authorizedAccount(account) {
+  if (!account || account.auth !== 'oauth' || !account.expiresAt || account.expiresAt > Date.now() + 60000) return account;
+  if (refreshing.has(account.id)) return refreshing.get(account.id);
+  const promise = (async () => {
+    const credentials = await globalThis.CodeTreeOAuth.refresh(account);
+    const updated = {...account, ...credentials};
+    const user = (await client({origin: account.origin, provider: account.provider}, await readStore(), {...updated, expiresAt: 0}).request('/user')).data;
+    if ((account.provider === 'gitlab' ? user.username : user.login) !== account.login) throw new Error('OAuth refreshed a different account. Reconnect in Settings.');
+    await writeStore(current => {
+      const accounts = [...(current.accounts || [])]; const index = accounts.findIndex(item => item.id === account.id);
+      if (index < 0 || accounts[index].token !== account.token) throw new Error('This account changed during sign-in. Retry with the current account.');
+      accounts[index] = updated; return {accounts};
+    });
+    await clearCache(); return updated;
+  })();
+  refreshing.set(account.id, promise);
+  try { return await promise; } finally { if (refreshing.get(account.id) === promise) refreshing.delete(account.id); }
+}
 function client(context, store, override) {
-  const account = override || accountFor(context, store);
+  let account = override || accountFor(context, store);
   const origin = context.origin;
   const provider = context.provider || account?.provider || providerFor(origin, store);
   const label = provider === 'gitlab' ? 'GitLab' : 'GitHub';
@@ -76,6 +161,7 @@ function client(context, store, override) {
   const graph = origin === 'https://github.com' ? 'https://api.github.com/graphql' : `${origin}/api/graphql`;
   const prefix = `/${account?.id || 'anonymous'}:${origin}`;
   async function request(path, {method = 'GET', body, raw = false} = {}) {
+    account = await authorizedAccount(account);
     const url = path === '@graphql' ? graph : base + path;
     if (path !== '@graphql' && (!path.startsWith('/') || path.startsWith('//'))) throw new Error('Invalid API path.');
     const headers = {Accept: provider === 'gitlab' ? raw ? 'text/plain' : 'application/json' : raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json'};
@@ -140,9 +226,15 @@ function filePath(value) {
   if (typeof value !== 'string' || !value || value.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid file path.');
   return C.pathURL(value);
 }
-function publicState(store) {
+async function publicState(store, sender) {
+  const preferences = C.preferences(store.preferences);
+  if (Number.isInteger(sender?.tab?.windowId)) {
+    const {windowPins = {}} = await chrome.storage.session.get('windowPins');
+    if (typeof windowPins[sender.tab.windowId] === 'boolean') preferences.pinned = windowPins[sender.tab.windowId];
+    else preferences.pinned = await windowPin(sender.tab.windowId, preferences.pinned, true);
+  }
   return {
-    preferences: C.preferences(store.preferences),
+    preferences,
     accounts: (store.accounts || []).map(({id, origin, login, label}) => ({id, origin, login, label, provider: providerFor(origin, store)})),
     hosts: [...origins(store)].map(origin => ({origin, provider: providerFor(origin, store)})),
     selectedAccounts: store.selectedAccounts || {},
@@ -323,9 +415,25 @@ async function registerEnterpriseScripts() {
   if (obsolete.length) await chrome.scripting.unregisterContentScripts({ids: obsolete});
   for (let index = 0; index < hosts.length; index++) {
     if (await chrome.permissions.contains({origins: [`${hosts[index]}/*`]})) {
-      await chrome.scripting.registerContentScripts([{id: `codetree-${index}`, matches: [`${hosts[index]}/*`], js: ['core.js', 'content.js'], runAt: 'document_idle', persistAcrossSessions: true}]);
+      await chrome.scripting.registerContentScripts([{id: `codetree-${index}`, matches: [`${hosts[index]}/*`], js: ['core.js', 'syntax.js', 'content.js'], runAt: 'document_idle', persistAcrossSessions: true}]);
     }
   }
+}
+async function saveAccount(value, store) {
+  const origin = C.normalizeOrigin(value.origin); const provider = value.provider;
+  if (providerFor(origin, store) !== provider && origins(store).has(origin)) throw new Error('This host is connected to another repository provider.');
+  if (!(await chrome.permissions.contains({origins: [`${origin === 'https://github.com' ? 'https://api.github.com' : origin}/*`]}))) throw new Error('Grant browser access to this repository host first.');
+  const temporary = {...value, id: crypto.randomUUID(), origin};
+  const user = await client({origin, provider}, store, temporary).json('/user', 0, true);
+  const login = provider === 'gitlab' ? user.username : user.login;
+  if (!login) throw new Error('The server did not return an account username.');
+  await writeStore(current => {
+    const accounts = [...(current.accounts || [])]; const index = accounts.findIndex(account => account.origin === origin && account.login === login);
+    const account = {...temporary, id: index === -1 ? temporary.id : accounts[index].id, login, label: String(value.label || login).slice(0, 60)};
+    if (index === -1) accounts.push(account); else accounts[index] = account;
+    return {accounts};
+  });
+  await clearCache(); await registerEnterpriseScripts();
 }
 async function handle(message, sender) {
   if (!message || typeof message.type !== 'string') throw new Error('Invalid request.');
@@ -334,37 +442,52 @@ async function handle(message, sender) {
   let senderOrigin;
   try { senderOrigin = new URL(sender.url || '').origin; } catch { /* Invalid senders are rejected by the origin check below. */ }
   if (!isOptions && (!sender.tab || !origins(store).has(senderOrigin))) throw new Error('This page cannot access extension data.');
-  if (message.type === 'STATE') return publicState(store);
+  if (message.type === 'STATE') return publicState(store, sender);
   if (message.type === 'OPTIONS') { await chrome.runtime.openOptionsPage(); return true; }
+  if (message.type.startsWith('OAUTH_')) {
+    if (!isOptions) throw new Error('OAuth sign-in is available only in extension Settings.');
+    const oauth = globalThis.CodeTreeOAuth;
+    if (message.type === 'OAUTH_INFO') return {github: Boolean(globalThis.CodeTreeOAuthConfig.github), gitlab: Boolean(globalThis.CodeTreeOAuthConfig.gitlab),
+      redirectUri: `https://${chrome.runtime.id}.chromiumapp.org/gitlab`, device: await oauth.status()};
+    if (message.type === 'OAUTH_GITHUB_START') return oauth.start(message.access, message.label);
+    if (message.type === 'OAUTH_CANCEL') return oauth.cancel(message.id);
+    if (message.type === 'OAUTH_GITHUB_POLL') {
+      const result = await oauth.poll(message.id);
+      if (result.pending) return result;
+      await saveAccount(result.account, store); return {state: await publicState(await readStore(), sender)};
+    }
+    if (message.type === 'OAUTH_GITLAB') {
+      if (!(await chrome.permissions.contains({permissions: ['identity']}))) throw new Error('Allow the browser sign-in permission first.');
+      await saveAccount(await oauth.gitlab(message.label), store); return publicState(await readStore(), sender);
+    }
+    throw new Error('Unknown sign-in request.');
+  }
   if (message.type === 'PREFERENCES') {
+    C.validateNavigation({...C.preferences(store.preferences), ...message.value});
+    if (!isOptions && Object.hasOwn(message.value || {}, 'pinned')) throw new Error('Use the window pin button to change pinning in this window.');
     const update = await writeStore(current => ({preferences: C.preferences({...C.preferences(current.preferences), ...message.value})}));
     return update.preferences;
+  }
+  if (message.type === 'WINDOW_PIN') {
+    if (!sender.tab || !Number.isInteger(sender.tab.windowId) || typeof message.pinned !== 'boolean') throw new Error('Pinning requires a repository browser window.');
+    await windowPin(sender.tab.windowId, message.pinned);
+    const tabs = await chrome.tabs.query({windowId: sender.tab.windowId});
+    await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, {type: 'WINDOW_PIN_CHANGED', pinned: message.pinned}).catch(() => {})));
+    return message.pinned;
   }
   if (message.type === 'SELECT_ACCOUNT') {
     if (message.origin !== senderOrigin && !isOptions) throw new Error('Invalid account host.');
     if (message.id !== 'auto' && !(store.accounts || []).some(account => account.id === message.id && account.origin === message.origin)) throw new Error('Account not found.');
     await writeStore(current => ({selectedAccounts: {...current.selectedAccounts, [message.origin]: message.id}}));
-    clearCache(); return true;
+    await clearCache(); return true;
   }
   if (message.type === 'ADD_ACCOUNT' || message.type === 'REMOVE_ACCOUNT') {
     if (!isOptions) throw new Error('Accounts can only be changed in the extension settings.');
     if (message.type === 'ADD_ACCOUNT') {
       const origin = C.normalizeOrigin(message.origin);
       const provider = message.provider === 'gitlab' ? 'gitlab' : 'github';
-      if ((origin === 'https://github.com' || origin === 'https://gitlab.com' || (store.accounts || []).some(account => account.origin === origin)) && providerFor(origin, store) !== provider) throw new Error('This host is connected to another repository provider.');
       if (typeof message.token !== 'string' || !message.token || /\s/.test(message.token)) throw new Error('Enter a valid personal access token.');
-      if (!(await chrome.permissions.contains({origins: [`${origin === 'https://github.com' ? 'https://api.github.com' : origin}/*`]}))) throw new Error('Grant browser access to this repository host first.');
-      const temporary = {id: crypto.randomUUID(), origin, provider, token: message.token};
-      const user = await client({origin, provider}, store, temporary).json('/user', 0, true);
-      const login = provider === 'gitlab' ? user.username : user.login;
-      if (!login) throw new Error('The server did not return an account username.');
-      await writeStore(current => {
-        const accounts = [...(current.accounts || [])];
-        const index = accounts.findIndex(account => account.origin === origin && account.login === login);
-        const account = {...temporary, id: index === -1 ? temporary.id : accounts[index].id, login, label: String(message.label || login).slice(0, 60)};
-        if (index === -1) accounts.push(account); else accounts[index] = account;
-        return {accounts};
-      });
+      await saveAccount({origin, provider, auth: 'pat', token: message.token, label: message.label}, store);
     } else {
       await writeStore(current => {
         const accounts = (current.accounts || []).filter(account => account.id !== message.id);
@@ -372,8 +495,9 @@ async function handle(message, sender) {
         for (const origin of Object.keys(selectedAccounts)) if (selectedAccounts[origin] === message.id) selectedAccounts[origin] = 'auto';
         return {accounts, selectedAccounts};
       });
+      await clearCache(); await registerEnterpriseScripts();
     }
-    clearCache(); await registerEnterpriseScripts(); return publicState(await readStore());
+    return publicState(await readStore(), sender);
   }
   if (message.type === 'BOOKMARK') {
     const update = await writeStore(current => {
@@ -394,7 +518,7 @@ async function handle(message, sender) {
     const root = adapter.projectPath(context);
     switch (message.type) {
       case 'INIT': return adapter.initialize(context, api);
-      case 'TREE': return memo(`${api.prefix}${root}:tree:${message.sha}:${message.path || ''}`, 5 * 60000, () => adapter.tree(context, api, message), message.fresh);
+      case 'TREE': return treeMemo(`${api.prefix}${root}:tree:${sha(message.sha)}:${message.path || ''}`, () => adapter.tree(context, api, message), message.fresh);
       case 'BRANCHES': return memo(`${api.prefix}${root}:branches`, 60000, () => api.pages(`${root}/repository/branches`));
       case 'PULLS': return adapter.pulls(context, api, memo, message.filter || 'all');
       case 'DIFF': {
@@ -421,7 +545,7 @@ async function handle(message, sender) {
         });
         return {state, mode: 'local'};
       }
-      case 'REFRESH': clearCache(); return true;
+      case 'REFRESH': await clearCache(); return true;
       default: throw new Error('Unknown extension request.');
     }
   }
@@ -429,12 +553,14 @@ async function handle(message, sender) {
   switch (message.type) {
     case 'INIT': return initialize(context, api);
     case 'TREE': {
-      const result = await api.json(`${root}/git/trees/${sha(message.sha)}${message.recursive !== false ? '?recursive=1' : ''}`, 5 * 60000, message.fresh);
-      if (result.truncated && message.recursive !== false) {
-        const shallow = await api.json(`${root}/git/trees/${sha(message.sha)}`, 5 * 60000, message.fresh);
-        return {entries: shallow.tree.map(item => ({...item, loaded: item.type !== 'tree'})), lazy: true};
-      }
-      return {entries: result.tree.map(item => ({...item, loaded: !message.lazyChildren || item.type !== 'tree'})), lazy: false};
+      return treeMemo(`${api.prefix}${root}:tree:${sha(message.sha)}:${message.recursive !== false}:${Boolean(message.lazyChildren)}`, async () => {
+        const result = await api.json(`${root}/git/trees/${sha(message.sha)}${message.recursive !== false ? '?recursive=1' : ''}`, 5 * 60000, message.fresh);
+        if (result.truncated && message.recursive !== false) {
+          const shallow = await api.json(`${root}/git/trees/${sha(message.sha)}`, 5 * 60000, message.fresh);
+          return {entries: shallow.tree.map(item => ({...item, loaded: item.type !== 'tree'})), lazy: true};
+        }
+        return {entries: result.tree.map(item => ({...item, loaded: !message.lazyChildren || item.type !== 'tree'})), lazy: false};
+      }, message.fresh);
     }
     case 'BRANCHES': return memo(`${api.prefix}${root}:branches`, 60000, () => api.pages(`${root}/branches`));
     case 'PULLS': return listPulls(context, api, message.filter || 'all');
@@ -471,7 +597,7 @@ async function handle(message, sender) {
       }
       return {state, mode: diff.viewedMode};
     }
-    case 'REFRESH': clearCache(); return true;
+    case 'REFRESH': await clearCache(); return true;
     default: throw new Error('Unknown extension request.');
   }
 }
@@ -484,7 +610,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 chrome.runtime.onInstalled.addListener(() => registerEnterpriseScripts().catch(() => {}));
 chrome.runtime.onStartup.addListener(() => registerEnterpriseScripts().catch(() => {}));
-chrome.permissions.onRemoved.addListener(() => { clearCache(); registerEnterpriseScripts().catch(() => {}); });
+chrome.permissions.onRemoved.addListener(() => { clearCache().catch(() => {}); registerEnterpriseScripts().catch(() => {}); });
 chrome.action.onClicked.addListener(async tab => {
   try { await chrome.tabs.sendMessage(tab.id, {type: 'TOGGLE'}); }
   catch { await chrome.runtime.openOptionsPage(); }

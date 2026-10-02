@@ -14,13 +14,15 @@ Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repositor
 
 ## Environment setup
 
-Load the repository root as an unpacked extension in Chrome/Chromium 114+. Reload the extension and refresh repository tabs after changes. Use Node.js 24, `npm ci` and Python 3 for the full development/packaging checks; these tools are not needed by users loading the extension.
+Load the repository root as an unpacked extension in Chrome/Chromium 116+. Reload the extension and refresh repository tabs after changes. Use Node.js 24, `npm ci` and Python 3 for the full development/packaging checks; these tools are not needed by users loading the extension.
 
 ## Project structure
 
 - `core.js`: defaults/preferences, routes/URLs, original icons, tree logic and patch validation.
+- `syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
 - `background.js`: trusted service worker, host-bound broker, accounts/storage, bounded cache and GitHub REST/GraphQL adapter.
 - `gitlab.js`: GitLab adapter using the broker's client/cache.
+- `oauth*.js`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
 - `content.js`: Shadow DOM sidebar/viewer and native diff-header buttons.
 - `sidebar.css`: isolated UI styles; page styles are constructed in `content.js`.
 - `options.*`: appearance and account settings.
@@ -49,6 +51,7 @@ git diff --check
 - Validate origins, providers, repository identifiers, source revisions and paths; bind requests to the sender's configured host.
 - Preserve token-only API headers, `credentials: 'omit'`, `redirect: 'error'`, timeouts and trusted-only storage access.
 - Bound caches and render visible rows. Never present truncated responses as complete.
+- Keep persisted trees scoped by account/host/repository/revision, clear them on Refresh/account changes and reject stale cache writes after invalidation. Do not persist raw files or comments.
 - Use validated patches and exact request revisions for full-file diffs. Preserve limits/error paths.
 - Distinguish local GitLab Viewed marks from synchronized GitHub marks.
 - Native selectors may change. Keep insertion idempotent and clean up on navigation. Do not copy another extension's source/assets.
