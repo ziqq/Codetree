@@ -123,4 +123,12 @@ Automated checks do not exercise Chrome's installed extension environment. Read 
 
 ## License
 
-The maintainer intends to allow free use at work and in commercial projects while restricting sale/monetization of the extension. The precise license is pending approval; publishing this repository does not grant a commercial license. The approved terms will be recorded here and in `LICENSE` before a licensed release is published.
+Code Tree uses the **Code Tree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
+
+- Free personal and workplace use is allowed, including private repositories and commercial development projects.
+- Internal modifications, free forks and pull requests are allowed under the license. Using the tool does not apply its license to your independent projects.
+- Monetization of Code Tree or covered derivatives is prohibited: sales, subscriptions, paid features, advertising, affiliate revenue, sponsorship, fork-related donations and commercial hosting/support/customization for third parties.
+- Renaming a fork, adding features or incorporating covered material into a larger paid product does not remove the restrictions. There is no automatic conversion to a permissive license.
+- Salary for ordinary development work and internal deployment/modification for the organization using the tool are allowed. Preserve the license and required notices when sharing covered material.
+
+Separate written permission from the relevant rights holder is required for activities outside these terms. Third-party components retain their own licenses.

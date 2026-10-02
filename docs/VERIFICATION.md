@@ -45,7 +45,7 @@ README screenshots are captures of the local fixture. JavaScript syntax, manifes
 
 Local ESLint, CSS lint, JavaScript syntax, manifest/CSP/asset/icon/doc/YAML/lockfile/changelog validation and pinned `actionlint` checks passed. The installed development dependency audit reported no vulnerabilities. No linter rules were weakened to accept the existing source.
 
-The runtime builder checks its allowlist against manifest/imported/HTML assets, places `manifest.json` at the ZIP root and verifies all source bytes, CRCs, metadata and SHA-256. A mismatched tag was rejected, and the current pending license rejected publication even for a matching tag. GitHub Actions execution is recorded separately after the workflow runs.
+The runtime builder checks its allowlist against manifest/imported/HTML assets, places `manifest.json` at the ZIP root and verifies all source bytes, CRCs, metadata and SHA-256. Before license adoption, the missing license rejected publication even for a matching tag. After the maintainer approved the strict Code Tree Source-Available License 1.0, the local matching-tag check passed and the mismatched tag remained rejected. The licensed ZIP contains 14 runtime/privacy/license files; two local builds matched byte-for-byte. GitHub Actions execution is recorded separately after the workflow runs.
 
 ## Pending environments
 

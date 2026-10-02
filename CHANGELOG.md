@@ -8,6 +8,7 @@
 - **ADDED**: contribution rules, agent instructions, privacy and feature/verification documentation
 - **ADDED**: push/PR CI with JavaScript/CSS/workflow checks, manifest/CSP/assets/docs validation, locked dependency audit and verified runtime packaging
 - **ADDED**: stable-tag GitHub Releases with version/license gates, reproducible ZIP, SHA-256 and verification of downloaded CI artifacts
+- **ADDED**: Code Tree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
 - **CHANGED**: product name from `GitHub Code Tree` to `Code Tree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip

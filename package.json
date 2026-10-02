@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "Development checks and packaging for Code Tree; the extension has no runtime dependencies.",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {"node": "^20.19.0 || ^22.13.0 || >=24"},
   "scripts": {
     "lint": "eslint . && stylelint sidebar.css options.css",

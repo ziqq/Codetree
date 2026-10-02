@@ -59,4 +59,4 @@ Verify affected browser interactions and use real public APIs when possible. Sep
 
 Keep fixtures, archives, development tools, temporary screenshots and secrets out of the runtime package. Identify fixture images in README. Stage intended paths, inspect archive contents and verify the remote before an authorized push. Follow [Checks and releases](docs/RELEASING.md); tags must match manifest/development/changelog versions and an approved license. Do not create tags, releases or store submissions without a request.
 
-License selection belongs to the maintainer. Do not apply a permissive license or grant commercial rights without authorization.
+The maintainer has approved the custom [Code Tree Source-Available License 1.0](LICENSE): workplace use and free forks are allowed; monetization of covered derivatives, including donations and paid fork services, is restricted. Preserve the full terms in distribution packages. License changes belong to the maintainer; do not replace these terms or grant additional commercial rights without authorization.

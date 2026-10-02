@@ -1,0 +1,54 @@
+# Code Tree Source-Available License 1.0
+
+Licensor: **ziqq**, solely to the extent of the copyrights and other rights that the licensor owns or is authorized to license. This license concerns Code Tree's original software and assets; it does not replace licenses of third-party components.
+
+## 1. Scope and definitions
+
+**Software** means the Code Tree code and assets expressly released by the licensor under these terms, including covered portions of them.
+
+**Derivative** means a modification, fork, adaptation, or other derivative work of the Software that uses material protected by the licensor's rights. A different name, additional features, or combination with a larger product does not remove the restrictions on covered material.
+
+**Monetization** means obtaining or soliciting payment, revenue, or other commercial consideration for distributing, providing access to, or exploiting the Software or a Derivative as a product or service. It includes:
+
+- Selling copies, licenses, access, subscriptions, activation keys, paid features, or upgrades.
+- Advertising, affiliate commissions, or sponsorship tied to the Software or a Derivative.
+- Donations solicited to fund or reward the publication, availability, or development of a Derivative.
+- Paid hosting, distribution, support, maintenance, or customization offered to third parties in connection with the Software or a Derivative.
+- Including covered material in a paid or otherwise monetized product or service, even if that product adds substantial independent functionality.
+
+The ordinary workplace activities permitted in section 2 are not Monetization for the purposes of these terms.
+
+## 2. Permitted activities
+
+Subject to these terms, the licensor grants a worldwide, non-exclusive copyright permission without a license fee to:
+
+- Read, run, and copy the Software for personal use and as a development tool at work, including on private repositories and commercial projects.
+- Make and use modifications for your own internal needs, including those of your employer or business.
+- Create forks and submit proposed changes to the Code Tree project.
+- Share the Software or a Derivative without charge for purposes that do not involve Monetization.
+
+Being paid for ordinary development work, using Code Tree to inspect or review a client's repository, and gaining internal productivity or cost savings are permitted. Salaries or fees for internal deployment or modification within the organization using Code Tree are also permitted. These permissions do not authorize selling a fork, charging others for Code Tree functionality, or offering commercial fork-related services to third parties.
+
+Repositories viewed by the tool, independent programs developed while using it, and the revenue from those programs are not covered merely because Code Tree was used during their development. Copying covered Software into such a program is a different activity and remains subject to these terms.
+
+## 3. Restriction on monetization
+
+You may not Monetize the Software or any Derivative. This restriction applies to original and modified copies and to covered portions incorporated into other products. It has no exception based on a new name, added features, substantial added value, or a change in the proportion of the original code.
+
+These terms do not automatically convert to a permissive license after any period of time. A separate written permission from the relevant rights holder is required for activities outside the permissions above.
+
+## 4. Redistribution and notices
+
+When sharing any covered material, include these terms and preserve applicable copyright and licensing notices. Identify your modifications so recipients can distinguish them from the original release. Do not present a fork as an official Code Tree release without authorization.
+
+You may grant rights in your own additions only to the extent that doing so does not authorize an activity prohibited for the covered Software. A fork's separate license cannot remove the restrictions on Code Tree material.
+
+## 5. Reserved rights and termination
+
+Rights not expressly granted are reserved. These terms do not grant trademark rights or rights in third-party material. They do not prevent a rights holder from separately licensing material that it owns.
+
+If you breach these terms, your permissions under them terminate. Reinstatement requires written permission from the relevant rights holder. This does not restrict rights that applicable law provides independently of this license.
+
+## 6. Warranty and liability
+
+The Software is supplied in its existing condition, without contractual warranties of fitness, quality, or non-infringement. To the extent permitted by applicable law, the licensor is not responsible for loss or damage arising from the Software or these terms. Mandatory legal protections remain unaffected.

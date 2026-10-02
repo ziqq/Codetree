@@ -22,7 +22,7 @@ npm run package
 python3 scripts/package.py --verify dist/code-tree-0.2.0.zip
 ```
 
-The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist, `PRIVACY.md` and the maintainer-approved `LICENSE` when present. CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded.
+The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist, `PRIVACY.md` and the maintainer-approved [LICENSE](../LICENSE). CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded. Development metadata points to `LICENSE`; CI checks that it exists, is nonempty and agrees with the lockfile's license metadata.
 
 The builder checks manifest and imported/HTML asset references against that allowlist. It uses sorted entries, fixed timestamps/permissions and stored ZIP entries so the archive bytes are reproducible across platforms without depending on a compression-library version. It verifies CRCs, every source byte, the entry list and the companion SHA-256 file after building. CI builds twice and compares the ZIP bytes.
 
@@ -43,7 +43,7 @@ Only the publication job receives `contents: write`. External actions are pinned
 
 ## Create a release
 
-1. Agree the license and include its full terms in `LICENSE` before the first release.
+1. Preserve the approved Code Tree Source-Available License 1.0 in `LICENSE` and in the package. Any change to those terms requires maintainer approval before publication.
 2. Update `manifest.json`, `package.json`, the Settings/README version labels and the newest `CHANGELOG.md` section together. Refresh the lockfile with `npm install --package-lock-only --ignore-scripts`.
 3. Run the local checks, inspect the package and verify affected browser interactions.
 4. Commit and push the release source; wait for the branch CI to succeed.

@@ -32,6 +32,11 @@ requireValue(manifest.manifest_version === 3 && manifest.name === 'Code Tree', '
 requireValue(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(manifest.version) && manifest.version.split('.').some(part => Number(part) > 0) && manifest.version.split('.').every(part => Number(part) <= 65535), 'Invalid release version.');
 requireValue(development.private === true && !Object.keys(development.dependencies || {}).length, 'Development tooling must remain private with no runtime dependencies.');
 requireValue(development.version === manifest.version && lock.version === manifest.version && lock.packages[''].version === manifest.version, 'Manifest and development-tool versions differ.');
+requireValue(development.license === lock.packages[''].license, 'Development license metadata differs from package-lock.json.');
+if (development.license === 'SEE LICENSE IN LICENSE') {
+  await asset('LICENSE');
+  requireValue((await text('LICENSE')).trim(), 'LICENSE must contain the approved terms.');
+}
 requireValue((await text('options.html')).match(/class="version">v([\d.]+)</)?.[1] === manifest.version, 'The Settings version label differs from the manifest.');
 requireValue((await text('README.md')).match(/\*\*Version ([\d.]+) /)?.[1] === manifest.version, 'The README version label differs from the manifest.');
 requireValue(JSON.stringify(lock.packages[''].devDependencies) === JSON.stringify(development.devDependencies), 'package-lock.json differs from package.json; run npm install.');
