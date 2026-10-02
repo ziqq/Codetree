@@ -12,6 +12,10 @@ GitHub's Viewed mutation does not accept an expected head SHA. The broker checks
 
 The exact pinned `ziqq/actions` labeler bundle was also run locally through the workflow adapter. A fake loopback API confirmed that it accepted the published-release event, read `.github/labels.json` from `main`, queried issues/labels and completed with an empty target selection. All three requests were local GETs; this did not publish a release or change GitHub state.
 
+## Navigation-review regressions
+
+Eight additional checks exercise the production branch, refresh and review-list handlers with controlled RPC completion order. The complete suite now passes 31 checks. Running these eight checks against the previous `11e2480` content script produces 6 failures and 2 passes: stale branch results/errors, refresh replies during navigation and errors from a superseded PR/MR filter are rejected; current refreshes and current filter errors still work.
+
 ## Live public APIs
 
 The production service worker and adapters ran in a Node VM with mocked Chrome storage/messaging and real anonymous API requests. Requests only read public repositories; Viewed changes used mocked local storage.
@@ -50,6 +54,17 @@ Earlier local checks covered GitHub review filters, comments, Viewed, bookmarks,
 
 README screenshots are captures of the local fixture. JavaScript syntax, manifest references and final archive contents are checked separately during packaging.
 
+## Installed Chrome
+
+Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer's Chrome profile, with Octotree disabled. These checks used actual extension messaging/storage and live public pages, without a PAT:
+
+- GitHub `ziqq/Codetree`: repository tree, branches, file search and Refresh worked; the sidebar background matched the page's computed background.
+- GitHub `octocat/Hello-World`, PR #1: native-header `View full` opened a validated 7-row preview with the sidebar closed and the native file collapsed. Local Viewed marking and unmarking succeeded.
+- GitLab `gitlab-org/cli`, MR !3991: both native-header buttons appeared; a collapsed file opened with the sidebar closed. The complete `label_list.go` preview had 206 rows with unchanged context and highlighted changes; next-file navigation opened the 275-row test file.
+- GitLab local Viewed marking/unmarking, repository folder loading and the open-MR list worked. The unauthenticated Approved filter showed token guidance; switching back to All restored results.
+
+These browser checks exercised the initially installed runtime. Reloading after the navigation fixes and repeating the current-source smoke check remains pending; race coverage uses the production handlers with controlled RPC completion above. Authenticated provider writes remain unverified.
+
 ## CI and packaging checks
 
 Local ESLint, CSS lint, JavaScript syntax, manifest/CSP/asset/icon/doc/YAML/lockfile/changelog validation and pinned `actionlint` checks passed. The installed development dependency audit reported no vulnerabilities. No linter rules were weakened to accept the existing source.
@@ -58,7 +73,7 @@ The runtime builder checks its allowlist against manifest/imported/HTML assets, 
 
 ## Pending environments
 
-- Installation and execution as an actual Chrome extension, including permissions, worker lifecycle and content-script isolation in that environment.
+- Reloading the installed Chrome extension after the navigation fixes and repeating the current-source smoke check; explicit worker restart/lifecycle coverage.
 - Private GitHub/GitLab repositories with real PATs.
 - Native GitHub Viewed writes and authenticated GitLab discussions/review endpoints.
 - Live GitHub Enterprise Server and self-managed GitLab, including older layouts/versions.

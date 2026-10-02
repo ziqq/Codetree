@@ -139,9 +139,10 @@
     branchSearch.value = ''; branchList.replaceChildren(el('div', {class: 'empty', text: 'Loading branches…'})); branchSearch.focus();
     const epoch = state.epoch;
     try {
-      if (!state.branches) state.branches = await rpc('BRANCHES');
-      if (epoch === state.epoch) renderBranches();
-    } catch (error) { branchList.replaceChildren(el('div', {class: 'empty', text: error.message})); }
+      const branches = state.branches || await rpc('BRANCHES');
+      if (epoch !== state.epoch) return;
+      state.branches = branches; renderBranches();
+    } catch (error) { if (epoch === state.epoch) branchList.replaceChildren(el('div', {class: 'empty', text: error.message})); }
   }));
   function renderBranches() {
     const query = branchSearch.value.toLowerCase();
@@ -285,14 +286,21 @@
       const result = await rpc('PULLS', {filter});
       if (epoch !== state.epoch || filter !== state.filter) return;
       state.pulls = result.pulls; state.totalPulls = result.total; state.loading = false; render();
-    } catch (error) { if (epoch === state.epoch) { state.loading = false; state.error = error.message; render(); } }
+    } catch (error) { if (epoch === state.epoch && filter === state.filter) { state.loading = false; state.error = error.message; render(); } }
   }
   async function refresh() {
+    const epoch = state.epoch;
     await rpc('REFRESH');
+    if (epoch !== state.epoch) return;
     if (state.tab === 'pulls') await loadPulls();
-    else if (state.tab === 'bookmarks') { state.public = await rpc('STATE'); render(); }
-    else {
-      state.info = await rpc('INIT'); updateHeader(); await loadFiles();
+    else if (state.tab === 'bookmarks') {
+      const publicData = await rpc('STATE');
+      if (epoch !== state.epoch) return;
+      state.public = publicData; render();
+    } else {
+      const info = await rpc('INIT');
+      if (epoch !== state.epoch) return;
+      state.info = info; updateHeader(); await loadFiles(epoch);
     }
   }
   function diffNode(file) {

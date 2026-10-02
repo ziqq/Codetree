@@ -20,6 +20,7 @@
 - **FIXED**: stale lazy-folder replies and overlapping tree loads cannot mutate a refreshed tree or a different file mode
 - **FIXED**: full-file patch validation normalizes CRLF consistently with source files
 - **FIXED**: tag releases invoke the existing labeler and notification actions directly after publication instead of relying on suppressed `GITHUB_TOKEN` release events
+- **FIXED**: delayed refresh and branch responses cannot overwrite the active repository after navigation; errors from an old PR/MR filter cannot hide current results
 
 ## 0.1.0
 
