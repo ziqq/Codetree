@@ -16,6 +16,10 @@
 - **FIXED**: unauthenticated API operations report that an account is required instead of saying a token was rejected
 - **FIXED**: invalid repository/source identifiers with dot segments are rejected before requesting an API endpoint
 - **FIXED**: sidebar and full-file viewer follow the current GitHub/GitLab color tokens instead of a fixed GitHub palette; native preview controls inherit provider border/focus colors
+- **FIXED**: Viewed marks validate the displayed head revision against fresh PR/MR metadata before writing
+- **FIXED**: stale lazy-folder replies and overlapping tree loads cannot mutate a refreshed tree or a different file mode
+- **FIXED**: full-file patch validation normalizes CRLF consistently with source files
+- **FIXED**: tag releases invoke the existing labeler and notification actions directly after publication instead of relying on suppressed `GITHUB_TOKEN` release events
 
 ## 0.1.0
 

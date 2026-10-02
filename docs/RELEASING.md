@@ -11,9 +11,9 @@ npm audit --audit-level=high
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
-`npm run check` runs ESLint, CSS validation and JavaScript syntax checks, then validates Manifest V3 metadata, CSP, permissions, referenced assets, PNG dimensions, local documentation links, YAML, dependency/version consistency, possible credential strings and changelog ordering. `actionlint` validates workflow semantics. The audit includes development dependencies.
+`npm run check` runs ESLint, CSS validation, the Node.js regression suite and JavaScript syntax checks, then validates Manifest V3 metadata, CSP, permissions, referenced assets, PNG dimensions, local documentation links, YAML, dependency/version consistency, possible credential strings and changelog ordering. `actionlint` validates workflow semantics. The audit includes development dependencies.
 
-Functional browser checks remain necessary. These checks do not establish native Chrome installation, private account access or authenticated server writes. A committed regression suite requires maintainer confirmation of the main implementation under [AGENTS.md](../AGENTS.md).
+Functional browser checks remain necessary. The approved regressions cover Viewed head changes with cached/expired metadata, lazy-folder races, overlapping tree loads, CRLF patches and post-publication automation wiring. These checks do not establish native Chrome installation, private account access or authenticated server writes.
 
 ## Extension package
 
@@ -40,6 +40,8 @@ No extension signing key is used. The workflow publishes ZIP assets to GitHub Re
 - The downloaded CI ZIP still matches the tagged source and its checksum.
 
 Only the publication job receives `contents: write`. External actions are pinned to verified commit SHAs. The job creates a GitHub Release with the ZIP, SHA-256 and the matching changelog section. An existing release is not overwritten automatically.
+
+Releases created with `GITHUB_TOKEN` do not trigger separate `release.published` workflows. After publication, this workflow therefore invokes the repository's existing pinned labeler and notification actions directly. The labeler job receives `issues: write`, reads the confirmed published release from the API and supplies that event to the pinned action process. An empty waiting-for-release selection is allowed. The notification job has read-only repository permissions, uses the trusted default-branch template and the existing Discord/Telegram secrets, and reports required-provider failures. Manual release events retain their existing workflows. No additional personal access token is required.
 
 ## Create a release
 

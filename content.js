@@ -3,7 +3,7 @@
   if (document.getElementById('code-tree-extension')) return;
   const C = globalThis.CodeTree;
   const state = {
-    epoch: 0, context: null, info: null, preferences: {...C.defaults}, public: null,
+    epoch: 0, filesGeneration: 0, context: null, info: null, preferences: {...C.defaults}, public: null,
     tab: 'files', mode: 'files', query: '', filter: 'all', entries: [], tree: C.makeTree([]),
     expanded: new Set(), flat: [], lazy: false, loading: false, error: '', diff: null,
     branches: null, pulls: [], totalPulls: 0, loadingAll: false, selected: '', focus: 0,
@@ -238,15 +238,17 @@
     bookmarkButton.classList.toggle('active', (state.public?.bookmarks || []).some(item => item.url === location.href));
   }
   async function loadFiles(epoch = state.epoch) {
-    const mode = state.mode;
+    const mode = state.mode; const generation = ++state.filesGeneration;
+    const current = () => epoch === state.epoch && generation === state.filesGeneration;
+    loadingFolders.clear(); state.loadingAll = false;
     state.loading = true; state.error = ''; render();
     try {
       if (mode === 'changes') {
         const diff = await rpc('DIFF');
-        if (epoch !== state.epoch || mode !== state.mode) return;
+        if (!current()) return;
         state.diff = diff;
         await prepareHeaderButtons(diff, epoch);
-        if (epoch !== state.epoch || mode !== state.mode) return;
+        if (!current()) return;
         const grouped = new Map();
         for (const comment of diff.comments) {
           if (!grouped.has(comment.path)) grouped.set(comment.path, []);
@@ -256,7 +258,7 @@
         state.lazy = false;
       } else {
         const result = state.info.treeSha ? await rpc('TREE', {sha: state.info.treeSha}) : {entries: [], lazy: false};
-        if (epoch !== state.epoch || mode !== state.mode) return;
+        if (!current()) return;
         state.entries = result.entries; state.lazy = result.lazy;
       }
       state.tree = C.makeTree(state.entries);
@@ -267,7 +269,7 @@
       let path = state.selected;
       while (path.includes('/')) { path = path.slice(0, path.lastIndexOf('/')); state.expanded.add(path); }
       state.loading = false; body.scrollTop = 0; render();
-    } catch (error) { if (epoch === state.epoch && mode === state.mode) { state.loading = false; state.error = error.message; render(); } }
+    } catch (error) { if (current()) { state.loading = false; state.error = error.message; render(); } }
   }
   async function selectTab(tab) {
     state.tab = tab; state.query = ''; search.value = ''; state.error = ''; body.scrollTop = 0;
@@ -431,12 +433,16 @@
         if (!folder) {
           const full = button('diff', `Full-file diff: ${node.path}`, event => { event.stopPropagation(); run(() => showDiff(node))(); }, 'row-action'); row.append(full);
           if (state.diff?.viewedMode !== 'none') {
+            const context = state.context; const headSha = state.diff.head.sha;
+            const epoch = state.epoch; const generation = state.filesGeneration;
             const checkbox = el('input', {type: 'checkbox', class: 'viewed-checkbox', 'aria-label': `Mark ${node.path} as viewed`, title: state.diff?.viewedMode === 'github' ? 'Viewed on GitHub' : 'Viewed locally'}); checkbox.checked = Boolean(node.viewed);
             checkbox.addEventListener('click', event => event.stopPropagation());
             checkbox.addEventListener('change', run(async () => {
               const viewed = checkbox.checked; checkbox.disabled = true;
               try {
-                const result = await rpc('VIEWED', {path: node.path, viewed}); node.viewed = result.state === 'VIEWED';
+                const result = await rpc('VIEWED', {context, headSha, path: node.path, viewed});
+                if (epoch !== state.epoch || generation !== state.filesGeneration || state.diff?.head.sha !== headSha) return;
+                node.viewed = result.state === 'VIEWED';
                 const entry = state.entries.find(entry => entry.path === node.path); if (entry) entry.viewed = node.viewed;
                 requestTreeRender();
               } catch (error) { checkbox.checked = Boolean(node.viewed); throw error; }
@@ -472,15 +478,17 @@
     renderTreeRows(); spacer.querySelector(`[data-path="${CSS.escape(state.flat[state.focus].path)}"]`)?.focus({preventScroll: true});
   }
   async function toggleFolder(node) {
+    const epoch = state.epoch; const generation = state.filesGeneration;
     if (state.expanded.has(node.path)) state.expanded.delete(node.path);
     else { state.expanded.add(node.path); if (!node.loaded) await loadFolder(node); }
+    if (epoch !== state.epoch || generation !== state.filesGeneration) return;
     rememberExpansion(); updateTree();
   }
   async function loadFolder(node) {
     if (node.loaded || loadingFolders.has(node.path)) return loadingFolders.get(node.path);
-    const epoch = state.epoch;
+    const epoch = state.epoch; const generation = state.filesGeneration;
     const promise = rpc('TREE', {sha: state.context.provider === 'gitlab' ? state.info.commitSha : node.sha, path: node.path, recursive: false, lazyChildren: true}).then(result => {
-      if (epoch !== state.epoch) return;
+      if (epoch !== state.epoch || generation !== state.filesGeneration) return;
       const parent = state.entries.find(entry => entry.path === node.path); if (parent) parent.loaded = true;
       const known = new Set(state.entries.map(entry => entry.path));
       for (const entry of result.entries) {
@@ -488,19 +496,21 @@
         if (!known.has(path)) state.entries.push({...entry, path});
       }
       state.tree = C.makeTree(state.entries); updateTree();
-    }).finally(() => loadingFolders.delete(node.path));
+    }).finally(() => { if (loadingFolders.get(node.path) === promise) loadingFolders.delete(node.path); });
     loadingFolders.set(node.path, promise); return promise;
   }
   async function loadAllFolders() {
     if (state.loadingAll) return;
-    const epoch = state.epoch; state.loadingAll = true; render();
+    const epoch = state.epoch; const generation = state.filesGeneration;
+    const current = () => epoch === state.epoch && generation === state.filesGeneration;
+    state.loadingAll = true; render();
     try {
-      while (epoch === state.epoch) {
+      while (current()) {
         const folders = Array.from(state.tree.nodes.values()).filter(node => node.type === 'tree' && !node.loaded).slice(0, 4);
         if (!folders.length) { state.lazy = false; break; }
         await Promise.all(folders.map(loadFolder));
       }
-    } finally { if (epoch === state.epoch) { state.loadingAll = false; render(); } }
+    } finally { if (current()) { state.loadingAll = false; render(); } }
   }
   async function diffURL(node) {
     const gitlab = state.context.provider === 'gitlab';

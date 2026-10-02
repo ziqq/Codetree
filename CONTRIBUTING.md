@@ -24,7 +24,7 @@ npm audit --audit-level=high
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
-No committed automated test suite currently exists. Syntax checks are not functional tests. After implementation approval, add focused regression coverage for real previous failures.
+`npm test` runs the approved regression suite and is included in `npm run check`. New coverage follows implementation approval and must demonstrate real previous failures. Unit and syntax checks do not replace browser verification.
 
 See [Checks and releases](docs/RELEASING.md) for the exact CI gates, runtime allowlist, tag/version validation and artifact verification. Development dependencies, fixtures and screenshots must not enter the runtime ZIP.
 

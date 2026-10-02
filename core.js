@@ -200,7 +200,7 @@
     const finish = () => {
       if (hunk && (hunk.old !== hunk.expectedOld || hunk.new !== hunk.expectedNew)) throw new Error('The server returned an incomplete patch.');
     };
-    for (const line of patch.split('\n')) {
+    for (const line of patch.replace(/\r\n/g, '\n').split('\n')) {
       const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
       if (match) {
         finish();

@@ -2,7 +2,15 @@
 
 Version: **0.2.0**. Date: **2026-10-02**.
 
-This record distinguishes local behavior from live-server and installed-extension proof. No committed test files were introduced or changed before the maintainer confirms the main implementation.
+This record distinguishes local behavior from live-server and installed-extension proof. The maintainer authorized fixes and regression verification after the release review.
+
+## Release-review regressions
+
+The 23 approved Node.js checks pass on the corrected implementation. Running the same checks against the previous `f83e0d5` source produces 17 failures and 6 passes. Coverage includes fresh PR/MR head checks with cached and expired metadata, local and mocked synchronized Viewed marking/unmarking, rejected missing revisions/unrelated paths, stale folder replies, replacement requests for the same folder, interrupted load-all operations, overlapping tree loads, CRLF/full-file validation and explicit post-publication automation wiring. The release adapter is exercised with a local dummy action process and fake release API response; draft releases are rejected. No real release, label change or notification is sent by these tests.
+
+GitHub's Viewed mutation does not accept an expected head SHA. The broker checks current metadata immediately before the mutation, but a concurrent push during the remote mutation cannot be prevented atomically by this API.
+
+The exact pinned `ziqq/actions` labeler bundle was also run locally through the workflow adapter. A fake loopback API confirmed that it accepted the published-release event, read `.github/labels.json` from `main`, queried issues/labels and completed with an empty target selection. All three requests were local GETs; this did not publish a release or change GitHub state.
 
 ## Live public APIs
 
@@ -34,6 +42,7 @@ Checked for the new implementation:
 - Added/deleted file previews and absence of browser console errors on the fixture/settings pages.
 - Theme correction: GitHub light/dark, GitLab light/dark and an arbitrary GitHub token palette. In every case the sidebar's computed background and foreground matched the page; controls inherited the provider's subtle-surface token.
 - Full-file viewer retained the GitLab page background and opened from a native header with the sidebar closed after the theme change.
+- Release-review fixes: a GitLab folder response delayed by three seconds did not add repository-only files after switching to the changes tree; Viewed marking/unmarking succeeded on both providers; header previews opened with the sidebar closed, including a collapsed GitHub file.
 
 Additional local broker checks verified GitHub, GitLab and custom GitLab account validation with synthetic tokens, custom-host script registration, token-free state responses, host-bound headers, disabled redirects/cookies and four rejected requests without a network call. These include cross-host access, untrusted account changes and invalid source project/file paths.
 

@@ -7,7 +7,8 @@
   "engines": {"node": "^20.19.0 || ^22.13.0 || >=24"},
   "scripts": {
     "lint": "eslint . && stylelint sidebar.css options.css",
-    "check": "npm run lint && node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run lint && npm test && node scripts/check.mjs",
     "package": "python3 scripts/package.py",
     "verify": "npm run check && npm run package"
   },

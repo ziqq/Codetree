@@ -39,7 +39,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
-No committed automated test suite exists. Follow the implementation-approval rule before introducing one. Syntax success does not prove browser or authenticated API behavior.
+`npm test` runs approved regressions for Viewed revision checks, asynchronous tree loading, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
 
 ## Coding conventions
 

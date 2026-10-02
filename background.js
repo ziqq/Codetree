@@ -405,10 +405,14 @@ async function handle(message, sender) {
       case 'FILE': return memo(`${api.prefix}:file:${message.source?.project}:${message.source?.sha}:${message.path}`, 60000, () => adapter.source(api, message));
       case 'VIEWED': {
         if (context.kind !== 'pull') throw new Error('Viewed marks are available on merge requests.');
+        const headSha = sha(message.headSha);
         const diff = await adapter.diff(context, api, memo, false);
+        if (diff.head.sha !== headSha) throw new Error('The merge request changed. Refresh the file list before marking a file as viewed.');
         if (!diff.files.some(file => file.filename === message.path)) throw new Error('This file is not part of the merge request.');
+        const request = await api.json(`${root}/merge_requests/${context.number}`, 15000, true);
+        if (request.diff_refs?.head_sha !== headSha) throw new Error('The merge request changed. Refresh the file list before marking a file as viewed.');
         const state = message.viewed ? 'VIEWED' : 'UNVIEWED';
-        const key = `${api.prefix}:${root}:${context.number}:${diff.head.sha}`;
+        const key = `${api.prefix}:${root}:${context.number}:${headSha}`;
         await writeStore(current => {
           const localViewed = {...current.localViewed, [key]: {...current.localViewed?.[key], [message.path]: state}};
           const keys = Object.keys(localViewed);
@@ -443,16 +447,21 @@ async function handle(message, sender) {
       return memo(api.prefix + ':raw:' + path, 60000, async () => (await api.request(path, {raw: true})).data);
     }
     case 'VIEWED': {
+      if (context.kind !== 'pull') throw new Error('Viewed marks are available on pull requests.');
       number(context.number); filePath(message.path);
+      const headSha = sha(message.headSha);
       const diff = await getDiff(context, api, store, false);
+      if (diff.head.sha !== headSha) throw new Error('The pull request changed. Refresh the file list before marking a file as viewed.');
       if (!diff.files.some(file => file.filename === message.path)) throw new Error('This file is not part of the pull request.');
+      const request = await api.json(`${root}/pulls/${context.number}`, 15000, true);
+      if (request.head?.sha !== headSha) throw new Error('The pull request changed. Refresh the file list before marking a file as viewed.');
       const state = message.viewed ? 'VIEWED' : 'UNVIEWED';
       if (diff.viewedMode === 'github') {
         const mutation = message.viewed ? 'markFileAsViewed' : 'unmarkFileAsViewed';
         const type = message.viewed ? 'MarkFileAsViewedInput' : 'UnmarkFileAsViewedInput';
         await api.graphql(`mutation CodeTreeViewed($input:${type}!) { ${mutation}(input:$input) { clientMutationId } }`, {input: {pullRequestId: diff.nodeId, path: message.path}});
       } else {
-        const key = `${api.prefix}:${root}:${context.number}:${diff.head.sha}`;
+        const key = `${api.prefix}:${root}:${context.number}:${headSha}`;
         await writeStore(current => {
           const localViewed = {...current.localViewed, [key]: {...current.localViewed?.[key], [message.path]: state}};
           const keys = Object.keys(localViewed);
