@@ -28,6 +28,7 @@
 - **FIXED**: delayed refresh and branch responses cannot overwrite the active repository after navigation; errors from an old PR/MR filter cannot hide current results
 - **FIXED**: native View full controls remain visible when API authentication fails and provide account connection/retry guidance
 - **FIXED**: GitHub commit diff headers without a diff ID receive native View full controls
+- **FIXED**: settings dropdown chevrons have consistent spacing and theme colors while retaining native keyboard controls
 
 ## 0.1.0
 
