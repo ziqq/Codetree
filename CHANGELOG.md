@@ -29,6 +29,7 @@
 - **FIXED**: native View full controls remain visible when API authentication fails and provide account connection/retry guidance
 - **FIXED**: GitHub commit diff headers without a diff ID receive native View full controls
 - **FIXED**: settings dropdown chevrons have consistent spacing and theme colors while retaining native keyboard controls
+- **FIXED**: the sidebar starts hidden until saved preferences are applied, preventing a collapsed sidebar from flashing open when a repository loads
 
 ## 0.1.0
 

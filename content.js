@@ -100,7 +100,7 @@
     state.preferences = C.preferences({...state.preferences, ...value}); layout();
     await rpc('PREFERENCES', {value});
   }
-  const panel = el('aside', {class: 'panel', 'aria-label': 'Code Tree'});
+  const panel = el('aside', {class: 'panel', 'aria-label': 'Code Tree', hidden: ''});
   const pinButton = button('pin', 'Pin sidebar in this window', run(async () => {
     state.preferences.pinned = await rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
     await setPreferences({open: true});
@@ -134,8 +134,8 @@
   const footer = el('div', {class: 'footer'}, [C.icon('account'), accountSelect, el('span', {class: 'separator'}), bookmarkButton, dockButton,
     button('settings', 'Settings', run(() => rpc('OPTIONS')))]);
   panel.append(brandbar, repository, branchbar, tabs, searchbar, toolbar, notice, body, footer);
-  const handle = el('button', {type: 'button', class: 'handle', 'aria-label': 'Open Code Tree', onClick: run(() => setPreferences({open: true}))}, [C.icon('chevron'), el('span', {text: 'Code Tree'}), el('span', {class: 'handle-grip', 'aria-hidden': 'true'})]);
-  const resize = el('div', {class: 'resize', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Resize sidebar', tabindex: '0'});
+  const handle = el('button', {type: 'button', class: 'handle', 'aria-label': 'Open Code Tree', hidden: '', onClick: run(() => setPreferences({open: true}))}, [C.icon('chevron'), el('span', {text: 'Code Tree'}), el('span', {class: 'handle-grip', 'aria-hidden': 'true'})]);
+  const resize = el('div', {class: 'resize', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Resize sidebar', tabindex: '0', hidden: ''});
   const toastBox = el('div', {class: 'toast', role: 'status', hidden: ''});
   const viewer = el('dialog', {class: 'viewer', 'aria-label': 'Full-file diff'});
   shadow.append(panel, handle, resize, toastBox, viewer);
