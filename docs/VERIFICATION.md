@@ -115,7 +115,7 @@ A clean `npm ci --ignore-scripts` succeeded and the refreshed dependency audit r
 
 The managed Codex Security scan could not run because its scan/context/artifact MCP methods are not connected. The checks here are independent manual source reviews, controlled offline probes and a registry dependency audit. No managed scan ID or canonical Workbench report was fabricated. External action/dependency implementations were not audited as first-party source.
 
-The Mac was locked during this follow-up, preventing installed-browser smoke. Previously recorded browser observations remain historical evidence; the changed closed-root UI, browser-account delivery, OAuth registrations and external server environments still need current live validation. No tag, release or store submission was made.
+The Mac initially blocked this follow-up. When it briefly became available, the actual installed extension was reloaded through its Chrome Details page, and its Settings page showed saved appearance/navigation values, connected-account metadata, Browser Sync disabled and OAuth buttons correctly disabled for empty client IDs. Sync was not enabled and no credentials were entered or read. The Mac locked again before repository-page smoke could complete. The changed closed-root sidebar/viewer, browser-account delivery, OAuth registrations and external server environments still need current live validation. No tag, release or store submission was made.
 
 ## Pending environments
 
