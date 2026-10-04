@@ -13,6 +13,7 @@
 - **ADDED**: account/host/revision-scoped persistent tree cache with expiration, size limits and refresh/account invalidation
 - **ADDED**: original bounded lexical syntax highlighting for full-file review, with independent old/new revision state
 - **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
+- **ADDED**: opt-in browser Sync for preferences and bookmark metadata, with trusted storage, an explicit allowlist, bounded snapshots and visible quota errors
 - **CHANGED**: product name from `GitHub Code Tree` to `Code Tree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip
@@ -30,6 +31,13 @@
 - **FIXED**: GitHub commit diff headers without a diff ID receive native View full controls
 - **FIXED**: settings dropdown chevrons have consistent spacing and theme colors while retaining native keyboard controls
 - **FIXED**: the sidebar starts hidden until saved preferences are applied, preventing a collapsed sidebar from flashing open when a repository loads
+- **FIXED**: removed the vulnerable Stylelint glob dependency chain while retaining CSS syntax checks, seven stylesheet rule categories and the strict development dependency audit
+
+- **FIXED**: closed sidebar Shadow DOM prevents connected pages from reading or deleting bookmarks across repository hosts; synthetic global shortcuts cannot change preferences
+- **FIXED**: patch coordinates and row creation are bounded to the exact source revisions before context expansion
+- **FIXED**: API and OAuth bodies are bounded while streaming, including responses without Content-Length and aggregate REST/GraphQL pagination limits; full-file decoding preserves UTF-8 BOMs
+- **FIXED**: request-list and bookmark replies cannot replace another sidebar tab; Refresh invalidates pending branch menus
+- **FIXED**: selected and remembered lazy folder chains load their children; encoded GitLab refs preserve slash-containing names
 
 ## 0.1.0
 

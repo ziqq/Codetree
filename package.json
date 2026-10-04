@@ -6,7 +6,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "engines": {"node": "^20.19.0 || ^22.13.0 || >=24"},
   "scripts": {
-    "lint": "eslint . && stylelint sidebar.css options.css",
+    "lint": "eslint . && node scripts/check-css.mjs",
     "test": "node --test tests/*.test.mjs",
     "check": "npm run lint && npm test && node scripts/check.mjs",
     "package": "python3 scripts/package.py",
@@ -14,9 +14,13 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "css-functions-list": "3.3.3",
+    "css-tree": "3.2.1",
     "eslint": "10.11.0",
     "globals": "17.13.0",
-    "stylelint": "17.16.0",
+    "mdn-data": "2.27.1",
+    "postcss": "8.5.28",
+    "postcss-selector-parser": "7.1.5",
     "yaml": "2.9.1"
   }
 }

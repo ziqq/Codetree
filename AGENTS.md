@@ -1,6 +1,6 @@
 # Code Tree
 
-Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies, backend or cloud service. A private npm package provides development checks, and Python packages the unchanged runtime files.
+Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Code Tree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks, and Python packages the unchanged runtime files.
 
 ## General rules
 
@@ -21,6 +21,7 @@ Load the repository root as an unpacked extension in Chrome/Chromium 116+. Reloa
 - `core.js`: defaults/preferences, routes/URLs, original icons, tree logic and patch validation.
 - `syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
 - `background.js`: trusted service worker, host-bound broker, accounts/storage, bounded cache and GitHub REST/GraphQL adapter.
+- `sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
 - `gitlab.js`: GitLab adapter using the broker's client/cache.
 - `oauth*.js`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
 - `content.js`: Shadow DOM sidebar/viewer and native diff-header buttons.

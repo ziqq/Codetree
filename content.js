@@ -3,7 +3,8 @@
   if (document.getElementById('code-tree-extension')) return;
   const C = globalThis.CodeTree;
   const state = {
-    epoch: 0, filesGeneration: 0, context: null, info: null, preferences: {...C.defaults}, public: null,
+    epoch: 0, filesGeneration: 0, viewGeneration: 0, refreshGeneration: 0, branchGeneration: 0,
+    filesLoading: false, filesError: '', context: null, info: null, preferences: {...C.defaults}, public: null,
     tab: 'files', mode: 'files', query: '', filter: 'all', entries: [], tree: C.makeTree([]),
     expanded: new Set(), flat: [], lazy: false, loading: false, error: '', diff: null,
     branches: null, pulls: [], totalPulls: 0, loadingAll: false, selected: '', focus: 0,
@@ -15,7 +16,7 @@
   const host = document.createElement('div');
   host.id = 'code-tree-extension';
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;';
-  const shadow = host.attachShadow({mode: 'open'});
+  const shadow = host.attachShadow({mode: 'closed'});
   const sheet = document.createElement('link'); sheet.rel = 'stylesheet'; sheet.href = chrome.runtime.getURL('sidebar.css');
   shadow.append(sheet);
   const pageStyle = document.createElement('style'); pageStyle.id = 'code-tree-page-style';
@@ -63,7 +64,7 @@
     if (provider === 'gitlab' && document.body?.dataset.page?.startsWith('groups:')) return null;
     const context = C.route(location.href, provider);
     if (!C.pageVisible(location.href, context, state.preferences)) return null;
-    return {...context, viewer: provider === 'gitlab' ? document.body?.dataset.currentUserUsername || '' : meta('user-login') || meta('octolytics-actor-login'), refHint: refHint()};
+    return {...context, viewer: provider === 'gitlab' ? document.body?.dataset.currentUserUsername || '' : meta('user-login') || meta('octolytics-actor-login'), refHint: refHint() || context.refHint || ''};
   }
   function providerName() { return state.context?.provider === 'gitlab' ? 'GitLab' : 'GitHub'; }
   function requestName() { return state.context?.provider === 'gitlab' ? 'merge request' : 'pull request'; }
@@ -145,12 +146,12 @@
     if (!branchPopover.hidden) { closeBranches(); return; }
     branchPopover.hidden = false; branchButton.setAttribute('aria-expanded', 'true');
     branchSearch.value = ''; branchList.replaceChildren(el('div', {class: 'empty', text: 'Loading branches…'})); branchSearch.focus();
-    const epoch = state.epoch;
+    const epoch = state.epoch; const generation = state.branchGeneration;
     try {
       const branches = state.branches || await rpc('BRANCHES');
-      if (epoch !== state.epoch) return;
+      if (epoch !== state.epoch || generation !== state.branchGeneration) return;
       state.branches = branches; renderBranches();
-    } catch (error) { if (epoch === state.epoch) branchList.replaceChildren(el('div', {class: 'empty', text: error.message})); }
+    } catch (error) { if (epoch === state.epoch && generation === state.branchGeneration) branchList.replaceChildren(el('div', {class: 'empty', text: error.message})); }
   }));
   function renderBranches() {
     const query = branchSearch.value.toLowerCase();
@@ -206,12 +207,13 @@
   async function loadPage(force = false) {
     const context = currentContext(); const url = location.href;
     if (!force && url === lastURL) return;
-    lastURL = url; const epoch = ++state.epoch;
+    lastURL = url; const epoch = ++state.epoch; state.viewGeneration++; state.refreshGeneration++; state.branchGeneration++;
     viewerGeneration++; if (viewer.open) viewer.close();
     fullViewPaths.clear(); document.querySelectorAll('.code-tree-view-full').forEach(button => button.remove());
     closeBranches(); loadingFolders.clear();
     state.context = context; state.info = null; state.diff = null; state.branches = null;
-    state.loading = true; state.error = ''; state.entries = []; state.tree = C.makeTree([]); state.flat = [];
+    state.loading = true; state.error = ''; state.filesLoading = true; state.filesError = '';
+    state.entries = []; state.tree = C.makeTree([]); state.flat = [];
     state.query = ''; search.value = ''; state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
     state.tab = 'files'; state.selected = ''; state.focus = 0; state.lazy = false; state.loadingAll = false;
     layout(); if (!context) return;
@@ -228,7 +230,9 @@
       await loadFiles(epoch);
     } catch (error) {
       if (epoch !== state.epoch) return;
-      state.loading = false; state.error = error.message; updateHeader(); render();
+      state.filesLoading = false; state.filesError = error.message;
+      if (state.tab === 'files') { state.loading = false; state.error = error.message; }
+      updateHeader(); render();
     }
   }
   function updateHeader() {
@@ -251,7 +255,9 @@
     const mode = state.mode; const generation = ++state.filesGeneration;
     const current = () => epoch === state.epoch && generation === state.filesGeneration;
     loadingFolders.clear(); state.loadingAll = false;
-    state.loading = true; state.error = ''; render();
+    state.filesLoading = true; state.filesError = '';
+    if (state.tab === 'files') { state.loading = true; state.error = ''; }
+    render();
     try {
       if (mode === 'changes') {
         const diff = await rpc('DIFF');
@@ -278,37 +284,64 @@
       }
       let path = state.selected;
       while (path.includes('/')) { path = path.slice(0, path.lastIndexOf('/')); state.expanded.add(path); }
-      state.loading = false; body.scrollTop = 0; render();
-    } catch (error) { if (current()) { state.loading = false; state.error = error.message; render(); } }
+      if (mode === 'files') {
+        while (current()) {
+          const folders = Array.from(state.tree.nodes.values()).filter(node => node.type === 'tree' && !node.loaded && state.expanded.has(node.path)).slice(0, 4);
+          if (!folders.length) break;
+          await Promise.all(folders.map(loadFolder));
+        }
+        if (!current()) return;
+      }
+      state.filesLoading = false;
+      if (state.tab === 'files') { state.loading = false; body.scrollTop = 0; }
+      render();
+    } catch (error) {
+      if (current()) {
+        state.filesLoading = false; state.filesError = error.message;
+        if (state.tab === 'files') { state.loading = false; state.error = error.message; }
+        render();
+      }
+    }
   }
   async function selectTab(tab) {
-    state.tab = tab; state.query = ''; search.value = ''; state.error = ''; body.scrollTop = 0;
+    const epoch = state.epoch; const generation = state.viewGeneration = (state.viewGeneration || 0) + 1;
+    state.tab = tab; state.query = ''; search.value = ''; state.error = ''; state.loading = false; body.scrollTop = 0;
     if (tab === 'pulls') await loadPulls();
     else if (tab === 'bookmarks') {
-      state.public = await rpc('STATE'); updateHeader(); render();
-    } else render();
+      state.loading = true; render();
+      try {
+        const publicData = await rpc('STATE');
+        if (epoch !== state.epoch || generation !== state.viewGeneration || state.tab !== tab) return;
+        state.public = publicData; state.loading = false; updateHeader(); render();
+      } catch (error) { if (epoch === state.epoch && generation === state.viewGeneration && state.tab === tab) { state.loading = false; state.error = error.message; render(); } }
+    } else { state.loading = Boolean(state.filesLoading); state.error = state.filesError || ''; render(); }
   }
   async function loadPulls() {
-    const epoch = state.epoch; const filter = state.filter;
+    const epoch = state.epoch; const filter = state.filter; const tab = state.tab;
+    const generation = state.viewGeneration = (state.viewGeneration || 0) + 1;
+    const current = () => epoch === state.epoch && generation === state.viewGeneration && filter === state.filter && state.tab === tab;
     state.loading = true; state.error = ''; render();
     try {
       const result = await rpc('PULLS', {filter});
-      if (epoch !== state.epoch || filter !== state.filter) return;
+      if (!current()) return;
       state.pulls = result.pulls; state.totalPulls = result.total; state.loading = false; render();
-    } catch (error) { if (epoch === state.epoch && filter === state.filter) { state.loading = false; state.error = error.message; render(); } }
+    } catch (error) { if (current()) { state.loading = false; state.error = error.message; render(); } }
   }
   async function refresh() {
-    const epoch = state.epoch;
+    const epoch = state.epoch; const tab = state.tab; const mode = state.mode; const viewGeneration = state.viewGeneration;
+    const generation = state.refreshGeneration = (state.refreshGeneration || 0) + 1;
+    const current = () => epoch === state.epoch && generation === state.refreshGeneration && viewGeneration === state.viewGeneration && tab === state.tab && mode === state.mode;
     await rpc('REFRESH');
-    if (epoch !== state.epoch) return;
-    if (state.tab === 'pulls') await loadPulls();
-    else if (state.tab === 'bookmarks') {
+    if (!current()) return;
+    state.branches = null; state.branchGeneration = (state.branchGeneration || 0) + 1; closeBranches();
+    if (tab === 'pulls') await loadPulls();
+    else if (tab === 'bookmarks') {
       const publicData = await rpc('STATE');
-      if (epoch !== state.epoch) return;
+      if (!current()) return;
       state.public = publicData; render();
     } else {
       const info = await rpc('INIT');
-      if (epoch !== state.epoch) return;
+      if (!current()) return;
       state.info = info; updateHeader(); await loadFiles(epoch);
     }
   }
@@ -691,7 +724,8 @@
     if (!comments.length) shell.body.append(empty('No inline comments', 'There are no review comments for this file.', 'comment'));
   }
   document.addEventListener('keydown', event => {
-    const editing = event.composedPath().some(node => node instanceof Element && (node.matches('input,textarea,select') || node.isContentEditable));
+    if (!event.isTrusted) return;
+    const editing = [shadow.activeElement, ...event.composedPath()].some(node => node instanceof Element && (node.matches('input,textarea,select') || node.isContentEditable));
     if (!state.context || editing || event.repeat || event.isComposing || event.getModifierState('AltGraph')) return;
     if (C.shortcutMatches(state.preferences.toggleShortcut, event)) { event.preventDefault(); run(() => setPreferences({open: !state.preferences.open}))(); }
     else if (C.shortcutMatches(state.preferences.searchShortcut, event)) { event.preventDefault(); run(async () => { await setPreferences({open: true}); search.focus(); })(); }

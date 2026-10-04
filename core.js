@@ -81,7 +81,10 @@
       const result = {origin: parsed.origin, provider: 'gitlab', owner: project.slice(0, -1).join('/'), repo: project.at(-1), kind: 'repo', tail: '', path: ''};
       if (separator >= 0) {
         const view = parts[separator + 1];
-        if (['tree', 'blob', 'blame', 'raw'].includes(view)) { result.kind = view; result.tail = parts.slice(separator + 2).join('/'); }
+        if (['tree', 'blob', 'blame', 'raw'].includes(view)) {
+          result.kind = view; result.tail = parts.slice(separator + 2).join('/');
+          if (parts[separator + 2]?.includes('/')) result.refHint = parts[separator + 2];
+        }
         else if (view === 'merge_requests' && /^\d+$/.test(parts[separator + 2] || '')) { result.kind = 'pull'; result.number = Number(parts[separator + 2]); }
         else if (view === 'commit' && /^[a-f\d]{7,40}$/i.test(parts[separator + 2] || '')) { result.kind = 'commit'; result.sha = parts[separator + 2]; }
       }
@@ -187,6 +190,10 @@
     const before = lines(base); const after = lines(head);
     const rows = []; let oldIndex = 0; let newIndex = 0;
     const push = (type, text) => {
+      if (typeof text !== 'string' || (type !== 'added' && oldIndex >= before.length) ||
+          (type !== 'removed' && newIndex >= after.length) || rows.length >= before.length + after.length) {
+        throw new Error('The patch exceeds these file revisions.');
+      }
       const oldLine = type === 'added' ? null : ++oldIndex;
       const newLine = type === 'removed' ? null : ++newIndex;
       if ((oldLine && before[oldLine - 1] !== text) || (newLine && after[newLine - 1] !== text)) throw new Error('The patch does not match these file revisions.');
@@ -206,9 +213,15 @@
       const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
       if (match) {
         finish();
+        const oldStart = Number(match[1]); const newStart = Number(match[3]);
         const expectedOld = Number(match[2] ?? 1); const expectedNew = Number(match[4] ?? 1);
-        const startOld = Number(match[1]) - (expectedOld ? 1 : 0);
-        const startNew = Number(match[3]) - (expectedNew ? 1 : 0);
+        const startOld = oldStart - (expectedOld ? 1 : 0);
+        const startNew = newStart - (expectedNew ? 1 : 0);
+        if (![oldStart, newStart, expectedOld, expectedNew].every(Number.isSafeInteger) ||
+            startOld < 0 || startNew < 0 || startOld > before.length || startNew > after.length ||
+            expectedOld > before.length - startOld || expectedNew > after.length - startNew) {
+          throw new Error('The patch range exceeds these file revisions.');
+        }
         if (startOld < oldIndex || startNew < newIndex) throw new Error('Invalid patch ordering.');
         while (oldIndex < startOld) push('context', before[oldIndex]);
         if (newIndex !== startNew) throw new Error('The patch positions do not match these revisions.');

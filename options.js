@@ -9,10 +9,12 @@
   const appearanceStatus = document.getElementById('appearance-status');
   const connect = document.getElementById('connect-button');
   const preview = document.getElementById('font-preview');
+  const syncForm = document.getElementById('sync-form'); const syncSave = document.getElementById('sync-save');
+  const syncStatus = document.getElementById('sync-status');
   const githubSignIn = document.getElementById('oauth-github'); const gitlabSignIn = document.getElementById('oauth-gitlab');
   const oauthStatus = document.getElementById('oauth-status'); const deviceBox = document.getElementById('oauth-device');
   let oauthInfo; let device; let pollTimer; let signingIn = false;
-  let state;
+  let state; let syncSaving = false;
   async function rpc(type, value = {}) {
     const result = await chrome.runtime.sendMessage({type, ...value});
     if (!result?.ok) throw new Error(result?.error || 'The extension did not respond. Reload this settings page.');
@@ -61,6 +63,34 @@
     preview.style.fontFamily = C.fontFamilies[appearance.elements.fontFamily.value];
     preview.style.fontSize = `${appearance.elements.fontSize.value || 12}px`;
   }
+  function renderPreferences() {
+    for (const [key, value] of Object.entries(state.preferences)) {
+      const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
+      if (field) { if (field.type === 'checkbox') field.checked = value; else field.value = value; }
+    }
+    showFont();
+  }
+  function renderSync() {
+    const value = state.sync || {enabled: false};
+    syncForm.elements.enabled.checked = value.enabled === true;
+    syncForm.elements.enabled.disabled = syncSaving; syncSave.disabled = syncSaving;
+    if (value.error) status(syncStatus, `${value.enabled ? 'Enabled, but Sync needs attention.' : 'Sync is disabled.'} ${value.error} Local data is kept.`, true);
+    else if (value.enabled) status(syncStatus, value.lastSyncedAt ? `Enabled. Last saved to browser Sync ${new Date(value.lastSyncedAt).toLocaleString()}.` : 'Enabled. Waiting for the first synced snapshot.');
+    else { syncStatus.textContent = 'Disabled on this device. Local data and the shared copy on other enabled devices are kept.'; syncStatus.className = ''; }
+  }
+  async function refreshSync() {
+    try { const value = await rpc('STATE'); state.sync = value.sync; renderSync(); }
+    catch (error) { status(syncStatus, `Local changes are saved. Could not refresh Sync status: ${error.message}`, true); }
+  }
+  syncForm.addEventListener('submit', async event => {
+    event.preventDefault(); syncSaving = true; syncSave.disabled = true; syncForm.elements.enabled.disabled = true;
+    try { Object.assign(state, await rpc('SYNC_SETTINGS', {enabled: syncForm.elements.enabled.checked})); renderPreferences(); renderSync(); }
+    catch (error) { status(syncStatus, error.message, true); }
+    finally { syncSaving = false; syncSave.disabled = false; syncForm.elements.enabled.disabled = false; }
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (state && area === 'local' && Object.hasOwn(changes, 'syncSettings')) void refreshSync();
+  });
   function showProvider() {
     const gitlab = accountForm.elements.provider.value === 'gitlab';
     const field = accountForm.elements.origin;
@@ -99,7 +129,7 @@
     const value = {dock: appearance.elements.dock.value, iconTheme: appearance.elements.iconTheme.value,
       width: Number(appearance.elements.width.value), fontSize: Number(appearance.elements.fontSize.value),
       fontFamily: appearance.elements.fontFamily.value, pinned: appearance.elements.pinned.checked};
-    try { state.preferences = await rpc('PREFERENCES', {value}); status(appearanceStatus, 'Saved. Refresh your repository page to apply.'); }
+    try { state.preferences = await rpc('PREFERENCES', {value}); status(appearanceStatus, 'Saved. Refresh your repository page to apply.'); await refreshSync(); }
     catch (error) { status(appearanceStatus, error.message, true); }
   });
   navigation.addEventListener('submit', async event => {
@@ -107,7 +137,7 @@
     const value = {pageScope: navigation.elements.pageScope.value, hidePatterns: navigation.elements.hidePatterns.value,
       folderClick: navigation.elements.folderClick.checked, toggleShortcut: navigation.elements.toggleShortcut.value.trim(), searchShortcut: navigation.elements.searchShortcut.value.trim()};
     const output = document.getElementById('navigation-status');
-    try { C.validateNavigation(value); state.preferences = await rpc('PREFERENCES', {value}); status(output, 'Saved. Refresh your repository page to apply.'); }
+    try { C.validateNavigation(value); state.preferences = await rpc('PREFERENCES', {value}); status(output, 'Saved. Refresh your repository page to apply.'); await refreshSync(); }
     catch (error) { status(output, error.message, true); }
   });
   accountForm.addEventListener('submit', async event => {
@@ -131,11 +161,7 @@
   });
   rpc('STATE').then(value => {
     state = value;
-    for (const [key, value] of Object.entries(state.preferences)) {
-      const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
-      if (field) { if (field.type === 'checkbox') field.checked = value; else field.value = value; }
-    }
-    showFont(); showProvider(); renderAccounts();
+    renderPreferences(); renderSync(); showProvider(); renderAccounts();
     return rpc('OAUTH_INFO');
   }).then(value => {
     oauthInfo = value; signInButtons();

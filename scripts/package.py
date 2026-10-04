@@ -11,7 +11,7 @@ from zipfile import ZIP_STORED, BadZipFile, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parent.parent
 RUNTIME = (
     'manifest.json', 'core.js', 'syntax.js', 'background.js', 'gitlab.js', 'content.js',
-    'oauth-config.js', 'oauth.js',
+    'oauth-config.js', 'oauth.js', 'sync.js',
     'sidebar.css', 'options.html', 'options.js', 'options.css',
     'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png', 'PRIVACY.md',
 )

@@ -74,6 +74,14 @@ Choose the provider and its HTTPS website origin in Settings. For a custom serve
 
 Tokens are verified directly through the chosen host's `/user` endpoint. Connecting the same host/username replaces its token. **Auto** uses a matching page username when available, or the host's only account. With multiple accounts and no detected username, select an account in the footer.
 
+### Browser Sync
+
+Enable **Settings → Browser Sync** to synchronize preferences and bookmarks through the browser’s account storage. It is off by default. Credentials, connected accounts, selected account IDs, Viewed marks, repository trees and file contents stay local.
+
+Enabling applies existing remote preferences and merges bookmarks by URL; local bookmark details win for duplicate URLs. Later snapshots use the newest saved timestamp; equal timestamps use the last delivered snapshot. Device clock differences can delay incoming changes until a new local save. Sync has a conservative 8 KiB snapshot limit; quota failures leave local data saved and appear in Settings. Disabling stops this device without deleting local data or the shared copy.
+
+Devices need the same browser ecosystem and extension ID. Chrome and Edge/Firefox/Safari account services do not form a shared account. Unpacked installations may have different extension IDs on different computers; do not treat them as a proven multi-device setup. Firefox/Safari builds and portable file transfer remain outside this delivery.
+
 ### Large repositories
 
 The tree renders visible rows with a small buffer. GitHub normally loads a recursive tree and falls back to loading folders when its API truncates the response. GitLab loads one folder at a time, including projects in nested namespaces.
@@ -82,7 +90,7 @@ Search covers loaded files until **Load all folders for search** finishes; the s
 
 ## Privacy
 
-Preferences, accounts, tokens, bookmarks, local Viewed marks and the tree cache live in `chrome.storage.local` for the browser profile. Pinning per window and pending device sign-in use trusted session storage. Token storage is restricted to trusted extension contexts. Page/content scripts receive no tokens.
+Preferences, accounts, tokens, bookmarks, local Viewed marks and the tree cache live in `chrome.storage.local` for the browser profile. Pinning per window and pending device sign-in use trusted session storage. Token storage is restricted to trusted extension contexts. Page/content scripts receive no tokens. Browser Sync sends only preferences/bookmark metadata after explicit opt-in; bookmark URLs/titles can contain private repository names.
 
 Requests go directly to the selected repository API. Tokens stay bound to its API host; redirects and cookie credentials are disabled. There is no analytics, external font download or third-party runtime dependency. See [Privacy](PRIVACY.md).
 
@@ -90,12 +98,12 @@ Requests go directly to the selected repository API. Tokens stay bound to its AP
 
 - This delivery targets Chrome/Chromium as an unpacked extension. Firefox, Safari and store distribution have not been validated.
 - GitHub's PR-files API returns at most 3,000 changed files. GitLab has server diff limits and may omit patches. Incomplete data is identified explicitly.
-- Paginated lists fail explicitly beyond 10,000 results.
+- Paginated lists fail explicitly beyond 10,000 results, unexpected page sizes or a conservative 32 MiB aggregate budget. API JSON bodies are limited to 32 MiB, OAuth/error bodies to 64 KiB.
 - Full-file previews support UTF-8 text up to **2 MiB per revision** and **100,000 combined lines**. Binary files, other encodings and incomplete patches show an unavailable-preview state with a native diff link. An original lexical highlighter covers common source/config languages; it is not a full grammar parser. Unknown languages and files exceeding its token budget retain complete plain-text diffs.
 - PR/MR comparisons use the merge base and request head; commit comparisons use the first parent. Private fork requests need access to both source repositories.
 - GitLab review filters depend on supported reviewer/approvals endpoints, server states and token access. Unsupported endpoints report errors. Viewed is local on GitLab and falls back to local mode on GitHub when GraphQL is unavailable.
 - Native header integration depends on the provider's page structure. Layout changes may need an adapter update; the sidebar full-file action is also available.
-- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Cloud sync is not implemented. Browser-reserved shortcuts may take priority. Branch switching opens the branch root.
+- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Browser Sync is optional and remains within the browser ecosystem; cross-browser account sync is not implemented. Browser-reserved shortcuts may take priority. Branch switching opens the branch root.
 
 ## Project structure
 
@@ -106,6 +114,7 @@ syntax.js          Original bounded lexical syntax highlighting
 background.js      API broker, storage, GitHub adapter and bounded cache
 gitlab.js          GitLab repository, MR, commit and review adapter
 oauth*.js          Public client configuration and trusted OAuth flows
+sync.js            Opt-in browser Sync for preferences and bookmarks
 content.js         Sidebar, native View full buttons and full-file viewer
 sidebar.css        Isolated sidebar/viewer styles
 options.*          Settings and account management

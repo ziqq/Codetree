@@ -1,5 +1,6 @@
 'use strict';
 importScripts('core.js');
+importScripts('sync.js');
 importScripts('gitlab.js');
 importScripts('oauth-config.js');
 importScripts('oauth.js');
@@ -15,6 +16,8 @@ let cacheGeneration = 0; let treeCacheReady; let treeWrites = Promise.resolve();
 const trees = new Map();
 const treeTTL = 24 * 60 * 60000;
 const storageReady = chrome.storage.local.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'});
+const syncReady = storageReady.then(() => globalThis.CodeTreeSync.initialize({readStore, writeStore}));
+syncReady.catch(() => {});
 
 async function readStore() {
   await storageReady;
@@ -152,6 +155,40 @@ async function authorizedAccount(account) {
   refreshing.set(account.id, promise);
   try { return await promise; } finally { if (refreshing.get(account.id) === promise) refreshing.delete(account.id); }
 }
+async function responseBytes(response, limit, message) {
+  if (Number(response.headers.get('Content-Length')) > limit) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error(message);
+  }
+  if (!response.body) return new Uint8Array();
+  const reader = response.body.getReader(); const chunks = []; let size = 0;
+  try {
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) { await reader.cancel().catch(() => {}); throw new Error(message); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
+}
+async function responseJSON(response, limit = 32 * 1024 * 1024) {
+  const bytes = await responseBytes(response, limit, 'The API response exceeds the safe preview limit. Use the repository website.');
+  return JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes));
+}
+globalThis.CodeTreeResponseJSON = responseJSON;
+function listBudget() {
+  let count = 0; let size = 0;
+  return values => {
+    if (!Array.isArray(values)) throw new Error('The API returned an unexpected list response.');
+    count += values.length; size += JSON.stringify(values).length * 2;
+    if (values.length > 100 || count > 10000) throw new Error('The API returned more list results than requested. Use the repository website.');
+    if (size > 32 * 1024 * 1024) throw new Error('This list exceeds the safe preview limit. Use the repository website.');
+  };
+}
 function client(context, store, override) {
   let account = override || accountFor(context, store);
   const origin = context.origin;
@@ -171,7 +208,7 @@ function client(context, store, override) {
     if (!response.ok) {
       const fail = message => { const error = new Error(message); error.status = response.status; throw error; };
       let message = '';
-      try { message = (await response.json()).message || ''; } catch { /* Non-JSON errors use the status message below. */ }
+      try { message = (await responseJSON(response, 64 * 1024)).message || ''; } catch { /* Non-JSON or oversized errors use the status message below. */ }
       if (response.status === 401) fail(account ? `${label} rejected this token. Update the account in Settings.` : `${label} requires an account for this operation. Add a token in Settings.`);
       if ((response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') || response.status === 429) {
         const reset = Number(response.headers.get('X-RateLimit-Reset'));
@@ -181,25 +218,22 @@ function client(context, store, override) {
       fail(`${label} API ${response.status}${message ? `: ${String(message).slice(0, 250)}` : ''}`);
     }
     if (raw) {
-      if (Number(response.headers.get('Content-Length')) > 2 * 1024 * 1024) throw new Error(`This file exceeds the 2 MiB text preview limit. Open it on ${label}.`);
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > 2 * 1024 * 1024) throw new Error(`This file exceeds the 2 MiB text preview limit. Open it on ${label}.`);
-      const bytes = new Uint8Array(buffer);
+      const bytes = await responseBytes(response, 2 * 1024 * 1024, `This file exceeds the 2 MiB text preview limit. Open it on ${label}.`);
       if (bytes.includes(0)) throw new Error(`Binary files cannot be shown as a text diff. Open the file on ${label}.`);
-      try { return {data: new TextDecoder('utf-8', {fatal: true}).decode(bytes), next: false}; }
+      try { return {data: new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(bytes), next: false}; }
       catch { throw new Error(`This file is not UTF-8 text. Open the file on ${label}.`); }
     }
-    return {data: await response.json(), next: /rel="next"/.test(response.headers.get('Link') || '') || Number(response.headers.get('X-Next-Page')) > 0};
+    return {data: await responseJSON(response), next: /rel="next"/.test(response.headers.get('Link') || '') || Number(response.headers.get('X-Next-Page')) > 0};
   }
   async function json(path, ttl = 30000, fresh = false) {
     return memo(prefix + path, ttl, async () => (await request(path)).data, fresh);
   }
   async function pages(path, property = null) {
-    const list = [];
+    const list = []; const check = listBudget();
     for (let page = 1; page <= 100; page++) {
       const {data, next} = await request(`${path}${path.includes('?') ? '&' : '?'}per_page=100&page=${page}`);
       const values = property ? data[property] : data;
-      if (!Array.isArray(values)) throw new Error(`${label} returned an unexpected list response.`);
+      check(values);
       list.push(...values);
       if (!next) return list;
     }
@@ -239,6 +273,7 @@ async function publicState(store, sender) {
     hosts: [...origins(store)].map(origin => ({origin, provider: providerFor(origin, store)})),
     selectedAccounts: store.selectedAccounts || {},
     bookmarks: store.bookmarks || [],
+    ...(sender?.url === chrome.runtime.getURL('options.html') ? {sync: globalThis.CodeTreeSync.status()} : {}),
   };
 }
 async function initialize(context, api) {
@@ -288,11 +323,12 @@ const viewedQuery = `query CodeTreeViewed($owner:String!,$repo:String!,$number:I
   } }
 }`;
 async function viewedFiles(context, api) {
-  const output = {}; let after = null;
+  const output = {}; const check = listBudget(); let after = null;
   for (let page = 0; page < 100; page++) {
     const result = await api.graphql(viewedQuery, {owner: context.owner, repo: context.repo, number: context.number, after});
     const files = result.repository?.pullRequest?.files;
     if (!files) throw new Error('Viewed-file status is unavailable.');
+    check(files.nodes);
     for (const file of files.nodes) output[file.path] = file.viewerViewedState;
     if (!files.pageInfo.hasNextPage) return output;
     after = files.pageInfo.endCursor;
@@ -358,11 +394,12 @@ async function listPulls(context, api, filter) {
   if (api.account) {
     try {
       data = await memo(`${api.prefix}${root}:pull-list-graphql`, 30000, async () => {
-        const pulls = []; let after = null;
+        const pulls = []; const check = listBudget(); let after = null;
         for (let page = 0; page < 100; page++) {
           const result = await api.graphql(pullsQuery, {owner: context.owner, repo: context.repo, login: api.account.login, after});
           const connection = result.repository?.pullRequests;
           if (!connection) throw new Error('Pull requests are unavailable.');
+          check(connection.nodes);
           for (const item of connection.nodes) pulls.push({number: item.number, title: item.title, html_url: item.url, draft: item.isDraft,
             user: item.author, updated_at: item.updatedAt, decision: item.reviewDecision,
             reviewCount: item.submittedReviews.totalCount, myReviewCount: item.myReviews.totalCount,
@@ -437,6 +474,7 @@ async function saveAccount(value, store) {
 }
 async function handle(message, sender) {
   if (!message || typeof message.type !== 'string') throw new Error('Invalid request.');
+  await syncReady.catch(() => {});
   const store = await readStore();
   const isOptions = sender.url === chrome.runtime.getURL('options.html');
   let senderOrigin;
@@ -444,6 +482,10 @@ async function handle(message, sender) {
   if (!isOptions && (!sender.tab || !origins(store).has(senderOrigin))) throw new Error('This page cannot access extension data.');
   if (message.type === 'STATE') return publicState(store, sender);
   if (message.type === 'OPTIONS') { await chrome.runtime.openOptionsPage(); return true; }
+  if (message.type === 'SYNC_SETTINGS') {
+    if (!isOptions) throw new Error('Browser Sync can only be configured in extension Settings.');
+    return globalThis.CodeTreeSync.configure(message.enabled);
+  }
   if (message.type.startsWith('OAUTH_')) {
     if (!isOptions) throw new Error('OAuth sign-in is available only in extension Settings.');
     const oauth = globalThis.CodeTreeOAuth;
@@ -465,7 +507,7 @@ async function handle(message, sender) {
   if (message.type === 'PREFERENCES') {
     C.validateNavigation({...C.preferences(store.preferences), ...message.value});
     if (!isOptions && Object.hasOwn(message.value || {}, 'pinned')) throw new Error('Use the window pin button to change pinning in this window.');
-    const update = await writeStore(current => ({preferences: C.preferences({...C.preferences(current.preferences), ...message.value})}));
+    const update = await globalThis.CodeTreeSync.localWrite(current => ({preferences: C.preferences({...C.preferences(current.preferences), ...message.value})}));
     return update.preferences;
   }
   if (message.type === 'WINDOW_PIN') {
@@ -500,7 +542,7 @@ async function handle(message, sender) {
     return publicState(await readStore(), sender);
   }
   if (message.type === 'BOOKMARK') {
-    const update = await writeStore(current => {
+    const update = await globalThis.CodeTreeSync.localWrite(current => {
       const bookmarks = [...(current.bookmarks || [])];
       if (message.remove) return {bookmarks: bookmarks.filter(item => item.id !== message.remove)};
       const url = new URL(message.url);
@@ -567,7 +609,7 @@ async function handle(message, sender) {
     case 'DIFF': return getDiff(context, api, store, message.fresh);
     case 'FILE': {
       const owner = String(message.source?.owner || ''); const repo = String(message.source?.repo || '');
-      if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) throw new Error('Invalid source repository.');
+      if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo) || ['.', '..'].includes(owner) || ['.', '..'].includes(repo)) throw new Error('Invalid source repository.');
       if (!message.source.sha) return '';
       const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${filePath(message.path)}?ref=${sha(message.source.sha)}`;
       return memo(api.prefix + ':raw:' + path, 60000, async () => (await api.request(path, {raw: true})).data);

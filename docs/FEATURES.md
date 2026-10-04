@@ -48,7 +48,7 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 
 ## Current boundaries
 
-GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no registered client IDs and cannot complete live OAuth sign-in yet. See [OAuth setup](OAUTH.md). Cloud sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
+GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no registered client IDs and cannot complete live OAuth sign-in yet. See [OAuth setup](OAUTH.md). Optional browser Sync covers preferences and bookmarks within one browser ecosystem. Cross-browser sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
 
 ## Octotree comparison
 

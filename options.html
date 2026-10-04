@@ -40,6 +40,17 @@
         <div class="form-actions wide"><button type="submit" class="primary">Save navigation</button><span id="navigation-status" role="status"></span></div>
       </form>
     </section>
+    <section class="card" aria-labelledby="sync-title">
+      <div class="section-heading"><h2 id="sync-title">Browser Sync</h2><p>Optionally carry your preferences and bookmarks between devices.</p></div>
+      <form id="sync-form" class="sync-form">
+        <label class="checkbox"><input name="enabled" type="checkbox" disabled> Sync preferences and bookmarks</label>
+        <p class="muted">Off by default. Uses this extension's browser Sync storage with your browser account, when browser sync is enabled. Devices need the same browser sync service and extension ID; other browsers may use a separate service.</p>
+        <p class="muted">Only appearance and navigation preferences, bookmark URLs, titles, repository names and creation dates are synced. Account tokens, connected accounts, server permissions, repository caches, Viewed marks and window pin states stay local. Bookmark URLs and titles can reveal private repository names.</p>
+        <p class="muted">When enabling on a device, existing synced preferences replace its saved preferences. Bookmarks are merged by URL, keeping this device's version for duplicates. Later changes use the latest synced snapshot. Refresh already open repository tabs to apply synced preferences.</p>
+        <p class="muted">Browser Sync has an 8 KiB snapshot limit and browser write quotas. Local bookmarks remain unlimited. If Sync fails, your local changes are kept and the error appears below. Disabling applies only to this device: local data and the shared copy used by other enabled devices are kept.</p>
+        <div class="form-actions"><button id="sync-save" type="submit" class="primary" disabled>Save sync setting</button><span id="sync-status" role="status" aria-live="polite"></span></div>
+      </form>
+    </section>
     <section class="card" aria-labelledby="accounts-title">
       <div class="section-heading"><h2 id="accounts-title">Accounts</h2><p>Connect GitHub, GitLab and your own server.</p></div>
       <div id="accounts" class="accounts" aria-live="polite"></div>
@@ -62,7 +73,7 @@
     </section>
     <section class="card details" aria-labelledby="shortcuts-title">
       <div><h2 id="shortcuts-title">Sidebar pinning</h2><p class="muted">The pin button applies to every repository tab in the current window. Other windows keep their own pin state. New windows use the Appearance default.</p></div>
-      <div><h2>Your data</h2><p class="muted">Bookmarks, preferences and the bounded repository-tree cache are local to this browser profile. There is no account with us, subscription, analytics or backend.</p><p class="muted">Repository data goes directly between the extension and the selected GitHub or GitLab server. Tokens are kept out of page scripts and content-script storage access.</p></div>
+      <div><h2>Your data</h2><p class="muted">Bookmarks and preferences stay local unless you enable Browser Sync above. The bounded repository-tree cache stays local. There is no account with us, subscription, analytics or backend.</p><p class="muted">Repository data goes directly between the extension and the selected GitHub or GitLab server. Tokens are kept out of page scripts and content-script storage access.</p></div>
     </section>
     <footer>Original implementation · Code Tree</footer>
     <p id="page-error" role="alert"></p>

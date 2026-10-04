@@ -1,6 +1,6 @@
 # Verification
 
-Version: **0.2.0**. Date: **2026-10-02**.
+Version: **0.2.0**. Date: **2026-10-04**.
 
 This record distinguishes local behavior from live-server and installed-extension proof. The maintainer authorized fixes and regression verification after the release review.
 
@@ -101,9 +101,26 @@ All steps in the actual [Verify Code Tree run for `fe8f277`](https://github.com/
 
 The follow-up [Verify Code Tree run for `3b41a65`](https://github.com/ziqq/Codetree/actions/runs/37046485013) also passed every step: 31 existing regressions, JavaScript/CSS/static checks, workflow validation, dependency audit, reproducible packaging and artifact upload. Its downloaded ZIP matched both the checkout package and a clean committed archive byte-for-byte. This build contains 17 files and is 189,412 bytes; SHA-256: `27dc501ca370365ec79a9fd417c7cdda11c19142c1e03e5757b1db27478a25bc`. The audit found no vulnerabilities. No tag, release or store publication was made.
 
+## Security and correctness follow-up, 2026-10-04
+
+The failed audit in [CI for `0dd4f44`](https://github.com/ziqq/Codetree/actions/runs/37148968870) identified the development-only Stylelint → glob → braces chain ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Deep brace/parenthesis patterns reproduced a stack overflow in the old dependency. Stylelint and that chain were removed without an audit exception. Locked PostCSS/CSS-tree/selector parsing now checks the same two CSS files and seven rule categories. A supplemental name dictionary records its open-source provenance/licenses. An independent comparison with Stylelint 17.16.0 covered 447 cases with no rule-category/syntax differences; this is a scoped comparison, not a claim of universal linter equivalence. Deep value/block inputs no longer need recursive brace expansion.
+
+Two independent first-party source reviews found and then rechecked three security issues: page access to cross-host bookmarks through an open shadow root, unbounded diff coordinate expansion, and body allocation before size enforcement. The sidebar now uses a closed root, global shortcuts reject synthetic events, hunk ranges/row creation are source-bounded, and streams cancel at their byte ceilings. Raw files are capped at 2 MiB per revision, JSON bodies at 32 MiB and OAuth/error bodies at 64 KiB. REST and both GraphQL list collectors reject unexpected page sizes, more than 10,000 results and a conservative 32 MiB aggregate budget before accumulation. No additional source-backed security finding remained in the final manual review.
+
+One-off executions of production functions verified tab/filter/bookmark/refresh races, lazy selected/restored folder chains, encoded GitLab refs, patch bounds and UTF-8 BOM preservation. The 13-case follow-up did not pass against the old HEAD and passed after implementation. These temporary probes complement the 31 unchanged approved regressions; no permanent tests were added or edited. A streamed raw overflow without Content-Length consumed the entire 4 MiB on the old code; the new reader cancelled at the first chunk over 2 MiB. A separate production shortcut probe rejected synthetic page events while retaining trusted keyboard input.
+
+Browser Sync is now optional and off by default. Offline storage/queue probes covered exact preference/bookmark projection, exclusion of credentials/account IDs/cache/Viewed/session state, trusted access, initial merge, duplicate/timestamp handling, quota failures, disabled-setting persistence failures and serialized local/remote writes. A recovery probe reproduced a local save being overwritten after failed initialization by a remote snapshot with a future clock; the final implementation preserved and published the new local data. An independent reviewer repeated that recovery check. These are simulated storage controls, not evidence of actual account delivery between devices.
+
+A clean `npm ci --ignore-scripts` succeeded and the refreshed dependency audit reported zero findings at every severity. Source lint/static validation, the unchanged 31-test suite, pinned actionlint 1.7.12 and deterministic packaging passed. The runtime allowlist now includes Sync and contains 18 files. Final CI and byte-comparison evidence is recorded with delivery; the historical CI results above refer to their named commits.
+
+The managed Codex Security scan could not run because its scan/context/artifact MCP methods are not connected. The checks here are independent manual source reviews, controlled offline probes and a registry dependency audit. No managed scan ID or canonical Workbench report was fabricated. External action/dependency implementations were not audited as first-party source.
+
+The Mac was locked during this follow-up, preventing installed-browser smoke. Previously recorded browser observations remain historical evidence; the changed closed-root UI, browser-account delivery, OAuth registrations and external server environments still need current live validation. No tag, release or store submission was made.
+
 ## Pending environments
 
-- Full browser restart.
+- Installed-browser smoke for the current security/Sync changes and full browser restart.
+- Real browser-account Sync delivery, quota/offline/restart behavior across devices with the same extension ID.
 - Private GitHub/GitLab repositories with real PATs.
 - Registered GitHub/GitLab OAuth sign-in, denial/cancellation, provider token refresh and idle/wake during authorization.
 - Native GitHub Viewed writes and authenticated GitLab discussions/review endpoints.

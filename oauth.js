@@ -11,7 +11,7 @@
     const response = await fetch(origin + path, {method: 'POST', headers: {Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
       body: new URLSearchParams(parameters).toString(), credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(25000)});
     let value;
-    try { value = await response.json(); } catch { throw new Error('The OAuth server returned an invalid response. Try again or use a personal access token.'); }
+    try { value = await globalThis.CodeTreeResponseJSON(response, 64 * 1024); } catch { throw new Error('The OAuth server returned an invalid response. Try again or use a personal access token.'); }
     if (!response.ok || value.error) {
       const error = new Error('OAuth authorization failed. Reconnect in Settings or use a personal access token.');
       error.code = typeof value.error === 'string' ? value.error : ''; error.interval = Number(value.interval); throw error;
