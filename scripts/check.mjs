@@ -34,7 +34,7 @@ const built = await mkdtemp(join(tmpdir(), 'code-tree-check-'));
 await buildExtension(built);
 const extensionAsset = path => asset(path, built);
 
-requireValue(manifest.manifest_version === 3 && manifest.name === 'Code Tree', 'Expected the Code Tree Manifest V3 extension.');
+requireValue(manifest.manifest_version === 3 && manifest.name === 'Codetree', 'Expected the Codetree Manifest V3 extension.');
 requireValue(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(manifest.version) && manifest.version.split('.').some(part => Number(part) > 0) && manifest.version.split('.').every(part => Number(part) <= 65535), 'Invalid release version.');
 requireValue(development.private === true && !Object.keys(development.dependencies || {}).length, 'Development tooling must remain private with no runtime dependencies.');
 requireValue(development.version === manifest.version && lock.version === manifest.version && lock.packages[''].version === manifest.version, 'Manifest and development-tool versions differ.');

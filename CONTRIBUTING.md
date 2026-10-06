@@ -46,12 +46,12 @@ Use disposable repositories/accounts for writes. Mark private-token and live-ser
 
 ## Issues
 
-Use an ordinary descriptive title. Include Code Tree/browser/OS versions, provider/server version, reproduction steps, expected/actual behavior and a public URL or minimal example. Describe authentication/scopes without token values. Attach sanitized logs or screenshots only when useful.
+Use an ordinary descriptive title. Include Codetree/browser/OS versions, provider/server version, reproduction steps, expected/actual behavior and a public URL or minimal example. Describe authentication/scopes without token values. Attach sanitized logs or screenshots only when useful.
 
 Keep private source, organization details and credentials out of public issues.
 
 ## License
 
-Code Tree uses the custom [Code Tree Source-Available License 1.0](LICENSE). Workplace use, internal modifications, free forks and PRs are permitted; monetization of covered derivatives, including fork-related donations and paid services for third parties, is restricted. Read the full terms before contributing or distributing a fork.
+Codetree uses the custom [Code Tree Source-Available License 1.0](LICENSE). Workplace use, internal modifications, free forks and PRs are permitted; monetization of covered derivatives, including fork-related donations and paid services for third parties, is restricted. Read the full terms before contributing or distributing a fork.
 
 Contribute only material you have the right to provide under compatible terms. Preserve licensing/copyright notices and identify modifications when sharing covered material. Third-party components keep their own licenses; do not import code whose terms conflict with this project's license. Any contributor-specific permissions must be agreed before merging.

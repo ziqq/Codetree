@@ -94,7 +94,7 @@ tag-add: ## Add TAG. E.g: make tag-add TAG=v0.3.0
 				@echo ""
 				@echo "START ADDING TAG: $(TAG)"
 				@echo ""
-				@git tag -a $(TAG) -m "Code Tree $(patsubst v%,%,$(TAG))"
+				@git tag -a $(TAG) -m "Codetree $(patsubst v%,%,$(TAG))"
 				@git push origin $(TAG)
 				@echo ""
 				@echo "CREATED AND PUSHED TAG $(TAG)"

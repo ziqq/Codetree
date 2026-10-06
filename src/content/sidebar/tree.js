@@ -3,13 +3,23 @@ import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
+import {fileIconElement, matchIcon} from './file-icons.js';
 
 const rowHeight = 29;
 
 export function createTree(app) {
   const {state, run} = app;
-  const {shadow, body, spacer} = app.view;
+  const {host, shadow, body, spacer} = app.view;
   let renderFrame = 0;
+
+  function nodeIcon(node, folder) {
+    const theme = state.preferences.iconTheme;
+    const rule = theme === 'minimal' ? null : matchIcon(node.path, folder);
+    if (rule) return fileIconElement(rule, {coloured: theme === 'color', dark: host.dataset.theme === 'dark'});
+    const kind = folder ? 'folder' : fileKind(node.path);
+    const svg = icon(folder && state.expanded.has(node.path) ? 'folder-open' : kind === 'code' ? 'file-code' : kind, 'file-icon');
+    svg.classList.add(`kind-${kind}`); return svg;
+  }
 
   function updateTree(shouldRender = true) {
     state.flat = flatten(state.tree, state.expanded, state.query);
@@ -37,7 +47,7 @@ export function createTree(app) {
         }}, [icon('chevron')]));
       }
       else row.append(el('span', {class: 'spacer'}));
-      const kind = folder ? 'folder' : fileKind(node.path); row.append(icon(folder && state.expanded.has(node.path) ? 'folder-open' : kind === 'code' ? 'file-code' : kind, 'file-icon')); row.lastChild.classList.add(`kind-${kind}`);
+      row.append(nodeIcon(node, folder));
       row.append(highlight(node.name, state.query));
       if (state.mode === 'changes') {
         if (node.status) row.append(el('span', {class: `file-status ${node.status}`, text: ({added: 'A', removed: 'D', renamed: 'R', modified: 'M'})[node.status] || node.status[0].toUpperCase()}));

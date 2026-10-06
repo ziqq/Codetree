@@ -81,7 +81,7 @@ export function preferences(value = {}) {
     dock: value.dock === 'right' ? 'right' : 'left',
     width: Math.max(240, Math.min(600, Number(value.width) || defaults.width)),
     pinned: value.pinned !== false, open: value.open !== false,
-    iconTheme: ['color', 'outline', 'minimal'].includes(value.iconTheme) ? value.iconTheme : defaults.iconTheme,
+    iconTheme: value.iconTheme === 'outline' ? 'monochrome' : ['color', 'monochrome', 'minimal'].includes(value.iconTheme) ? value.iconTheme : defaults.iconTheme,
     fontFamily: Object.hasOwn(fontFamilies, value.fontFamily) ? value.fontFamily : defaults.fontFamily,
     fontSize: Math.max(10, Math.min(24, Number(value.fontSize) || defaults.fontSize)),
     toggleShortcut, searchShortcut,

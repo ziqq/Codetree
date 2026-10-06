@@ -6,7 +6,7 @@ Source text for the Chrome Web Store Developer Dashboard. The upload API does no
 
 | Field | Value |
 | --- | --- |
-| Name | Code Tree |
+| Name | Codetree |
 | Summary | Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks. |
 | Category | Developer Tools |
 | Language | English |
@@ -19,7 +19,7 @@ The summary must stay within 132 characters and match the manifest description.
 ### Description
 
 ```text
-Code Tree adds a fast file tree to GitHub and GitLab, so you can browse repositories and review pull/merge requests without losing your place.
+Codetree adds a fast file tree to GitHub and GitLab, so you can browse repositories and review pull/merge requests without losing your place.
 
 REPOSITORY NAVIGATION
 • Repository file tree with search, keyboard navigation and branch switching
@@ -35,7 +35,7 @@ CODE REVIEW
 
 PERSONALIZATION
 • Left or right docking, pinning per window, hover opening and resizing
-• Three icon styles, configurable code font and size
+• File and folder icons from file-icons, configurable code font and size
 • Custom shortcuts (default Shift+D to toggle, Shift+S to search), page rules and URL exclusions
 
 ACCOUNTS AND SERVERS
@@ -44,12 +44,12 @@ ACCOUNTS AND SERVERS
 • GitHub Enterprise Server and self-managed GitLab over HTTPS
 
 PRIVACY
-• No Code Tree account, backend, analytics or advertising
+• No Codetree account, backend, analytics or advertising
 • Requests go directly from your browser to your repository host
 • Tokens stay in local extension storage and are never shared with web pages
 • Optional browser Sync covers only preferences and bookmarks
 
-Code Tree is source-available: https://github.com/ziqq/Codetree
+Codetree is source-available: https://github.com/ziqq/Codetree
 ```
 
 ### Graphics

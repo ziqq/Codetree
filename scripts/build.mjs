@@ -3,6 +3,7 @@ import {copyFile, mkdir, rm} from 'node:fs/promises';
 import {dirname, relative, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
+import {fileIconsModule, fonts, vendor} from './file-icons.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const entries = {
@@ -20,14 +21,24 @@ const assets = {
   'icons/icon128.png': 'src/icons/icon128.png',
 };
 
+// Serves the icon table generated from the vendored file-icons/atom sources.
+const fileIcons = {
+  name: 'file-icons',
+  setup(builder) {
+    builder.onResolve({filter: /^virtual:file-icons$/}, () => ({path: 'file-icons', namespace: 'file-icons'}));
+    builder.onLoad({filter: /.*/, namespace: 'file-icons'}, () => ({contents: fileIconsModule(), loader: 'js', resolveDir: root}));
+  },
+};
+
 export async function buildExtension(outdir = resolve(root, 'build')) {
   await rm(outdir, {recursive: true, force: true});
   await build({
     absWorkingDir: root, entryPoints: entries, outdir, bundle: true,
     format: 'iife', platform: 'browser', target: 'chrome116', charset: 'utf8',
-    legalComments: 'none', banner: {js: "'use strict';"}, logLevel: 'warning',
+    legalComments: 'none', banner: {js: "'use strict';"}, logLevel: 'warning', plugins: [fileIcons],
   });
-  for (const [name, source] of Object.entries(assets)) {
+  const fontFiles = Object.values(fonts).map(file => [`fonts/${file}`, relative(root, resolve(vendor, 'fonts', file))]);
+  for (const [name, source] of [...Object.entries(assets), ...fontFiles]) {
     await mkdir(dirname(resolve(outdir, name)), {recursive: true});
     await copyFile(resolve(root, source), resolve(outdir, name));
   }

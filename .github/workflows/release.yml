@@ -1,4 +1,4 @@
-name: Release Code Tree
+name: Release Codetree
 
 on:
   push:

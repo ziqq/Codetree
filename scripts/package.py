@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILT = (
     'manifest.json', 'background.js', 'content.js', 'sidebar.css', 'options.html', 'options.js', 'options.css',
     'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png',
+    'fonts/devopicons.woff2', 'fonts/file-icons.woff2', 'fonts/fontawesome.woff2', 'fonts/mfixx.woff2',
 )
 TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 
@@ -19,6 +20,7 @@ TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 def package_files(source):
     files = {name: source / name for name in BUILT}
     files['PRIVACY.md'] = ROOT / 'PRIVACY.md'
+    files['THIRD_PARTY_NOTICES.md'] = ROOT / 'THIRD_PARTY_NOTICES.md'
     if (ROOT / 'LICENSE').is_file():
         files['LICENSE'] = ROOT / 'LICENSE'
     for name, path in files.items():

@@ -55,7 +55,7 @@ export function createHeaderButtons(app) {
       const filename = file?.filename || path;
       const binary = /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|ttf|otf|woff2?|pdf|zip|gz|7z|rar|mp[34]|mov|ogg|wav|wasm|exe|dll|so|dylib)$/i.test(filename);
       const full = el('button', {type: 'button', class: 'code-tree-view-full', 'aria-label': `View full file: ${filename}`,
-        title: binary ? 'Binary file: text preview unavailable' : 'See the whole file with its changes · Code Tree', disabled: binary ? '' : null,
+        title: binary ? 'Binary file: text preview unavailable' : 'See the whole file with its changes · Codetree', disabled: binary ? '' : null,
         onClick: event => { event.preventDefault(); event.stopPropagation(); if (epoch === state.epoch) run(() => showHeaderDiff(filename, card.id))(); }}, [icon('eye'), document.createTextNode('View full')]);
       card.setAttribute('data-code-tree-file', filename);
       if (actions === header) header.insertBefore(full, header.querySelector('.view') || null);

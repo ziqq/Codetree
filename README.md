@@ -1,14 +1,14 @@
-# Code Tree
+# Codetree
 
 A browser extension for exploring and reviewing **GitHub and GitLab** repositories from a code tree.
 
 **Version 0.3.0 · Chrome / Chromium 116+ · Manifest V3**
 
-Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Code Tree runs locally and talks directly to your repository host. No Code Tree account, subscription or backend is required.
+Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Codetree runs locally and talks directly to your repository host. No Codetree account, subscription or backend is required.
 
 ## Preview
 
-![Code Tree on a GitLab development fixture](.github/images/gitlab.jpg)
+![Codetree on a GitLab development fixture](.github/images/gitlab.jpg)
 
 ![Whole-file preview with highlighted changes](.github/images/full-file.jpg)
 
@@ -21,12 +21,12 @@ These screenshots show a local development fixture with sample data and the actu
 - Inline review comments with authors and links to their discussions.
 - **View full** in native file headers: complete UTF-8 text, highlighted changes and both revision line numbers. Works with a closed sidebar, collapsed files, additions, deletions and unchanged renames.
 - Open PR/MR lists with **Requested from me**, **Reviewed by me**, **Changes requested**, **Approved** and **No reviews** filters.
-- Viewed marks, unlimited local bookmarks, three original icon styles and configurable code fonts/sizes.
+- Viewed marks, unlimited local bookmarks, [file-icons](https://github.com/file-icons/atom) file and folder icons (Color, Monochrome or Minimal) and configurable code fonts/sizes.
 - Left/right docking, pinning per browser window, hover opening and resizing.
 - Custom shortcuts, page-display rules, URL exclusions and folder-click preferences.
 - Multiple accounts, GitHub Enterprise Server and self-managed GitLab over HTTPS.
 
-See [Features](docs/FEATURES.md) for provider differences. This is an independent implementation with original code, interface and icons.
+See [Features](docs/FEATURES.md) for provider differences. This is an independent implementation with original code and interface. File and folder icons come from file-icons/atom; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Quick start
 
@@ -126,6 +126,7 @@ src/
     native/              View full buttons in native diff headers
   options/               Settings and account management
   icons/                 Original extension icons
+vendor/file-icons/       Vendored file-icons/atom rules, styles and fonts
 scripts/                 Bundling, validation and deterministic packaging
 tests/                   Node.js regression suite
 docs/                    Feature details, releases and verification record
@@ -148,12 +149,12 @@ Automated checks do not exercise Chrome's installed extension environment. Read 
 
 ## License
 
-Code Tree uses the **Code Tree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
+Codetree uses the **Code Tree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
 
 - Free personal and workplace use is allowed, including private repositories and commercial development projects.
 - Internal modifications, free forks and pull requests are allowed under the license. Using the tool does not apply its license to your independent projects.
-- Monetization of Code Tree or covered derivatives is prohibited: sales, subscriptions, paid features, advertising, affiliate revenue, sponsorship, fork-related donations and commercial hosting/support/customization for third parties.
+- Monetization of Codetree or covered derivatives is prohibited: sales, subscriptions, paid features, advertising, affiliate revenue, sponsorship, fork-related donations and commercial hosting/support/customization for third parties.
 - Renaming a fork, adding features or incorporating covered material into a larger paid product does not remove the restrictions. There is no automatic conversion to a permissive license.
 - Salary for ordinary development work and internal deployment/modification for the organization using the tool are allowed. Preserve the license and required notices when sharing covered material.
 
-Separate written permission from the relevant rights holder is required for activities outside these terms. Third-party components retain their own licenses.
+Separate written permission from the relevant rights holder is required for activities outside these terms. Third-party components retain their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).

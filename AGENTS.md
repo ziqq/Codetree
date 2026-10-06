@@ -1,6 +1,6 @@
-# Code Tree
+# Codetree
 
-Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Code Tree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
+Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Codetree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
 
 ## General rules
 
@@ -28,6 +28,7 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 - `src/content/sidebar.css`: isolated UI styles; page styles are constructed in `sidebar/layout.js`.
 - `src/options/`: appearance and account settings.
 - `src/manifest.json`, `src/icons/`: distribution metadata and original assets.
+- `vendor/file-icons/`, `scripts/file-icons.mjs`: maintainer-approved file-icons/atom rules, styles and fonts, compiled into the content script at build time. Keep the files unmodified, record the source commit and keep `THIRD_PARTY_NOTICES.md` packaged.
 - `scripts/`, `.github/workflows/`: bundling, validation, deterministic runtime packaging and releases by stable tag.
 - `docs/`, `PRIVACY.md`: feature boundaries and validation/data records.
 
@@ -55,7 +56,7 @@ git diff --check
 - Keep persisted trees scoped by account/host/repository/revision, clear them on Refresh/account changes and reject stale cache writes after invalidation. Do not persist raw files or comments.
 - Use validated patches and exact request revisions for full-file diffs. Preserve limits/error paths.
 - Distinguish local GitLab Viewed marks from synchronized GitHub marks.
-- Native selectors may change. Keep insertion idempotent and clean up on navigation. Do not copy another extension's source/assets.
+- Native selectors may change. Keep insertion idempotent and clean up on navigation. Do not copy another extension's source/assets; the vendored file-icons/atom icon set is the approved exception.
 
 ## Validation and delivery
 

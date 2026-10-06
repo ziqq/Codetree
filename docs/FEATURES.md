@@ -1,6 +1,6 @@
 # Features
 
-The same Code Tree sidebar serves both providers. This table describes the implementation rather than promising identical behavior across server editions.
+The same Codetree sidebar serves both providers. This table describes the implementation rather than promising identical behavior across server editions.
 
 | Capability | GitHub | GitLab |
 | --- | --- | --- |
@@ -36,8 +36,8 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 
 ## Shared appearance and navigation
 
-- Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Code Tree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.
-- Three original icon styles: Color, Outline and Minimal.
+- Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Codetree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.
+- File and folder icons from [file-icons/atom](https://github.com/file-icons/atom), matched by the same path and name rules: Color uses its theme-specific colours, Monochrome the muted text colour, and Minimal the original simple icons. Files without a rule use the original icons.
 - System monospace and locally installed named code fonts, with configurable size.
 - Configurable toggle/search shortcuts, up to eight comma-separated alternatives per action; blank disables the action. Ctrl/Cmd/Alt/Shift/Mod, single keys and named navigation/function keys are supported. Typing, composition, AltGraph and key repeats do not trigger them; browser-reserved combinations may take priority. Arrow-key tree navigation remains available.
 - All-repository or code/review page scope and up to 64 full-URL exclusions. Patterns use a literal URL with * wildcards. Hidden pages do not load the sidebar or insert View full controls.
@@ -52,16 +52,16 @@ GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no r
 
 ## Feature coverage
 
-Reviewed on 2026-10-02. Code Tree is a working beta covering ten common repository-sidebar capability groups with an independent implementation. The table separates implemented behavior from verified environments.
+Reviewed on 2026-10-02. Codetree is a working beta covering ten common repository-sidebar capability groups with an independent implementation. The table separates implemented behavior from verified environments.
 
-| Capability group | Code Tree status |
+| Capability group | Codetree status |
 | --- | --- |
 | PR/commit changed-file tree | Implemented with statistics, comments and Viewed marks. Public GitHub comments and local Viewed are verified; authenticated GitHub writes and GitLab discussions remain pending. |
 | Full-file diffs | Verified on real GitHub/GitLab pages, including a closed sidebar and collapsed native file. Text limits and unavailable-preview states are documented. |
 | Request list and review filters | Lists are verified on public pages. Five review filters are implemented and fixture-tested; real authenticated filtering remains pending. |
 | Branch selection | Branch menus/search and branch-root navigation are implemented; public branch loading is verified. |
 | Code font settings | Font/size settings are implemented and fixture-tested. Named fonts require local installation. |
-| File icon themes | Three original styles are implemented and fixture-tested. |
+| File icon themes | file-icons/atom icons in Color and Monochrome, plus the original Minimal style; verified on live GitHub and GitLab repositories. |
 | Unlimited bookmarks | Local repository/file/issue/request bookmarks are implemented, without a product count limit; browser storage limits apply. |
 | Sidebar docking | Left/right docking, pinning, hover opening and resizing are implemented and fixture-tested. |
 | Multiple accounts | PAT accounts and automatic/manual selection are implemented; real multi-account verification remains pending. |

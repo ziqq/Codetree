@@ -31,8 +31,8 @@ export function mount() {
   app.view = createView(app);
   Object.assign(app, createLayout(app), createFiles(app), createTree(app), createBranches(app), createPulls(app),
     createBookmarks(app), createRender(app), createNavigation(app), createViewer(app), createHeaderButtons(app));
-  const {run} = app; const {host, shadow, pageStyle, search, stylesheetLoaded} = app.view;
-  document.documentElement.append(host, pageStyle);
+  const {run} = app; const {host, shadow, pageStyle, iconFonts, search, stylesheetLoaded} = app.view;
+  document.documentElement.append(host, pageStyle, iconFonts);
 
   document.addEventListener('keydown', event => {
     if (!event.isTrusted) return;

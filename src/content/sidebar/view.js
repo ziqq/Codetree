@@ -1,6 +1,7 @@
 /* Sidebar Shadow DOM: panel, edge handle, resize separator, toast and viewer dialog. */
 import {icon} from '../../shared/icons.js';
 import {button, el} from '../dom.js';
+import {fontFaces} from './file-icons.js';
 
 export function createView(app) {
   const {state, run} = app;
@@ -12,18 +13,19 @@ export function createView(app) {
   const sheet = document.createElement('link'); sheet.rel = 'stylesheet'; sheet.href = chrome.runtime.getURL('sidebar.css');
   const stylesheetLoaded = new Promise((resolve, reject) => {
     sheet.addEventListener('load', resolve, {once: true});
-    sheet.addEventListener('error', () => reject(new Error('Code Tree styles could not load. Refresh this page.')), {once: true});
+    sheet.addEventListener('error', () => reject(new Error('Codetree styles could not load. Refresh this page.')), {once: true});
   });
   shadow.append(sheet);
   const pageStyle = document.createElement('style'); pageStyle.id = 'code-tree-page-style';
+  const iconFonts = document.createElement('style'); iconFonts.id = 'code-tree-icon-fonts'; iconFonts.textContent = fontFaces();
 
-  const panel = el('aside', {class: 'panel', 'aria-label': 'Code Tree', hidden: ''});
+  const panel = el('aside', {class: 'panel', 'aria-label': 'Codetree', hidden: ''});
   const pinButton = button('pin', 'Pin sidebar in this window', run(async () => {
     state.preferences.pinned = await app.rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
     await app.setPreferences({open: true});
   }));
   const closeButton = button('close', 'Close sidebar', run(() => app.setPreferences({open: false})));
-  const brandbar = el('div', {class: 'brandbar'}, [icon('tree'), el('span', {class: 'brand', text: 'Code Tree'}), pinButton,
+  const brandbar = el('div', {class: 'brandbar'}, [icon('tree'), el('span', {class: 'brand', text: 'Codetree'}), pinButton,
     closeButton]);
   const repository = el('div', {class: 'repository'});
   const branchLabel = el('span', {class: 'branch-label', text: 'Loading branch…'});
@@ -51,7 +53,7 @@ export function createView(app) {
   const footer = el('div', {class: 'footer'}, [icon('account'), accountSelect, el('span', {class: 'separator'}), bookmarkButton, dockButton,
     button('settings', 'Settings', run(() => app.rpc('OPTIONS')))]);
   panel.append(brandbar, repository, branchbar, tabs, searchbar, toolbar, notice, body, footer);
-  const handle = el('button', {type: 'button', class: 'handle', 'aria-label': 'Open Code Tree', hidden: '', onClick: run(() => app.setPreferences({open: true}))}, [icon('chevron'), el('span', {text: 'Code Tree'}), el('span', {class: 'handle-grip', 'aria-hidden': 'true'})]);
+  const handle = el('button', {type: 'button', class: 'handle', 'aria-label': 'Open Codetree', hidden: '', onClick: run(() => app.setPreferences({open: true}))}, [icon('chevron'), el('span', {text: 'Codetree'}), el('span', {class: 'handle-grip', 'aria-hidden': 'true'})]);
   const resize = el('div', {class: 'resize', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Resize sidebar', tabindex: '0', hidden: ''});
   const toastBox = el('div', {class: 'toast', role: 'status', hidden: ''});
   const viewer = el('dialog', {class: 'viewer', 'aria-label': 'Full-file diff'});
@@ -96,7 +98,7 @@ export function createView(app) {
   }));
   body.addEventListener('scroll', () => app.requestTreeRender(), {passive: true});
 
-  return {host, shadow, pageStyle, stylesheetLoaded, panel, pinButton, closeButton, repository, branchLabel, branchButton,
+  return {host, shadow, pageStyle, iconFonts, stylesheetLoaded, panel, pinButton, closeButton, repository, branchLabel, branchButton,
     branchSearch, branchList, branchPopover, tabButtons, search, searchHint, toolbar, notice, body, spacer, accountSelect,
     bookmarkButton, handle, resize, toastBox, viewer};
 }

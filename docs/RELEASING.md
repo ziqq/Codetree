@@ -22,9 +22,9 @@ npm run package
 python3 scripts/package.py --verify dist/code-tree-0.3.0.zip
 ```
 
-`npm run build` bundles `src/background/index.js`, `src/content/index.js` and `src/options/index.js` with esbuild into classic scripts (`background.js`, `content.js`, `options.js`) and copies the manifest, styles, Settings page and icons into `build/`. The service worker, content script and Settings page load no other scripts at runtime. Bundles are not minified, so store reviewers can read them, and the output is byte-for-byte reproducible for a checkout.
+`npm run build` bundles `src/background/index.js`, `src/content/index.js` and `src/options/index.js` with esbuild into classic scripts (`background.js`, `content.js`, `options.js`) and copies the manifest, styles, Settings page, icons and file-icons fonts into `build/`. `scripts/file-icons.mjs` generates the icon table from `vendor/file-icons/` during bundling. The service worker, content script and Settings page load no other scripts at runtime. Bundles are not minified, so store reviewers can read them, and the output is byte-for-byte reproducible for a checkout.
 
-The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist, `PRIVACY.md` and the maintainer-approved [LICENSE](../LICENSE). CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded. Development metadata points to `LICENSE`; CI checks that it exists, is nonempty and agrees with the lockfile's license metadata.
+The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist (including the four file-icons fonts), `PRIVACY.md`, [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and the maintainer-approved [LICENSE](../LICENSE). CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded. Development metadata points to `LICENSE`; CI checks that it exists, is nonempty and agrees with the lockfile's license metadata.
 
 The packager reads `build/` and checks manifest and Settings asset references against that allowlist. It uses sorted entries, fixed timestamps/permissions and stored ZIP entries so the archive bytes are reproducible across platforms without depending on a compression-library version. It verifies CRCs, every bundled byte, the entry list and the companion SHA-256 file after building. CI bundles twice into separate directories and compares the ZIP bytes; the release jobs rebuild the tagged source before verifying the downloaded ZIP.
 
@@ -32,9 +32,9 @@ No extension signing key is used; the Chrome Web Store signs submitted packages.
 
 ## GitHub Actions
 
-[Verify Code Tree](../.github/workflows/ci.yml) runs on branch pushes, pull requests and manual dispatch. It installs locked development tools, runs all source/workflow/audit checks and uploads the verified ZIP and checksum. Permissions are read-only.
+[Verify Codetree](../.github/workflows/ci.yml) runs on branch pushes, pull requests and manual dispatch. It installs locked development tools, runs all source/workflow/audit checks and uploads the verified ZIP and checksum. Permissions are read-only.
 
-[Release Code Tree](../.github/workflows/release.yml) runs on pushed tags beginning with `v`, or manually from the default branch with a `version` input. It calls the same verification workflow for that checkout. Publication fails unless all checks pass and:
+[Release Codetree](../.github/workflows/release.yml) runs on pushed tags beginning with `v`, or manually from the default branch with a `version` input. It calls the same verification workflow for that checkout. Publication fails unless all checks pass and:
 
 - The tag is exactly `vX.Y.Z`, with no prerelease suffix or leading-zero components.
 - The tag version equals `src/manifest.json`, development metadata and the newest changelog version.
@@ -62,10 +62,10 @@ Releases created with `GITHUB_TOKEN` do not trigger separate `release.published`
 2. Update `src/manifest.json`, `package.json`, the Settings/README version labels and the newest `CHANGELOG.md` section together. Refresh the lockfile with `npm install --package-lock-only --ignore-scripts`.
 3. Run the local checks, inspect the package and verify affected browser interactions.
 4. Commit and push the release source; wait for the branch CI to succeed.
-5. When the maintainer requests publication, either run **Release Code Tree** manually from the default branch with the version, or create and push the matching annotated tag:
+5. When the maintainer requests publication, either run **Release Codetree** manually from the default branch with the version, or create and push the matching annotated tag:
 
 ```sh
-git tag -a v0.3.0 -m 'Code Tree 0.3.0'
+git tag -a v0.3.0 -m 'Codetree 0.3.0'
 git push origin v0.3.0
 ```
 
