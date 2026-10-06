@@ -4,6 +4,10 @@
     {
       "label": "make:get",
       "detail": "Install locked development tools (npm ci)",
+      "icon": {
+        "color": "terminal.ansiBlue",
+        "id": "cloud-download"
+      },
       "type": "shell",
       "command": "make get",
       "problemMatcher": []
@@ -11,6 +15,10 @@
     {
       "label": "make:lint",
       "detail": "ESLint and CSS validation",
+      "icon": {
+        "color": "terminal.ansiYellow",
+        "id": "checklist"
+      },
       "type": "shell",
       "command": "make lint",
       "problemMatcher": [
@@ -20,6 +28,10 @@
     {
       "label": "make:test",
       "detail": "Node.js regression tests",
+      "icon": {
+        "color": "terminal.ansiGreen",
+        "id": "beaker"
+      },
       "type": "shell",
       "command": "make test",
       "group": {
@@ -31,15 +43,12 @@
     {
       "label": "make:build",
       "detail": "Bundle src/ into the unpacked extension in build/",
+      "icon": {
+        "color": "terminal.ansiCyan",
+        "id": "package"
+      },
       "type": "shell",
       "command": "make build",
-      "problemMatcher": []
-    },
-    {
-      "label": "make:package",
-      "detail": "Build the reproducible extension ZIP into dist/",
-      "type": "shell",
-      "command": "make package",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -47,8 +56,34 @@
       "problemMatcher": []
     },
     {
+      "label": "make:package",
+      "detail": "Build the reproducible extension ZIP into dist/",
+      "icon": {
+        "color": "terminal.ansiCyan",
+        "id": "file-zip"
+      },
+      "type": "shell",
+      "command": "make package",
+      "problemMatcher": []
+    },
+    {
+      "label": "make:verify-package",
+      "detail": "Verify the dist ZIP against the bundled build",
+      "icon": {
+        "color": "terminal.ansiGreen",
+        "id": "verified"
+      },
+      "type": "shell",
+      "command": "make verify-package",
+      "problemMatcher": []
+    },
+    {
       "label": "make:verify",
       "detail": "Lint, tests, repository checks and packaging",
+      "icon": {
+        "color": "terminal.ansiGreen",
+        "id": "pass-filled"
+      },
       "type": "shell",
       "command": "make verify",
       "problemMatcher": [
@@ -58,11 +93,26 @@
     {
       "label": "make:ci",
       "detail": "Local equivalent of the CI pipeline",
+      "icon": {
+        "color": "terminal.ansiMagenta",
+        "id": "github-action"
+      },
       "type": "shell",
       "command": "make ci",
       "problemMatcher": [
         "$eslint-stylish"
       ]
+    },
+    {
+      "label": "make:clean",
+      "detail": "Remove build/ and dist/",
+      "icon": {
+        "color": "terminal.ansiRed",
+        "id": "trash"
+      },
+      "type": "shell",
+      "command": "make clean",
+      "problemMatcher": []
     }
   ]
 }
