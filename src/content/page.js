@@ -1,8 +1,21 @@
-/* Reads the current GitHub/GitLab page: route, viewer, theme and provider wording. */
+/**
+ * Reads the current GitHub or GitLab page: its repository context, signed-in
+ * user, branch hint, theme and provider wording.
+ *
+ * @module content/page
+ */
 import {pageVisible} from '../shared/preferences.js';
 import {route} from '../shared/routes.js';
 
+/** Returns the content of a `<meta name>` tag, or an empty string. */
 export function meta(name) { return document.querySelector(`meta[name="${name}"]`)?.content || ''; }
+
+/**
+ * Returns the branch name from GitHub's embedded page data.
+ *
+ * Needed for branch names containing `/`, which the URL alone cannot
+ * separate from the file path.
+ */
 export function refHint() {
   for (const script of document.querySelectorAll('script[data-target="react-app.embeddedData"]')) {
     try {
@@ -14,6 +27,16 @@ export function refHint() {
   }
   return '';
 }
+
+/**
+ * Returns the repository context of the current page, or `null` when
+ * Codetree should not appear (no repository, group page, excluded URL).
+ *
+ * The signed-in username is included as `viewer` for automatic account selection.
+ *
+ * @param {Object} state The sidebar state (for hosts and preferences).
+ * @returns {?Object}
+ */
 export function currentContext(state) {
   const provider = state.public?.hosts?.find(host => host.origin === location.origin)?.provider || (location.hostname === 'gitlab.com' ? 'gitlab' : 'github');
   if (provider === 'gitlab' && document.body?.dataset.page?.startsWith('groups:')) return null;
@@ -21,8 +44,14 @@ export function currentContext(state) {
   if (!pageVisible(location.href, context, state.preferences)) return null;
   return {...context, viewer: provider === 'gitlab' ? document.body?.dataset.currentUserUsername || '' : meta('user-login') || meta('octolytics-actor-login'), refHint: refHint() || context.refHint || ''};
 }
+
+/** `GitLab` or `GitHub`, for user-facing text. */
 export function providerName(context) { return context?.provider === 'gitlab' ? 'GitLab' : 'GitHub'; }
+
+/** `merge request` or `pull request`, for user-facing text. */
 export function requestName(context) { return context?.provider === 'gitlab' ? 'merge request' : 'pull request'; }
+
+/** Whether the provider page currently uses a dark theme. */
 export function isDark() {
   if (document.documentElement.classList.contains('gl-dark') || document.body?.classList.contains('gl-dark')) return true;
   if (document.documentElement.classList.contains('gl-light') || document.body?.classList.contains('gl-light')) return false;

@@ -1,7 +1,19 @@
-/* file-icons/atom icon matching and rendering. The table is generated at build time from vendor/file-icons. */
+/**
+ * file-icons/atom icons: matching and rendering.
+ *
+ * The rule table is generated at build time from `vendor/file-icons` (see
+ * `scripts/file-icons.mjs`). Each rule is `[glyph, darkColour, lightColour, pattern]`;
+ * a glyph is either a font character with Atom's size and offsets, or
+ * Octicons SVG paths.
+ *
+ * @module content/sidebar/file-icons
+ */
 import {directories, files, fonts, glyphs} from 'virtual:file-icons';
 
+/** Page-unique font-family name of a bundled icon font. */
 const family = index => `codetree-file-icons-${index}`;
+
+/** Matched rules by path; cleared when it reaches 4,096 entries. */
 const cache = {file: new Map(), directory: new Map()};
 
 // Same order as file-icons/atom: path-specific rules first, then every rule against the basename.
@@ -11,6 +23,13 @@ function lookup(table, path, name) {
   return null;
 }
 
+/**
+ * Returns the file-icons rule for a file or folder, or `null`.
+ *
+ * @param {string} path The repository path.
+ * @param {boolean} [directory=false] Match folder rules instead of file rules.
+ * @returns {?Array}
+ */
 export function matchIcon(path, directory = false) {
   const store = directory ? cache.directory : cache.file;
   if (store.has(path)) return store.get(path);
@@ -21,10 +40,19 @@ export function matchIcon(path, directory = false) {
 }
 
 // Fonts must be declared in the page document; @font-face rules inside a shadow root are ignored.
+/** Returns `@font-face` rules for the bundled icon fonts. */
 export function fontFaces() {
   return fonts.map((file, index) => `@font-face{font-family:"${family(index)}";src:url("${chrome.runtime.getURL(`fonts/${file}`)}") format("woff2");font-weight:normal;font-style:normal;font-display:block}`).join('');
 }
 
+/**
+ * Creates the icon element for a matched rule.
+ *
+ * @param {Array} rule A rule from [matchIcon].
+ * @param {{coloured: boolean, dark: boolean}} options Use the rule's colour
+ *     for the current theme, or inherit the muted text colour.
+ * @returns {Element}
+ */
 export function fileIconElement(rule, {coloured, dark}) {
   const glyph = glyphs[rule[0]]; const colour = coloured ? rule[dark ? 1 : 2] : null;
   let node;

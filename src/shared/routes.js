@@ -1,5 +1,24 @@
-/* Repository routes and URLs. Shared, original implementation. */
+/**
+ * Repository routes and URLs for GitHub and GitLab.
+ *
+ * Pure functions shared by the service worker, the content script and
+ * Settings. A *context* is the parsed route of a repository page:
+ * `{origin, provider, owner, repo, kind, tail, path, number?, sha?, refHint?}`,
+ * where `kind` is `repo`, `tree`, `blob`, `blame`, `raw`, `pull` or `commit`.
+ *
+ * @module shared/routes
+ */
 
+/**
+ * Validates a repository website origin entered in Settings.
+ *
+ * Only bare HTTPS origins are accepted: no credentials, path, query or
+ * fragment, and never the GitHub API host.
+ *
+ * @param {string} value A URL such as `https://gitlab.example.com`.
+ * @returns {string} The normalized origin.
+ * @throws {Error} If the value is not an acceptable HTTPS origin.
+ */
 export function normalizeOrigin(value) {
   const url = new URL(value);
   if (url.protocol !== 'https:' || url.username || url.password ||
@@ -10,6 +29,19 @@ export function normalizeOrigin(value) {
   return url.origin;
 }
 
+/**
+ * Parses a repository page URL into a context.
+ *
+ * GitHub paths are `/<owner>/<repo>/<view>/…`; reserved top-level paths
+ * (settings, organizations, search, …) are not repositories. GitLab paths
+ * may contain nested namespaces and separate the project from the view
+ * with `/-/`. A `/` inside the first tail segment of a GitLab URL is kept
+ * as `refHint`, because branch names may contain slashes.
+ *
+ * @param {string} url The page URL.
+ * @param {'github'|'gitlab'} [provider='github'] Provider of the page origin.
+ * @returns {?Object} The context, or `null` when the page is not a repository.
+ */
 export function route(url, provider = 'github') {
   const parsed = new URL(url);
   let parts;
@@ -46,10 +78,49 @@ export function route(url, provider = 'github') {
   return result;
 }
 
+/**
+ * Returns the repository home page URL for [context].
+ *
+ * @param {Object} context A repository context.
+ * @returns {string}
+ */
 export function repoURL(context) {
   return `${context.origin}/${pathURL(context.owner)}/${encodeURIComponent(context.repo)}`;
 }
+
+/**
+ * Percent-encodes every segment of a slash-separated path.
+ *
+ * @param {string} path A repository path or namespace.
+ * @returns {string}
+ */
 export function pathURL(path) { return path.split('/').map(encodeURIComponent).join('/'); }
+
+/**
+ * Returns the URL of the repository root at [ref].
+ *
+ * @param {Object} context A repository context.
+ * @param {string} ref A branch, tag or commit.
+ * @returns {string}
+ */
 export function treeURL(context, ref) { return `${repoURL(context)}${context.provider === 'gitlab' ? '/-' : ''}/tree/${encodeURIComponent(ref)}`; }
+
+/**
+ * Returns the URL of a file (`blob`) or folder (`tree`) at [ref].
+ *
+ * @param {Object} context A repository context.
+ * @param {string} ref A branch, tag or commit.
+ * @param {string} path The repository path.
+ * @param {'blob'|'tree'} [type='blob'] The provider view.
+ * @returns {string}
+ */
 export function blobURL(context, ref, path, type = 'blob') { return `${repoURL(context)}${context.provider === 'gitlab' ? '/-' : ''}/${type}/${encodeURIComponent(ref)}/${pathURL(path)}`; }
+
+/**
+ * Returns the URL of a pull request (GitHub) or merge request (GitLab).
+ *
+ * @param {Object} context A repository context.
+ * @param {number} number The request number (`iid` on GitLab).
+ * @returns {string}
+ */
 export function pullURL(context, number) { return `${repoURL(context)}/${context.provider === 'gitlab' ? '-/merge_requests' : 'pull'}/${number}`; }

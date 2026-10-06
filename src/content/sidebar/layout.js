@@ -1,13 +1,24 @@
-/* Sidebar placement, theme, fonts and page padding. */
+/**
+ * Sidebar placement, theme, code font and page padding.
+ *
+ * @module content/sidebar/layout
+ */
 import {fontFamilies, preferences} from '../../shared/preferences.js';
 import {isDark} from '../page.js';
 
+/** Creates the layout feature: `layout`, `positionHandle` and `setPreferences`. */
 export function createLayout(app) {
   const {state} = app;
   const {host, pageStyle, panel, handle, resize, pinButton, closeButton, searchHint} = app.view;
   let nativeSidebar = null;
   const nativeSidebarObserver = new ResizeObserver(positionHandle);
 
+  /**
+   * Applies the preferences and theme to the sidebar and the page.
+   *
+   * A pinned, open sidebar pads the page so that it does not cover the
+   * content; a custom code font also applies to the provider's code views.
+   */
   function layout() {
     const prefs = state.preferences; const available = app.uiReady && Boolean(state.context);
     host.style.visibility = app.uiReady ? 'visible' : 'hidden';
@@ -33,6 +44,8 @@ export function createLayout(app) {
       .codetree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.codetree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.codetree-view-full:disabled{opacity:.5;cursor:default}.codetree-view-full .icon{height:15px;width:15px}`;
     app.requestTreeRender();
   }
+
+  /** Moves the collapsed edge handle beside GitHub's left navigation drawer when it is open. */
   function positionHandle() {
     const sidebar = state.context?.provider === 'github' ? document.querySelector('[aria-label="Issues sidebar navigation"]') : null;
     if (sidebar !== nativeSidebar) {
@@ -45,6 +58,12 @@ export function createLayout(app) {
       ? Math.ceil(Math.max(0, rect.right)) : 0;
     host.style.setProperty('--handle-offset', `${offset}px`);
   }
+
+  /**
+   * Applies preferences immediately and saves them in the service worker.
+   *
+   * @param {Object} value Changed preference fields.
+   */
   async function setPreferences(value) {
     state.preferences = preferences({...state.preferences, ...value}); layout();
     await app.rpc('PREFERENCES', {value});

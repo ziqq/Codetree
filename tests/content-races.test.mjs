@@ -1,3 +1,7 @@
+/**
+ * Asynchronous tree loading in `content/sidebar/files.js`: stale folder replies,
+ * overlapping loads and "load all folders" never modify a newer tree.
+ */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createFiles} from '../src/content/sidebar/files.js';

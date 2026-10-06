@@ -1,21 +1,39 @@
-/* Full-file diff and review-comment viewer in a modal dialog. */
+/**
+ * Full-file diff and review-comment viewer in a modal dialog.
+ *
+ * Each opened view gets a generation number; closing the dialog, opening
+ * another file or navigating invalidates replies for the previous view.
+ *
+ * @module content/viewer/viewer
+ */
 import {lines, fullDiff} from '../../shared/diff.js';
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {tokenize} from './syntax.js';
 
+/** Converts a diff file to a tree node shape used by the viewer. */
 export function diffNode(file) {
   return {...file, path: file.filename, type: 'blob', adds: file.additions, dels: file.deletions};
 }
 
+/** Creates the viewer feature: `closeViewer`, `isCurrent`, `viewerShell`, `showDiff` and `showComments`. */
 export function createViewer(app) {
   const {state, run} = app;
   const {viewer} = app.view;
   let generation = 0;
   viewer.addEventListener('close', () => { generation++; });
 
+  /** Closes the dialog and invalidates its pending work. */
   function closeViewer() { generation++; if (viewer.open) viewer.close(); }
+
+  /** Whether [shell] is still the open view. */
   function isCurrent(shell) { return shell.generation === generation; }
+
+  /**
+   * Opens the dialog with an empty layout for a new view.
+   *
+   * @returns {{actions: Element, body: Element, bottom: Element, generation: number}}
+   */
   function viewerShell(title, subtitle, label = 'Full-file diff') {
     generation++; viewer.setAttribute('aria-label', label);
     const heading = el('div', {class: 'viewer-heading'}, [el('strong', {text: title}), el('small', {text: subtitle})]);
@@ -26,6 +44,14 @@ export function createViewer(app) {
     if (!viewer.open) viewer.showModal();
     return {actions, body: viewerBody, bottom, generation};
   }
+
+  /**
+   * Shows a whole changed file with highlighted changes and both line numbers.
+   *
+   * Both revisions are loaded at the exact request revisions and validated
+   * against the patch. Rows are virtualized; syntax highlighting is skipped
+   * above its token budget. Previous/next cover every changed file.
+   */
   async function showDiff(node) {
     const diff = state.diff; if (!diff) return;
     const shell = viewerShell(node.path, `${diff.base.sha?.slice(0, 7) || 'empty'} → ${diff.head.sha.slice(0, 7)} · full-file context`);
@@ -82,6 +108,8 @@ export function createViewer(app) {
       draw();
     } catch (error) { if (isCurrent(shell)) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff')); }
   }
+
+  /** Shows the inline review comments of a file or of every file in a folder. */
   function showComments(node) {
     const files = node.type === 'tree' ? state.entries.filter(entry => entry.path.startsWith(node.path + '/')) : [node];
     const comments = files.flatMap(file => file.comments || []);

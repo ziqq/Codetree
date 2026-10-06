@@ -1,22 +1,60 @@
-/* Optional browser-account sync. Only the trusted broker loads this module. */
+/**
+ * Optional browser Sync of preferences and bookmarks.
+ *
+ * Off by default and enabled per device in Settings. One versioned
+ * snapshot (at most 8 KiB) is stored in `chrome.storage.sync`; it contains
+ * only whitelisted preferences and bookmark URLs, titles and dates.
+ * Tokens, accounts, Viewed marks and caches never leave the device.
+ *
+ * The newest `updatedAt` wins. Enabling merges remote bookmarks with local
+ * ones by URL, keeping local details for duplicates. Only the trusted
+ * service worker loads this module.
+ *
+ * @module background/sync
+ */
 import * as C from '../shared/preferences.js';
 
+/** `chrome.storage.sync` key of the shared snapshot. */
 const snapshotKey = 'codetreeSyncSnapshot';
+
+/** `chrome.storage.local` key of this device's Sync settings. */
 const settingsKey = 'syncSettings';
+
+/** Preferences included in the snapshot. */
 const preferenceKeys = Object.freeze(['dock', 'width', 'pinned', 'open', 'iconTheme', 'fontFamily', 'fontSize',
   'toggleShortcut', 'searchShortcut', 'pageScope', 'hidePatterns', 'folderClick']);
+
+/** Snapshot size limit, below Chrome's per-item quota. */
 const maxItemBytes = 8192;
+// Store accessors supplied by the broker, the initialization promise, the
+// serialized task queue, whether the remote snapshot was read, the newest
+// known snapshot time and the last applied/published snapshot.
 let readStore; let writeStore; let ready; let tasks = Promise.resolve(); let remoteLoaded = false; let latestUpdatedAt = 0; let lastSnapshot = '';
+
+/** This device's Sync state, as shown in Settings. */
 let settings = {enabled: false, lastSyncedAt: 0, error: ''};
 
+/**
+ * Returns a copy of this device's Sync state.
+ *
+ * @returns {{enabled: boolean, lastSyncedAt: number, error: string}}
+ */
 export function status() { return {...settings}; }
+
+/** Runs Sync tasks one at a time; a failure does not stop later tasks. */
 function serial(callback) {
   const result = tasks.then(callback);
   tasks = result.catch(() => {});
   return result;
 }
+
+/** UTF-8 size of a value serialized as JSON. */
 function byteSize(value) { return new TextEncoder().encode(JSON.stringify(value)).length; }
+
+/** Size counted against the browser's per-item Sync quota. */
 function itemBytes(value) { return snapshotKey.length + byteSize(value); }
+
+/** Validates and normalizes the whitelisted preferences of a snapshot. */
 function preferences(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The synced preferences are invalid.');
   const selected = {};
@@ -29,6 +67,8 @@ function preferences(value) {
   const normalized = C.preferences(selected);
   return Object.fromEntries(preferenceKeys.map(key => [key, normalized[key]]));
 }
+
+/** Validates a bookmark: an HTTPS URL without credentials, a title and a creation time. */
 function bookmark(value) {
   if (!value || typeof value !== 'object' || typeof value.url !== 'string' || typeof value.title !== 'string') throw new Error('The synced bookmarks are invalid.');
   const url = new URL(value.url);
@@ -39,6 +79,12 @@ function bookmark(value) {
   if (typeof value.repo === 'string') result.repo = value.repo.slice(0, 180);
   return result;
 }
+
+/**
+ * Validates a snapshot read from or written to browser Sync.
+ *
+ * @throws {Error} If the version, size, preferences or bookmarks are invalid.
+ */
 function snapshot(value) {
   if (!value || value.version !== 1 || !Number.isSafeInteger(value.updatedAt) || value.updatedAt < 1 || value.updatedAt >= Number.MAX_SAFE_INTEGER || !Array.isArray(value.bookmarks)) throw new Error('The synced snapshot is invalid or uses an unsupported version.');
   if (itemBytes(value) > Math.min(maxItemBytes, chrome.storage.sync.QUOTA_BYTES_PER_ITEM || maxItemBytes)) throw new Error('The synced snapshot exceeds the 8 KiB browser Sync limit.');
@@ -46,10 +92,14 @@ function snapshot(value) {
   if (new Set(bookmarks.map(item => item.url)).size !== bookmarks.length) throw new Error('The synced bookmarks contain duplicate URLs.');
   return {version: 1, updatedAt: value.updatedAt, preferences: preferences(value.preferences), bookmarks};
 }
+
+/** Stores this device's Sync settings; returns whether the write succeeded. */
 async function saveSettings() {
   try { await chrome.storage.local.set({[settingsKey]: {...status(), updatedAt: latestUpdatedAt}}); return true; }
   catch { settings.error = 'The browser could not save the Sync setting. Local preferences and bookmarks are kept.'; return false; }
 }
+
+/** Records a Sync error for Settings; quota errors get an actionable message. */
 async function failure(error) {
   const message = error instanceof Error ? error.message : String(error);
   settings.error = /quota|max_write|write operations/i.test(message)
@@ -58,10 +108,19 @@ async function failure(error) {
   await saveSettings();
   return status();
 }
+
+/** Reads and validates the shared snapshot, if any. */
 async function remote() {
   const values = await chrome.storage.sync.get(snapshotKey);
   return Object.hasOwn(values, snapshotKey) ? snapshot(values[snapshotKey]) : null;
 }
+
+/**
+ * Applies a snapshot to local storage.
+ *
+ * Local bookmark IDs are kept for known URLs. With [merge], local
+ * bookmarks are added to the remote ones and win for duplicate URLs.
+ */
 async function apply(value, merge = false) {
   await writeStore(current => {
     const existing = new Map((current.bookmarks || []).map(item => [item.url, item]));
@@ -79,6 +138,13 @@ async function apply(value, merge = false) {
   lastSnapshot = JSON.stringify(value);
   settings.error = '';
 }
+
+/**
+ * Writes the current local preferences and bookmarks as a new snapshot.
+ *
+ * Total and item quotas are checked before writing so a failure leaves
+ * the previous snapshot intact.
+ */
 async function publish() {
   const current = await readStore();
   latestUpdatedAt = Math.max(Date.now(), latestUpdatedAt + 1);
@@ -96,6 +162,13 @@ async function publish() {
   await saveSettings();
   return status();
 }
+
+/**
+ * Applies a newer remote snapshot once, then publishes the local state.
+ *
+ * With [preserveLocal], a newer remote snapshot only advances the clock,
+ * because the caller has just saved a local change.
+ */
 async function syncCurrent(preserveLocal = false) {
   await chrome.storage.sync.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'});
   if (!remoteLoaded) {
@@ -108,6 +181,15 @@ async function syncCurrent(preserveLocal = false) {
   }
   return publish();
 }
+
+/**
+ * Loads the Sync settings and starts listening for remote changes.
+ *
+ * Called once by the service worker; later calls return the same promise.
+ *
+ * @param {{readStore: Function, writeStore: Function}} hooks Trusted storage accessors.
+ * @returns {Promise<Object>} The Sync status.
+ */
 export function initialize(hooks) {
   if (ready) return ready;
   readStore = hooks.readStore; writeStore = hooks.writeStore;
@@ -142,6 +224,15 @@ export function initialize(hooks) {
   });
   return ready;
 }
+
+/**
+ * Writes preferences or bookmarks locally and publishes them when Sync is enabled.
+ *
+ * Sync errors are recorded for Settings and never undo the local write.
+ *
+ * @param {function(Object): Object} callback Computes the update from the store.
+ * @returns {Promise<Object>} The local update.
+ */
 export async function localWrite(callback) {
   await ready;
   return serial(async () => {
@@ -153,6 +244,15 @@ export async function localWrite(callback) {
     return update;
   });
 }
+
+/**
+ * Enables, disables or re-synchronizes Sync on this device.
+ *
+ * Disabling keeps both the local data and the shared snapshot.
+ *
+ * @param {boolean} enabled The requested state.
+ * @returns {Promise<{sync: Object, preferences: Object, bookmarks: Array}>}
+ */
 export async function configure(enabled) {
   await ready;
   return serial(async () => {

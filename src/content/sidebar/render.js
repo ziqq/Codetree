@@ -1,11 +1,17 @@
-/* Renders the active sidebar tab, its toolbar and notices. */
+/**
+ * Renders the active tab, its toolbar and notices.
+ *
+ * @module content/sidebar/render
+ */
 import {button, el, empty} from '../dom.js';
 import {providerName, requestName} from '../page.js';
 
+/** Creates the render feature: `render`. */
 export function createRender(app) {
   const {state, run} = app;
   const {tabButtons, body, spacer, search, toolbar, notice} = app.view;
 
+  /** Renders the toolbar of the active tab: tree mode or request filter, count and actions. */
   function renderToolbar() {
     toolbar.replaceChildren();
     if (state.tab === 'files') {
@@ -24,6 +30,8 @@ export function createRender(app) {
     } else toolbar.append(el('span', {class: 'toolbar-title', text: 'Saved on this browser'}), el('span', {class: 'count', text: String(state.public?.bookmarks.length || 0)}));
     toolbar.append(button('refresh', 'Refresh sidebar', run(() => app.refresh())));
   }
+
+  /** Renders the active tab, including its loading, error and empty states. */
   function render() {
     const name = requestName(state.context);
     for (const [id, tab] of Object.entries(tabButtons)) tab.setAttribute('aria-selected', String(id === state.tab));

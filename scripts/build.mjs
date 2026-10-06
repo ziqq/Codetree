@@ -1,16 +1,30 @@
-/* Bundles src/ into an unpacked Manifest V3 extension. Output is deterministic for a given checkout. */
+/**
+ * Bundles `src/` into an unpacked Manifest V3 extension in `build/`.
+ *
+ * esbuild bundles each entry point into one classic script (no runtime
+ * module loading), unminified so reviewers can read it. Static assets,
+ * the vendored file-icons fonts and the manifest are copied unchanged.
+ * The output is byte-for-byte reproducible for a checkout.
+ *
+ * Usage: `node scripts/build.mjs [--outdir <directory>]`.
+ */
 import {copyFile, mkdir, rm} from 'node:fs/promises';
 import {dirname, relative, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {fileIconsModule, fonts, vendor} from './file-icons.mjs';
 
+/** Repository root. */
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Bundled entry points by output name. */
 const entries = {
   background: 'src/background/index.js',
   content: 'src/content/index.js',
   options: 'src/options/index.js',
 };
+
+/** Copied files: output path → source path. */
 const assets = {
   'manifest.json': 'src/manifest.json',
   'sidebar.css': 'src/content/sidebar.css',
@@ -22,6 +36,7 @@ const assets = {
 };
 
 // Serves the icon table generated from the vendored file-icons/atom sources.
+/** esbuild plugin serving `virtual:file-icons`, the generated icon table. */
 const fileIcons = {
   name: 'file-icons',
   setup(builder) {
@@ -30,6 +45,12 @@ const fileIcons = {
   },
 };
 
+/**
+ * Builds the extension into [outdir], replacing its previous contents.
+ *
+ * @param {string} [outdir=build/] Output directory.
+ * @returns {Promise<string>} The output directory.
+ */
 export async function buildExtension(outdir = resolve(root, 'build')) {
   await rm(outdir, {recursive: true, force: true});
   await build({

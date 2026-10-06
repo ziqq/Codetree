@@ -1,8 +1,23 @@
-/* Sidebar Shadow DOM: panel, edge handle, resize separator, toast and viewer dialog. */
+/**
+ * The sidebar DOM inside a closed Shadow DOM.
+ *
+ * Builds the panel, edge handle, resize separator, toast and viewer
+ * dialog, and binds their element-level events. Page styles and icon
+ * fonts are separate `<style>` elements because they must apply to the
+ * provider page itself.
+ *
+ * @module content/sidebar/view
+ */
 import {icon} from '../../shared/icons.js';
 import {button, el} from '../dom.js';
 import {fontFaces} from './file-icons.js';
 
+/**
+ * Creates the sidebar elements.
+ *
+ * @param {Object} app The shared app; needs `state` and `run`.
+ * @returns {Object} Element references used by the other features.
+ */
 export function createView(app) {
   const {state, run} = app;
   let hoverTimer; let queryTimer; let resizeStart = null;

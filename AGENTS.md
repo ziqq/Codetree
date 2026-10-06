@@ -30,7 +30,8 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 - `src/manifest.json`, `src/icons/`: distribution metadata and original assets.
 - `vendor/file-icons/`, `scripts/file-icons.mjs`: maintainer-approved file-icons/atom rules, styles and fonts, compiled into the content script at build time. Keep the files unmodified, record the source commit and keep `THIRD_PARTY_NOTICES.md` packaged.
 - `scripts/`, `.github/workflows/`: bundling, validation, deterministic runtime packaging and releases by stable tag.
-- `docs/`, `PRIVACY.md`: feature boundaries and validation/data records.
+- `docs/`, `PRIVACY.md`: architecture, feature boundaries and validation/data records. Read [Architecture](docs/ARCHITECTURE.md) before changing messages, storage or the content factories.
+- Document every module and function with JSDoc (Python: docstrings); explain non-obvious invariants such as request generations, limits and security checks.
 
 ## Key commands
 

@@ -1,5 +1,16 @@
-/* File kinds and the virtualized repository tree model. Shared, original implementation. */
+/**
+ * The repository tree model used by the virtualized sidebar.
+ *
+ * @module shared/tree
+ */
 
+/**
+ * Classifies a file for the Minimal icon style and as a fallback for
+ * files without a file-icons rule.
+ *
+ * @param {string} path A repository path.
+ * @returns {'image'|'license'|'markdown'|'ignore'|'json'|'config'|'code'|'file'}
+ */
 export function fileKind(path) {
   const name = path.split('/').at(-1).toLowerCase();
   if (/\.(png|jpe?g|gif|svg|webp|ico|avif)$/.test(name)) return 'image';
@@ -12,6 +23,18 @@ export function fileKind(path) {
   return 'file';
 }
 
+/**
+ * Builds a tree from flat API entries.
+ *
+ * Missing parent folders are created, entries with empty, `.` or `..`
+ * segments are skipped, folders sort before files with natural ordering,
+ * and folders aggregate the additions, deletions and comment counts of
+ * their descendants.
+ *
+ * @param {Array<Object>} entries Entries with `path` (or `filename`), `type`
+ *     and optional `additions`, `deletions`, `comments` and `loaded`.
+ * @returns {{root: Object, nodes: Map<string, Object>}} The root node and every node by path.
+ */
 export function makeTree(entries) {
   const root = {path: '', name: '', type: 'tree', depth: 0, children: [], loaded: true, adds: 0, dels: 0, commentCount: 0};
   const nodes = new Map([['', root]]);
@@ -46,6 +69,18 @@ export function makeTree(entries) {
   return {root, nodes};
 }
 
+/**
+ * Returns the visible rows of [tree] in display order.
+ *
+ * Without a query only children of expanded folders are visible. With a
+ * query every matching node and all of its ancestors are visible,
+ * regardless of expansion.
+ *
+ * @param {{root: Object, nodes: Map<string, Object>}} tree A tree from [makeTree].
+ * @param {Set<string>} expanded Paths of expanded folders.
+ * @param {string} [query=''] Case-insensitive path search.
+ * @returns {Array<Object>}
+ */
 export function flatten(tree, expanded, query = '') {
   const needle = query.trim().toLowerCase();
   let visible;

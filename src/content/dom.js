@@ -1,6 +1,25 @@
-/* Explicit DOM construction helpers. Server and user text is always set with textContent. */
+/**
+ * Explicit DOM construction helpers.
+ *
+ * Server and user text is always set with `textContent`; no HTML strings
+ * are parsed.
+ *
+ * @module content/dom
+ */
 import {icon} from '../shared/icons.js';
 
+/**
+ * Creates an element.
+ *
+ * Options: `text` sets `textContent`, `class` the class name, `onClick` a
+ * click listener and `value` the form value; other keys become
+ * attributes. `null` and `undefined` options are skipped.
+ *
+ * @param {string} tag The tag name.
+ * @param {Object} [options={}]
+ * @param {Array<Node|string>} [children=[]]
+ * @returns {HTMLElement}
+ */
 export function el(tag, options = {}, children = []) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(options)) {
@@ -13,12 +32,26 @@ export function el(tag, options = {}, children = []) {
   }
   node.append(...children); return node;
 }
+
+/**
+ * Creates an icon-only button with an accessible label and tooltip.
+ *
+ * @param {string} name The icon name.
+ * @param {string} label The label.
+ * @param {Function} callback The click handler.
+ * @param {string} [className=''] Extra classes.
+ * @returns {HTMLButtonElement}
+ */
 export function button(name, label, callback, className = '') {
   return el('button', {type: 'button', class: `icon-button ${className}`, title: label, 'aria-label': label, onClick: callback}, [icon(name)]);
 }
+
+/** Creates the empty, loading or error state of a view. */
 export function empty(title, text, name = 'search') {
   return el('div', {class: 'empty'}, [icon(name), el('strong', {text: title}), el('span', {text})]);
 }
+
+/** Renders [label] with the first case-insensitive match of [query] marked. */
 export function highlight(label, query) {
   const span = el('span', {class: 'file-label'}); const index = query ? label.toLowerCase().indexOf(query.toLowerCase()) : -1;
   if (index === -1) span.textContent = label;

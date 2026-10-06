@@ -1,4 +1,14 @@
-"""Package and verify a deterministic Chrome extension ZIP from the bundled build/ directory."""
+"""Package and verify a deterministic Chrome extension ZIP from the bundled build/ directory.
+
+The ZIP contains the bundled runtime files, PRIVACY.md, THIRD_PARTY_NOTICES.md and
+LICENSE, with `manifest.json` at its root. Entries are sorted, stored without
+compression and use fixed timestamps and permissions, so the archive bytes are
+reproducible on every platform. A companion `.sha256` file is written next to it.
+
+Usage:
+    python3 scripts/package.py [--source build] [--output dist] [--tag vX.Y.Z]
+    python3 scripts/package.py --verify dist/codetree-X.Y.Z.zip [--tag vX.Y.Z]
+"""
 
 import argparse
 import hashlib
@@ -9,15 +19,21 @@ from zipfile import ZIP_STORED, BadZipFile, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# Runtime files copied from the bundle directory.
 BUILT = (
     'manifest.json', 'background.js', 'content.js', 'sidebar.css', 'options.html', 'options.js', 'options.css',
     'icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png',
     'fonts/devopicons.woff2', 'fonts/file-icons.woff2', 'fonts/fontawesome.woff2', 'fonts/mfixx.woff2',
 )
+# Fixed ZIP entry timestamp for reproducible archives.
 TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 
 
 def package_files(source):
+    """Return the packaged files (archive name -> path), sorted by name.
+
+    Raises ValueError when a file is missing or is a symbolic link.
+    """
     files = {name: source / name for name in BUILT}
     files['PRIVACY.md'] = ROOT / 'PRIVACY.md'
     files['THIRD_PARTY_NOTICES.md'] = ROOT / 'THIRD_PARTY_NOTICES.md'
@@ -30,6 +46,10 @@ def package_files(source):
 
 
 def validate_assets(manifest, files):
+    """Require every manifest and Settings asset to be packaged.
+
+    Also rejects a service worker that would load scripts at runtime.
+    """
     assets = [manifest['background']['service_worker'], manifest['options_page']]
     assets.extend(manifest['icons'].values())
     for script in manifest['content_scripts']:
@@ -47,6 +67,7 @@ def validate_assets(manifest, files):
 
 
 def validate_tag(tag, version):
+    """Require a stable vX.Y.Z tag matching the manifest, the newest changelog section and a LICENSE."""
     if not re.fullmatch(r'v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)', tag):
         raise ValueError('Release tags must have the form vX.Y.Z.')
     if tag != f'v{version}':
@@ -61,10 +82,12 @@ def validate_tag(tag, version):
 
 
 def checksum(path):
+    """Return the SHA-256 hex digest of a file."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def verify(path, files):
+    """Verify entry names, CRCs, deterministic metadata, every byte and the SHA-256 file."""
     with ZipFile(path) as archive:
         names = archive.namelist()
         if names != list(files) or len(names) != len(set(names)):
@@ -84,6 +107,7 @@ def verify(path, files):
 
 
 def main():
+    """Validate the release metadata, then build or verify the ZIP."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=ROOT / 'build', help='Bundled extension directory (npm run build).')
     parser.add_argument('--output', type=Path, default=ROOT / 'dist')

@@ -1,3 +1,13 @@
+/**
+ * Validates the extension stylesheets without a full CSS linter.
+ *
+ * Checks syntax and seven rule categories against MDN data plus the
+ * compatibility names in `css-compatibility.json`: unknown properties,
+ * functions, pseudo-classes and pseudo-elements, invalid values, and
+ * vendor-specific names outside the allowlist.
+ *
+ * Usage: `node scripts/check-css.mjs`.
+ */
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
@@ -21,6 +31,13 @@ for (const name of ['first', 'left', 'right']) pseudoClasses.delete(name);
 for (const name of ['matches', 'nth-column', 'nth-last-column']) pseudoClasses.add(name);
 for (const name of ['content', 'shadow']) pseudoElements.add(name);
 
+/**
+ * Returns the problems found in a stylesheet.
+ *
+ * @param {string} source The CSS text.
+ * @param {string} [filename='stylesheet.css'] Name used in messages.
+ * @returns {Array<{line: number, column: number, rule: string, message: string}>}
+ */
 export function checkCSS(source, filename = 'stylesheet.css') {
   const errors = [];
   const report = (node, rule, message) => errors.push({rule, message, line: node.source?.start?.line || 1, column: node.source?.start?.column || 1});

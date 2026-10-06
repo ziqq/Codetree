@@ -1,10 +1,28 @@
-/* GitHub REST/GraphQL adapter. Uses the broker's host-bound client and cache. */
+/**
+ * GitHub REST and GraphQL adapter for github.com and GitHub Enterprise Server.
+ *
+ * Uses the broker's host-bound client and caches. Viewed marks use GitHub's
+ * own GraphQL state when the account can read it, and local marks otherwise.
+ *
+ * @module background/providers/github
+ */
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {listBudget} from '../http.js';
 import {saveLocalViewed} from '../storage.js';
 import {filePath, number, sha} from '../validate.js';
 
+/** REST path of the repository. */
 function repoPath(context) { return `/repos/${encodeURIComponent(context.owner)}/${encodeURIComponent(context.repo)}`; }
+
+/**
+ * Resolves the repository, the current ref and the path below it.
+ *
+ * Tree/blob URLs mix refs and paths (`tree/feature/x/src`), so the
+ * longest matching branch or tag wins; a 40-character SHA is used as is.
+ * Empty repositories return no commit or tree.
+ *
+ * @returns {Promise<{repository: Object, ref: string, commitSha: ?string, treeSha: ?string, path: string, account: ?string}>}
+ */
 async function initialize(context, api) {
   const root = repoPath(context);
   const repository = await api.json(root, 60000);
@@ -46,11 +64,15 @@ async function initialize(context, api) {
     account: api.account?.login || null,
   };
 }
+
+/** Viewed state of every file in a pull request, 100 files per page. */
 const viewedQuery = `query CodetreeViewed($owner:String!,$repo:String!,$number:Int!,$after:String) {
   repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
     files(first:100,after:$after) { nodes { path viewerViewedState } pageInfo { hasNextPage endCursor } }
   } }
 }`;
+
+/** Returns `{path: viewerViewedState}` for every file of the pull request. */
 async function viewedFiles(context, api) {
   const output = {}; const check = listBudget(); let after = null;
   for (let page = 0; page < 100; page++) {
@@ -64,6 +86,16 @@ async function viewedFiles(context, api) {
   }
   throw new Error('Viewed-file status exceeds the pagination limit.');
 }
+
+/**
+ * Loads the changed files, review comments and revisions of a pull request or commit.
+ *
+ * Pull requests compare the merge base with the head. If the head or base
+ * moves while loading, the result is rejected instead of mixing revisions.
+ * Commits compare with their first parent.
+ *
+ * @returns {Promise<Object>} `{files, comments, title, number, base, head, warnings, viewed, viewedMode}`.
+ */
 async function getDiff(context, api, store, fresh) {
   const root = repoPath(context);
   if (context.kind === 'commit') {
@@ -105,6 +137,8 @@ async function getDiff(context, api, store, fresh) {
   if (viewedMode === 'local') viewed = store.localViewed?.[`${api.prefix}:${root}:${pullNumber}:${pull.head.sha}`] || {};
   return {...diff, viewed, viewedMode};
 }
+
+/** Open pull requests with the review data needed by the review filters. */
 const pullsQuery = `query CodetreePulls($owner:String!,$repo:String!,$login:String!,$after:String) {
   viewer { login }
   repository(owner:$owner,name:$repo) { pullRequests(states:OPEN,first:100,after:$after,orderBy:{field:UPDATED_AT,direction:DESC}) {
@@ -115,6 +149,17 @@ const pullsQuery = `query CodetreePulls($owner:String!,$repo:String!,$login:Stri
     } pageInfo { hasNextPage endCursor }
   } }
 }`;
+
+/**
+ * Lists open pull requests, optionally filtered by review state.
+ *
+ * Filters need an account (GraphQL). When a repository does not require
+ * reviews, GitHub reports no review decision; the latest approving or
+ * change-requesting review of each reviewer decides instead.
+ *
+ * @param {'all'|'awaiting'|'reviewed'|'changes'|'approved'|'unreviewed'} filter
+ * @returns {Promise<{pulls: Array, total: number, authenticated: boolean}>}
+ */
 async function listPulls(context, api, filter) {
   const root = repoPath(context);
   const allowed = ['all', 'awaiting', 'reviewed', 'changes', 'approved', 'unreviewed'];
@@ -173,6 +218,19 @@ async function listPulls(context, api, filter) {
     return true;
   }), total: data.length, authenticated: Boolean(api.account)};
 }
+
+/**
+ * Handles a repository request from a GitHub page.
+ *
+ * `VIEWED` re-checks the head revision against fresh metadata before
+ * writing, so a mark never lands on a newer revision than the one shown.
+ *
+ * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
+ * @param {Object} context The validated repository context.
+ * @param {Object} api The host-bound client.
+ * @param {Object} store The stored data.
+ * @returns {Promise<*>}
+ */
 export async function handle(message, context, api, store) {
   const root = repoPath(context);
   switch (message.type) {

@@ -1,3 +1,8 @@
+/**
+ * Viewed marks through the bundled service worker (`build/background.js`) with
+ * mocked GitHub/GitLab APIs: a mark is written only for the head revision that
+ * fresh request metadata still reports, and only for files in the request.
+ */
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 import {mkdtempSync, readFileSync, rmSync} from 'node:fs';

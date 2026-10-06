@@ -1,4 +1,9 @@
-/* Connected accounts, custom-host content scripts and the state shared with pages. */
+/**
+ * Connected accounts, custom-host content scripts and the public state
+ * shared with pages.
+ *
+ * @module background/accounts
+ */
 import {preferences} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {clearCache} from './cache.js';
@@ -7,6 +12,17 @@ import {origins, providerFor} from './hosts.js';
 import {readStore, windowPin, writeStore} from './storage.js';
 import * as sync from './sync.js';
 
+/**
+ * Returns the state a page or Settings may see.
+ *
+ * Accounts are reduced to their ID, host, username, label and provider;
+ * tokens are never included. Pinning reflects the sender's window, and
+ * only Settings receives the Sync status.
+ *
+ * @param {Object} store The stored data.
+ * @param {chrome.runtime.MessageSender} sender The requesting page or Settings.
+ * @returns {Promise<Object>}
+ */
 export async function publicState(store, sender) {
   const value = preferences(store.preferences);
   if (Number.isInteger(sender?.tab?.windowId)) {
@@ -24,6 +40,15 @@ export async function publicState(store, sender) {
   };
 }
 
+/**
+ * Registers the content script for every connected custom host.
+ *
+ * github.com and gitlab.com use the manifest's content scripts. Custom
+ * hosts are registered only while their optional host permission is
+ * granted; previous registrations are always replaced.
+ *
+ * @returns {Promise<void>}
+ */
 export async function registerEnterpriseScripts() {
   const store = await readStore();
   const hosts = [...origins(store)].filter(origin => !['https://github.com', 'https://gitlab.com'].includes(origin));
@@ -37,6 +62,18 @@ export async function registerEnterpriseScripts() {
   }
 }
 
+/**
+ * Verifies credentials against the host's `/user` endpoint and stores the account.
+ *
+ * Connecting the same host and username again replaces the previous
+ * credentials and keeps the account ID.
+ *
+ * @param {Object} value `{origin, provider, auth, token, label, …}` for a PAT or OAuth account.
+ * @param {Object} store The stored data.
+ * @returns {Promise<void>}
+ * @throws {Error} If the host permission is missing, the host belongs to
+ *     another provider or the server rejects the credentials.
+ */
 export async function saveAccount(value, store) {
   const origin = normalizeOrigin(value.origin); const provider = value.provider;
   if (providerFor(origin, store) !== provider && origins(store).has(origin)) throw new Error('This host is connected to another repository provider.');
@@ -54,6 +91,14 @@ export async function saveAccount(value, store) {
   await clearCache(); await registerEnterpriseScripts();
 }
 
+/**
+ * Removes an account; hosts that selected it fall back to automatic selection.
+ *
+ * Provider-side OAuth grants are not revoked.
+ *
+ * @param {string} id The account ID.
+ * @returns {Promise<void>}
+ */
 export async function removeAccount(id) {
   await writeStore(current => {
     const accounts = (current.accounts || []).filter(account => account.id !== id);

@@ -1,12 +1,35 @@
-/* Repository/changes tree loading, lazy folders and remembered expansion. */
+/**
+ * Loads the repository tree or the changed files of a request, including
+ * lazily loaded folders, and remembers expanded folders per repository,
+ * ref and mode.
+ *
+ * Every load captures the epoch and `filesGeneration`; replies for an
+ * older page, mode or tree are discarded.
+ *
+ * @module content/sidebar/files
+ */
 import {makeTree} from '../../shared/tree.js';
 
+/** Creates the files feature; also exposes `expansionMemory` and `loadingFolders`. */
 export function createFiles(app) {
   const {state} = app;
   const expansionMemory = new Map(); const loadingFolders = new Map();
 
+  /** Key of the remembered expansion: host, repository, ref and mode. */
   function expansionKey() { return `${state.context?.origin}/${state.context?.owner}/${state.context?.repo}:${state.info?.ref}:${state.mode}`; }
+
+  /** Saves the expanded folders of the current tree. */
   function rememberExpansion() { expansionMemory.set(expansionKey(), new Set(state.expanded)); }
+
+  /**
+   * Loads the tree for the current mode.
+   *
+   * `changes` loads the request diff (and prepares the native header
+   * buttons); `files` loads the repository tree and then any expanded
+   * folders that are not loaded yet, four at a time.
+   *
+   * @param {number} [epoch=state.epoch] The page this load belongs to.
+   */
   async function loadFiles(epoch = state.epoch) {
     const mode = state.mode; const generation = ++state.filesGeneration;
     const current = () => epoch === state.epoch && generation === state.filesGeneration;
@@ -59,6 +82,8 @@ export function createFiles(app) {
       }
     }
   }
+
+  /** Expands or collapses a folder, loading its children first if needed. */
   async function toggleFolder(node) {
     const epoch = state.epoch; const generation = state.filesGeneration;
     if (state.expanded.has(node.path)) state.expanded.delete(node.path);
@@ -66,6 +91,12 @@ export function createFiles(app) {
     if (epoch !== state.epoch || generation !== state.filesGeneration) return;
     rememberExpansion(); app.updateTree();
   }
+
+  /**
+   * Loads the children of a lazy folder once; concurrent calls share the request.
+   *
+   * GitHub folders load by tree SHA, GitLab folders by path at the commit.
+   */
   async function loadFolder(node) {
     if (node.loaded || loadingFolders.has(node.path)) return loadingFolders.get(node.path);
     const epoch = state.epoch; const generation = state.filesGeneration;
@@ -81,6 +112,8 @@ export function createFiles(app) {
     }).finally(() => { if (loadingFolders.get(node.path) === promise) loadingFolders.delete(node.path); });
     loadingFolders.set(node.path, promise); return promise;
   }
+
+  /** Loads every lazy folder, four at a time, so search covers the whole repository. */
   async function loadAllFolders() {
     if (state.loadingAll) return;
     const epoch = state.epoch; const generation = state.filesGeneration;

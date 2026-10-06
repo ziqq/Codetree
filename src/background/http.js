@@ -1,5 +1,21 @@
-/* Bounded response readers shared by the API client and OAuth flows. */
+/**
+ * Bounded response readers shared by the API client and OAuth flows.
+ *
+ * Bodies are streamed with a byte limit, so an oversized response fails
+ * before it is fully buffered.
+ *
+ * @module background/http
+ */
 
+/**
+ * Reads a response body up to [limit] bytes.
+ *
+ * @param {Response} response A fetch response.
+ * @param {number} limit Maximum body size in bytes.
+ * @param {string} message Error message used when the limit is exceeded.
+ * @returns {Promise<Uint8Array>}
+ * @throws {Error} With [message] when the body is too large.
+ */
 export async function responseBytes(response, limit, message) {
   if (Number(response.headers.get('Content-Length')) > limit) {
     await response.body?.cancel().catch(() => {});
@@ -20,10 +36,27 @@ export async function responseBytes(response, limit, message) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   return bytes;
 }
+
+/**
+ * Reads and parses a strict UTF-8 JSON body up to [limit] bytes.
+ *
+ * @param {Response} response A fetch response.
+ * @param {number} [limit=32 MiB] Maximum body size in bytes.
+ * @returns {Promise<*>}
+ */
 export async function responseJSON(response, limit = 32 * 1024 * 1024) {
   const bytes = await responseBytes(response, limit, 'The API response exceeds the safe preview limit. Use the repository website.');
   return JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes));
 }
+
+/**
+ * Creates a checker for paginated list responses.
+ *
+ * Pages must be arrays of at most 100 items, with at most 10,000 items and
+ * 32 MiB in total, so an unexpected server response cannot exhaust memory.
+ *
+ * @returns {function(Array): void} Throws when a page exceeds the budget.
+ */
 export function listBudget() {
   let count = 0; let size = 0;
   return values => {

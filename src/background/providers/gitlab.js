@@ -1,13 +1,32 @@
-/* GitLab REST adapter. Uses the broker's host-bound client and cache. */
+/**
+ * GitLab REST adapter for gitlab.com and self-managed GitLab.
+ *
+ * Uses the broker's host-bound client and caches. Projects may live in
+ * nested namespaces. Folders load one level at a time, and Viewed marks
+ * are always local because GitLab has no API for them.
+ *
+ * @module background/providers/gitlab
+ */
 import * as C from '../../shared/routes.js';
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {saveLocalViewed} from '../storage.js';
 import {sha} from '../validate.js';
 
+/** REST path of the project (`owner/repo` encoded as one ID). */
 const projectPath = context => `/projects/${encodeURIComponent(`${context.owner}/${context.repo}`)}`;
+
+/** Adds GitHub's `login` field to a GitLab user. */
 const user = value => value ? {...value, login: value.username} : null;
+
+/** Reviewer states that count as a submitted review. */
 const completedReviews = new Set(['reviewed', 'requested_changes', 'approved', 'unapproved']);
 
+/**
+ * Converts a GitLab diff entry to the GitHub file shape used by the sidebar.
+ *
+ * Additions and deletions are counted from the patch, so files whose
+ * patch GitLab omitted have no statistics.
+ */
 function file(value) {
   const patch = value.diff || '';
   let additions = 0; let deletions = 0; let inHunk = false;
@@ -20,6 +39,12 @@ function file(value) {
     status: value.new_file ? 'added' : value.deleted_file ? 'removed' : value.renamed_file ? 'renamed' : 'modified',
     patch, additions, deletions, too_large: Boolean(value.too_large), collapsed: Boolean(value.collapsed)};
 }
+
+/**
+ * Resolves the project, the current ref and the path below it.
+ *
+ * Like GitHub, the longest branch or tag that prefixes the URL tail wins.
+ */
 async function initialize(context, api) {
   const root = projectPath(context);
   const project = await api.json(root, 60000);
@@ -47,6 +72,8 @@ async function initialize(context, api) {
   return {repository, ref, commitSha: commit.id, treeSha: commit.id,
     path: context.tail ? context.tail.slice(ref.length).replace(/^\//, '') : '', account: api.account?.login || null};
 }
+
+/** Lists one folder at a revision; subfolders load when opened. */
 async function tree(context, api, message) {
   if (!/^[a-f\d]{7,40}$/i.test(message.sha || '')) throw new Error('Invalid repository revision.');
   const folder = message.path || '';
@@ -56,6 +83,8 @@ async function tree(context, api, message) {
   return {entries: values.map(value => ({path: folder ? value.path.slice(folder.length + 1) : value.path,
     type: value.type, sha: value.id, mode: value.mode, loaded: value.type !== 'tree'})), lazy: values.some(value => value.type === 'tree')};
 }
+
+/** Flattens positioned discussion notes into inline comments, skipping system notes. */
 function comments(discussions, context) {
   const output = [];
   for (const discussion of discussions) {
@@ -72,6 +101,13 @@ function comments(discussions, context) {
   }
   return output;
 }
+
+/**
+ * Loads discussions or comments, tolerating missing permission.
+ *
+ * Public merge requests may still require a token for discussions; the
+ * diff is returned with a warning instead of failing.
+ */
 async function readComments(path, api, warnings) {
   try { return await api.pages(path); }
   catch (error) {
@@ -80,6 +116,14 @@ async function readComments(path, api, warnings) {
     return [];
   }
 }
+
+/**
+ * Loads the changed files, discussions and revisions of a merge request or commit.
+ *
+ * Merge requests use GitLab's `diff_refs`; if they change while loading,
+ * the result is rejected. Server diff limits and omitted patches are
+ * reported as warnings.
+ */
 async function diff(context, api, memo, fresh) {
   const root = projectPath(context);
   if (context.kind === 'commit') {
@@ -118,6 +162,13 @@ async function diff(context, api, memo, fresh) {
       head: {project: request.source_project_id || request.target_project_id, sha: refs.head_sha}, warnings};
   }, fresh);
 }
+
+/**
+ * Lists open merge requests, optionally filtered by review state.
+ *
+ * Filters use the reviewers and approvals endpoints, whose availability
+ * depends on the server edition and version.
+ */
 async function pulls(context, api, memo, filter) {
   const root = projectPath(context);
   const list = await memo(`${api.prefix}${root}:merge-list`, 30000, () => api.pages(`${root}/merge_requests?state=opened&scope=all&order_by=updated_at&sort=desc`));
@@ -152,6 +203,12 @@ async function pulls(context, api, memo, filter) {
     return true;
   }), total: list.length, authenticated: Boolean(api.account)};
 }
+
+/**
+ * Returns the raw text of a file at a revision of a project.
+ *
+ * Fork merge requests read the base and head from different projects.
+ */
 async function source(api, message) {
   const project = String(message.source?.project || '');
   if ((!/^\d+$/.test(project) && !/^[\w.-]+(?:\/[\w.-]+)+$/.test(project)) || project.split('/').some(part => part === '.' || part === '..')) throw new Error('Invalid source project.');
@@ -161,6 +218,15 @@ async function source(api, message) {
   return (await api.request(`/projects/${encodeURIComponent(project)}/repository/files/${encodeURIComponent(message.path)}/raw?ref=${message.source.sha}`, {raw: true})).data;
 }
 
+/**
+ * Handles a repository request from a GitLab page.
+ *
+ * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
+ * @param {Object} context The validated repository context.
+ * @param {Object} api The host-bound client.
+ * @param {Object} store The stored data.
+ * @returns {Promise<*>}
+ */
 export async function handle(message, context, api, store) {
   const root = projectPath(context);
   switch (message.type) {

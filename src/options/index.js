@@ -1,7 +1,17 @@
-/* Extension Settings: appearance, navigation, Sync and accounts. Account changes go through the service worker. */
+/**
+ * Extension Settings: appearance, navigation, browser Sync and accounts.
+ *
+ * Settings never stores tokens itself: every change is sent to the
+ * service worker, which validates and stores it. Optional host and
+ * `identity` permissions are requested here because Chrome requires a
+ * user gesture.
+ *
+ * @module options/index
+ */
 import {fontFamilies, validateNavigation} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 
+// Form controls and status outputs of the Settings page.
 const appearance = document.getElementById('appearance-form');
 const navigation = document.getElementById('navigation-form');
 const accountForm = document.getElementById('account-form');
@@ -14,17 +24,33 @@ const syncForm = document.getElementById('sync-form'); const syncSave = document
 const syncStatus = document.getElementById('sync-status');
 const githubSignIn = document.getElementById('oauth-github'); const gitlabSignIn = document.getElementById('oauth-gitlab');
 const oauthStatus = document.getElementById('oauth-status'); const deviceBox = document.getElementById('oauth-device');
+// OAuth availability, the pending GitHub device authorization, its poll timer and sign-in state.
 let oauthInfo; let device; let pollTimer; let signingIn = false;
+// Public state from the service worker and whether a Sync change is being saved.
 let state; let syncSaving = false;
+
+/**
+ * Sends a Settings request to the service worker.
+ *
+ * @param {string} type The message type.
+ * @param {Object} [value={}] Additional message fields.
+ * @returns {Promise<*>} The reply value.
+ */
 async function rpc(type, value = {}) {
   const result = await chrome.runtime.sendMessage({type, ...value});
   if (!result?.ok) throw new Error(result?.error || 'The extension did not respond. Reload this settings page.');
   return result.value;
 }
+
+/** Shows a success or error message in a form's status output. */
 function status(element, text, error = false) {
   element.textContent = text; element.className = error ? 'error' : 'success';
 }
+
+/** Enables the OAuth buttons that are configured, unless a sign-in is in progress. */
 function signInButtons() { githubSignIn.disabled = !oauthInfo?.github || signingIn; gitlabSignIn.disabled = !oauthInfo?.gitlab || signingIn; }
+
+/** Shows the GitHub device code and schedules the next poll, or hides it. */
 function showDevice(value) {
   device = value; signingIn = Boolean(value); deviceBox.hidden = !value; clearTimeout(pollTimer); signInButtons();
   if (!value) return;
@@ -32,6 +58,8 @@ function showDevice(value) {
   status(oauthStatus, 'Waiting for GitHub authorization…');
   pollTimer = setTimeout(pollDevice, value.interval * 1000);
 }
+
+/** Polls the pending GitHub authorization once; ignores replies for cancelled flows. */
 async function pollDevice() {
   const active = device; if (!active) return;
   try {
@@ -60,10 +88,14 @@ document.getElementById('oauth-cancel').addEventListener('click', async () => {
   try { if (id) await rpc('OAUTH_CANCEL', {id}); status(oauthStatus, 'Sign-in cancelled.'); }
   catch (error) { status(oauthStatus, error.message, true); }
 });
+
+/** Updates the code-font preview. */
 function showFont() {
   preview.style.fontFamily = fontFamilies[appearance.elements.fontFamily.value];
   preview.style.fontSize = `${appearance.elements.fontSize.value || 12}px`;
 }
+
+/** Fills the appearance and navigation forms from the stored preferences. */
 function renderPreferences() {
   for (const [key, value] of Object.entries(state.preferences)) {
     const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
@@ -71,6 +103,8 @@ function renderPreferences() {
   }
   showFont();
 }
+
+/** Shows whether Sync is enabled, when it last saved and any error. */
 function renderSync() {
   const value = state.sync || {enabled: false};
   syncForm.elements.enabled.checked = value.enabled === true;
@@ -79,6 +113,8 @@ function renderSync() {
   else if (value.enabled) status(syncStatus, value.lastSyncedAt ? `Enabled. Last saved to browser Sync ${new Date(value.lastSyncedAt).toLocaleString()}.` : 'Enabled. Waiting for the first synced snapshot.');
   else { syncStatus.textContent = 'Disabled on this device. Local data and the shared copy on other enabled devices are kept.'; syncStatus.className = ''; }
 }
+
+/** Reloads the Sync status after a local change was saved. */
 async function refreshSync() {
   try { const value = await rpc('STATE'); state.sync = value.sync; renderSync(); }
   catch (error) { status(syncStatus, `Local changes are saved. Could not refresh Sync status: ${error.message}`, true); }
@@ -92,6 +128,8 @@ syncForm.addEventListener('submit', async event => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (state && area === 'local' && Object.hasOwn(changes, 'syncSettings')) void refreshSync();
 });
+
+/** Adapts the account form to GitHub or GitLab: default origin and token guidance. */
 function showProvider() {
   const gitlab = accountForm.elements.provider.value === 'gitlab';
   const field = accountForm.elements.origin;
@@ -102,6 +140,8 @@ function showProvider() {
   document.getElementById('gitlab-permissions').hidden = !gitlab;
 }
 accountForm.elements.provider.addEventListener('change', showProvider);
+
+/** Renders the connected accounts with their remove buttons. */
 function renderAccounts() {
   accounts.replaceChildren();
   if (!state.accounts.length) {
@@ -160,6 +200,7 @@ accountForm.addEventListener('submit', async event => {
   } catch (error) { status(accountStatus, error.message, true); }
   finally { connect.disabled = false; }
 });
+// Load the stored state, then OAuth availability and any pending device authorization.
 rpc('STATE').then(value => {
   state = value;
   renderPreferences(); renderSync(); showProvider(); renderAccounts();

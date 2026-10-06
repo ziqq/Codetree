@@ -1,14 +1,29 @@
-/* Generates the content-script icon table from the vendored file-icons/atom rules, styles and fonts. */
+/**
+ * Generates the content-script icon table from the vendored file-icons/atom
+ * rules (`icondb.cjs`), glyph metrics (`icons.less`), colours
+ * (`colours.less`) and fonts.
+ *
+ * The Less sources are evaluated directly: mixins and the single nested
+ * `.tree-view` override in `icons.less`, and the palette functions
+ * (`lighten`, `darken`, `saturate`) and theme mixins in `colours.less`,
+ * for Atom's dark and light themes. Unknown constructs fail the build
+ * instead of producing wrong icons.
+ */
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 
 const require = createRequire(import.meta.url);
+
+/** Directory of the vendored file-icons sources. */
 export const vendor = resolve(import.meta.dirname, '../vendor/file-icons');
+
+/** Icon fonts by CSS family name in `icons.less` → bundled file. */
 export const fonts = Object.freeze({
   'file-icons': 'file-icons.woff2', FontAwesome: 'fontawesome.woff2', Mfizz: 'mfixx.woff2', Devicons: 'devopicons.woff2',
 });
 // Atom ships Octicons itself; the matching current Octicons SVGs replace those font glyphs.
+/** Atom icon classes drawn with Octicons → current Octicons names. */
 const octicons = Object.freeze({
   'binary-icon': 'file-binary', 'book-icon': 'book', 'checklist-icon': 'checklist', 'code-icon': 'code',
   'database-icon': 'database', 'gear-icon': 'gear', 'git-commit-icon': 'git-commit', 'git-merge-icon': 'git-merge',
@@ -20,6 +35,7 @@ const octicons = Object.freeze({
   'icon-paintcan': 'paintbrush', 'icon-star': 'star',
 });
 
+/** Parses a Less declaration block, expanding referenced mixins. */
 function declarations(body, mixins) {
   const output = {};
   for (const part of body.split(';').map(value => value.trim()).filter(Boolean)) {
@@ -32,6 +48,7 @@ function declarations(body, mixins) {
   return output;
 }
 
+/** Returns the declarations of every `.<name>-icon:before` rule, with `content` decoded. */
 function glyphs() {
   // Atom's tree-view overrides apply to this sidebar, so nested `.tree-view &{…}` blocks join their rule.
   const source = readFileSync(resolve(vendor, 'icons.less'), 'utf8').replace(/\/\*[^]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -49,7 +66,10 @@ function glyphs() {
   return output;
 }
 
+/** `#rrggbb` → RGB channels in [0, 1]. */
 function rgb(hex) { return [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255); }
+
+/** RGB → [hue (degrees), saturation, lightness], as in Less. */
 function hsl([red, green, blue]) {
   const max = Math.max(red, green, blue); const min = Math.min(red, green, blue); const light = (max + min) / 2;
   if (max === min) return [0, 0, light];
@@ -57,6 +77,8 @@ function hsl([red, green, blue]) {
   const hue = max === red ? (green - blue) / delta + (green < blue ? 6 : 0) : max === green ? (blue - red) / delta + 2 : (red - green) / delta + 4;
   return [hue * 60, saturation, light];
 }
+
+/** HSL → `#rrggbb`, clamping saturation and lightness like Less. */
 function hex([hue, saturation, light]) {
   const clamp = value => Math.min(1, Math.max(0, value));
   saturation = clamp(saturation); light = clamp(light);
@@ -68,9 +90,17 @@ function hex([hue, saturation, light]) {
   };
   return `#${channel(1 / 3)}${channel(0)}${channel(-1 / 3)}`;
 }
+
+/** Adds absolute lightness and saturation, like Less `lighten`/`darken`/`saturate`. */
 const adjust = (colour, light = 0, saturation = 0) => { const [h, s, l] = hsl(rgb(colour)); return hex([h, s + saturation, l + light]); };
 
 // Evaluates colours.less for Atom's dark (index 0) and light (index 1) colour classes.
+/**
+ * Evaluates `colours.less` for Atom's dark (index 0) and light (index 1) themes.
+ *
+ * @returns {[Object<string, ?string>, Object<string, ?string>]} Colour by class name;
+ *     `null` means the class sets no colour in that theme.
+ */
 function colours() {
   const source = readFileSync(resolve(vendor, 'colours.less'), 'utf8').replace(/\/\*[^]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   const variables = {};
@@ -94,6 +124,7 @@ function colours() {
   return themes;
 }
 
+/** Returns the 16-pixel SVG path data of an Octicon. */
 function octiconPath(name) {
   const svg = require('@primer/octicons/build/data.json')[name]?.heights?.[16]?.path;
   const paths = [...(svg || '').matchAll(/\sd="([^"]+)"/g)].map(match => match[1]);
@@ -101,6 +132,16 @@ function octiconPath(name) {
   return paths;
 }
 
+/**
+ * Returns the source of the `virtual:file-icons` module.
+ *
+ * Exports `fonts` (bundled font files), `glyphs` (font glyph or SVG paths
+ * per icon) and the `directories` and `files` tables. Each table has
+ * `rules` (`[glyph, darkColour, lightColour, pattern]` in Atom's priority
+ * order) and `path` (indexes of rules matched against full paths).
+ *
+ * @returns {string}
+ */
 export function fileIconsModule() {
   const database = require(resolve(vendor, 'icondb.cjs'));
   const styles = glyphs(); const [dark, light] = colours();

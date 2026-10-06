@@ -1,5 +1,14 @@
-/* Original line icons rendered as inline SVG. Shared, original implementation. */
+/**
+ * Original 24×24 line icons rendered as inline SVG.
+ *
+ * Used for controls and for the Minimal file-icon style. File and folder
+ * icons for the Color and Monochrome styles come from file-icons
+ * (see `content/sidebar/file-icons.js`).
+ *
+ * @module shared/icons
+ */
 
+/** SVG path data by icon name. */
 const paths = Object.freeze({
   tree: 'M5 3v14a3 3 0 0 0 3 3h7M5 8h10M15 5h5v6h-5zM15 17h5v6h-5zM2 1h6v4H2z',
   folder: 'M3 5h6l2 2h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5z',
@@ -34,6 +43,13 @@ const paths = Object.freeze({
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6',
 });
 
+/**
+ * Creates an icon element that inherits `currentColor`.
+ *
+ * @param {string} name An icon name; unknown names use the generic file icon.
+ * @param {string} [className=''] An extra CSS class.
+ * @returns {SVGSVGElement}
+ */
 export function icon(name, className = '') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

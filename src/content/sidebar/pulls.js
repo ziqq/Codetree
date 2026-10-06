@@ -1,12 +1,23 @@
-/* Open pull/merge request list with review-state filters. */
+/**
+ * Open pull/merge request list with review-state filters.
+ *
+ * @module content/sidebar/pulls
+ */
 import {icon} from '../../shared/icons.js';
 import {pullURL} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {requestName} from '../page.js';
 
+/** Creates the requests feature: `loadPulls` and `renderPulls`. */
 export function createPulls(app) {
   const {state} = app;
 
+  /**
+   * Loads requests for the selected filter.
+   *
+   * A reply is applied only while the page, tab, view and filter are unchanged,
+   * so a slow filter cannot overwrite a newer one.
+   */
   async function loadPulls() {
     const epoch = state.epoch; const filter = state.filter; const tab = state.tab;
     const generation = state.viewGeneration = (state.viewGeneration || 0) + 1;
@@ -18,6 +29,8 @@ export function createPulls(app) {
       state.pulls = result.pulls; state.totalPulls = result.total; state.loading = false; app.render();
     } catch (error) { if (current()) { state.loading = false; state.error = error.message; app.render(); } }
   }
+
+  /** Renders the requests matching the search. */
   function renderPulls() {
     const {body} = app.view; const name = requestName(state.context);
     const query = state.query.toLowerCase();

@@ -1,17 +1,31 @@
-/* Virtualized tree rows, keyboard navigation, Viewed marks and file navigation. */
+/**
+ * Virtualized tree rows, keyboard navigation, Viewed marks and navigation
+ * to files and native diffs.
+ *
+ * Only the rows in the scrolled viewport (plus a small buffer) exist in
+ * the DOM, so large repositories stay responsive.
+ *
+ * @module content/sidebar/tree
+ */
 import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
 
+/** Fixed tree-row height in pixels; virtualization depends on it. */
 const rowHeight = 29;
 
+/** Creates the tree feature: `updateTree`, `requestTreeRender`, `renderTreeRows`, `diffURL` and `openFile`. */
 export function createTree(app) {
   const {state, run} = app;
   const {host, shadow, body, spacer} = app.view;
   let renderFrame = 0;
 
+  /**
+   * Returns the icon of a row: a file-icons glyph for Color and Monochrome,
+   * or an original icon for Minimal and for files without a rule.
+   */
   function nodeIcon(node, folder) {
     const theme = state.preferences.iconTheme;
     const rule = theme === 'minimal' ? null : matchIcon(node.path, folder);
@@ -21,15 +35,20 @@ export function createTree(app) {
     svg.classList.add(`kind-${kind}`); return svg;
   }
 
+  /** Recomputes the visible rows after expansion, search or data changes. */
   function updateTree(shouldRender = true) {
     state.flat = flatten(state.tree, state.expanded, state.query);
     state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
     spacer.style.height = `${state.flat.length * rowHeight}px`;
     if (shouldRender) app.render();
   }
+
+  /** Renders the visible rows on the next animation frame, at most once per frame. */
   function requestTreeRender() {
     if (!renderFrame) renderFrame = requestAnimationFrame(() => { renderFrame = 0; renderTreeRows(); });
   }
+
+  /** Renders the rows in the viewport, keeping keyboard focus on the same path. */
   function renderTreeRows() {
     if (state.tab !== 'files' || state.loading || state.error || !body.contains(spacer)) return;
     const start = Math.max(0, Math.floor(body.scrollTop / rowHeight) - 6);
@@ -84,6 +103,11 @@ export function createTree(app) {
     spacer.replaceChildren(fragment);
     if (focusedPath) spacer.querySelector(`[data-path="${CSS.escape(focusedPath)}"]`)?.focus({preventScroll: true});
   }
+
+  /**
+   * Tree keyboard navigation: arrows move and expand/collapse, Home/End jump,
+   * Enter opens a file or toggles a folder.
+   */
   async function treeKey(event, node, index) {
     if (event.target !== event.currentTarget) return;
     let next = index;
@@ -103,6 +127,13 @@ export function createTree(app) {
     else if (top + rowHeight > body.scrollTop + body.clientHeight) body.scrollTop = top + rowHeight - body.clientHeight;
     renderTreeRows(); spacer.querySelector(`[data-path="${CSS.escape(state.flat[state.focus].path)}"]`)?.focus({preventScroll: true});
   }
+
+  /**
+   * Returns the native diff URL of a changed file.
+   *
+   * GitHub anchors are `diff-<SHA-256 of the path>` and GitLab anchors the
+   * SHA-1 of the path; commits link to the commit page.
+   */
   async function diffURL(node) {
     const gitlab = state.context.provider === 'gitlab';
     if (state.context.kind === 'commit') return `${repoURL(state.context)}${gitlab ? '/-' : ''}/commit/${state.context.sha}`;
@@ -112,6 +143,11 @@ export function createTree(app) {
     const view = location.pathname.match(/\/pull\/\d+\/(files|changes)(?:\/|$)/)?.[1] || 'changes';
     return `${pullURL(state.context, state.context.number)}/${view}#diff-${digest}`;
   }
+
+  /**
+   * Opens a file: scrolls to its diff when it is on the current page,
+   * otherwise navigates to the diff or file view.
+   */
   async function openFile(node) {
     if (state.mode === 'changes') {
       const url = await diffURL(node);

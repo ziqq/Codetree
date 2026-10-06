@@ -1,4 +1,12 @@
-/* Content-script entry. Mounts the sidebar once per page. */
+/**
+ * Content-script entry point.
+ *
+ * Mounts the sidebar once per page; a second injection of the script
+ * (for example, a manifest and a registered script on the same host)
+ * finds the existing host element and does nothing.
+ *
+ * @module content/index
+ */
 import {mount} from './app.js';
 
 if (!document.getElementById('codetree-extension')) mount();

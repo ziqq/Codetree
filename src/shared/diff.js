@@ -1,5 +1,19 @@
-/* Full-file diff reconstruction from validated patches. Shared, original implementation. */
+/**
+ * Reconstructs a full-file diff from two file revisions and their patch.
+ *
+ * Every patch line is checked against both revisions, so a truncated,
+ * mismatched or reordered patch is rejected instead of being shown as a
+ * complete diff.
+ *
+ * @module shared/diff
+ */
 
+/**
+ * Splits text into lines, treating CRLF as LF and ignoring the final newline.
+ *
+ * @param {string} text File contents.
+ * @returns {Array<string>}
+ */
 export function lines(text) {
   if (!text) return [];
   const result = text.replace(/\r\n/g, '\n').split('\n');
@@ -7,6 +21,18 @@ export function lines(text) {
   return result;
 }
 
+/**
+ * Merges the unchanged context of [base] and [head] with the hunks of [patch].
+ *
+ * Without a patch the files must be identical, added or deleted;
+ * otherwise the provider omitted the patch and the diff is unavailable.
+ *
+ * @param {string} base The old revision text (empty for added files).
+ * @param {string} head The new revision text (empty for deleted files).
+ * @param {string} patch The unified diff hunks returned by the provider.
+ * @returns {Array<{type: 'context'|'added'|'removed', text: string, oldLine: ?number, newLine: ?number}>}
+ * @throws {Error} If the patch does not exactly describe the two revisions.
+ */
 export function fullDiff(base, head, patch) {
   const before = lines(base); const after = lines(head);
   const rows = []; let oldIndex = 0; let newIndex = 0;

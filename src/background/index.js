@@ -1,4 +1,18 @@
-/* Trusted service worker: host-bound message broker for repository pages and Settings. */
+/**
+ * Service-worker entry point: the trusted message broker.
+ *
+ * Repository pages and Settings send `{type, context?, …}` messages and
+ * receive `{ok: true, value}` or `{ok: false, error}`. Every request is
+ * checked against its sender:
+ *
+ * - Settings may manage accounts, OAuth, Sync and all preferences.
+ * - A repository page may only read state, change its own preferences,
+ *   bookmarks and window pin, and request data from its own host.
+ *
+ * Tokens stay in this worker; error messages are redacted before replying.
+ *
+ * @module background/index
+ */
 import {preferences, validateNavigation} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {publicState, registerEnterpriseScripts, removeAccount, saveAccount} from './accounts.js';
@@ -12,9 +26,18 @@ import * as gitlab from './providers/gitlab.js';
 import {readStore, storageReady, windowPin, writeStore} from './storage.js';
 import * as sync from './sync.js';
 
+/** Resolves once Sync settings are loaded; requests wait for it. */
 const syncReady = storageReady.then(() => sync.initialize({readStore, writeStore}));
 syncReady.catch(() => {});
 
+/**
+ * Validates and dispatches one message.
+ *
+ * @param {Object} message The request.
+ * @param {chrome.runtime.MessageSender} sender Its page or Settings.
+ * @returns {Promise<*>} The reply value.
+ * @throws {Error} With a user-facing message.
+ */
 async function handle(message, sender) {
   if (!message || typeof message.type !== 'string') throw new Error('Invalid request.');
   await syncReady.catch(() => {});
@@ -91,6 +114,7 @@ async function handle(message, sender) {
   const api = client(context, store);
   return (context.provider === 'gitlab' ? gitlab : github).handle(message, context, api, store);
 }
+// Replies asynchronously; tokens that slip into error messages are redacted.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handle(message, sender).then(value => sendResponse({ok: true, value}), error => {
     const text = String(error?.message || 'Request failed.').replace(/(?:github_pat_|gh[pousr]_|glpat-)[A-Za-z0-9_-]+/g, '[redacted]');
@@ -98,9 +122,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   });
   return true;
 });
+// Custom-host content scripts are re-registered on install, start and permission changes.
 chrome.runtime.onInstalled.addListener(() => registerEnterpriseScripts().catch(() => {}));
 chrome.runtime.onStartup.addListener(() => registerEnterpriseScripts().catch(() => {}));
 chrome.permissions.onRemoved.addListener(() => { clearCache().catch(() => {}); registerEnterpriseScripts().catch(() => {}); });
+// The toolbar button toggles the sidebar, or opens Settings where no sidebar runs.
 chrome.action.onClicked.addListener(async tab => {
   try { await chrome.tabs.sendMessage(tab.id, {type: 'TOGGLE'}); }
   catch { await chrome.runtime.openOptionsPage(); }

@@ -1,6 +1,18 @@
-/* Original bounded lexical highlighting with yielding and cancellation. */
+/**
+ * Original, bounded lexical syntax highlighting.
+ *
+ * A single-pass tokenizer recognizes comments, strings, numbers, keywords,
+ * constants, functions, properties, tags, punctuation and operators for
+ * common languages. It keeps multi-line string/comment state per
+ * revision, yields every 16 KiB so the page stays responsive, can be
+ * cancelled, and gives up above 200,000 tokens. Tokens are character
+ * ranges; the viewer renders them as text nodes.
+ *
+ * @module content/viewer/syntax
+ */
 import {lines as splitLines} from '../../shared/diff.js';
 
+/** Language by file extension. */
 const extensions = {
   js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
   dart: 'dart', go: 'go', rs: 'rust', py: 'python', rb: 'ruby', php: 'php', java: 'java', kt: 'kotlin', kts: 'kotlin', swift: 'swift',
@@ -8,6 +20,8 @@ const extensions = {
   json: 'json', jsonc: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', css: 'css', scss: 'css', sql: 'sql',
   html: 'markup', htm: 'markup', xml: 'markup', svg: 'markup', vue: 'markup', md: 'markdown', mdx: 'markdown',
 };
+
+/** Keywords by language. */
 const keywords = Object.fromEntries(Object.entries({
   javascript: 'as async await break case catch class const continue debugger default delete do else export extends finally for from function get if import in instanceof let new of return set static super switch throw try typeof var void while with yield',
   typescript: 'abstract any as asserts async await bigint boolean break case catch class const constructor continue declare default delete do else enum export extends finally for from function get if implements import in infer instanceof interface is keyof let module namespace never new number of private protected public readonly require return set static string super switch symbol throw try type typeof unique unknown var void while yield',
@@ -26,14 +40,32 @@ const keywords = Object.fromEntries(Object.entries({
   php: 'abstract and array as break callable case catch class clone const continue declare default die do echo else elseif empty enddeclare endfor endforeach endif endswitch endwhile enum eval exit extends final finally fn for foreach function global goto if implements include include_once instanceof interface isset list match namespace new or print private protected public readonly require require_once return static switch throw trait try unset use var while xor yield',
   sql: 'add all alter and as asc begin between by case check column commit constraint create cross database default delete desc distinct drop else end except exists foreign from full group having in index inner insert intersect into is join key left like limit not null offset on or order outer over primary references right rollback select set table then union unique update using values view when where with',
 }).map(([language, value]) => [language, new Set(value.split(' '))]));
+
+/** Literal constants shared by most languages. */
 const constants = new Set(['true', 'false', 'null', 'nil', 'none', 'undefined', 'nan', 'inf', 'yes', 'no']);
 const identifier = /[$a-zA-Z_][$\w]*/y;
 const number = /(?:0[xob][\da-f_]+|\d[\d_]*(?:\.[\d_]*)?(?:e[+-]?\d[\d_]*)?)(?:n|[ulfd])?/iy;
+
+/**
+ * Returns the language of a file, or an empty string when unsupported.
+ *
+ * @param {string} path A repository path.
+ * @returns {string}
+ */
 export function language(path) {
   const name = path.split('/').at(-1).toLowerCase();
   if (['dockerfile', 'makefile', '.bashrc', '.zshrc'].includes(name)) return 'shell';
   return extensions[name.split('.').at(-1)] || '';
 }
+
+/**
+ * Tokenizes a file revision.
+ *
+ * @param {string} text The file text.
+ * @param {string} path The repository path, used to detect the language.
+ * @param {function(): boolean} [current] Returns `false` to cancel.
+ * @returns {Promise<{lines: Array<Array<{start: number, end: number, type: string}>>, language: string, limited?: boolean, cancelled?: boolean}>}
+ */
 export async function tokenize(text, path, current = () => true) {
   const name = language(path); const lines = splitLines(text);
   if (!name) return {lines: [], language: '', limited: false};

@@ -132,7 +132,7 @@ tests/                   Node.js regression suite
 docs/                    Feature details, releases and verification record
 ```
 
-esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP.
+esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP. See [Architecture](docs/ARCHITECTURE.md) for contexts, messages, storage and the build.
 
 ## Development
 

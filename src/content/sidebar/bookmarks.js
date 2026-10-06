@@ -1,17 +1,28 @@
-/* Local bookmarks for repository-host pages. */
+/**
+ * Local bookmarks for pages on enabled repository hosts.
+ *
+ * Bookmarks are stored by the service worker and included in browser Sync
+ * only when the user enables it.
+ *
+ * @module content/sidebar/bookmarks
+ */
 import {icon} from '../../shared/icons.js';
 import {button, el, empty} from '../dom.js';
 import {requestName} from '../page.js';
 
+/** Creates the bookmarks feature: `bookmarkCurrent` and `renderBookmarks`. */
 export function createBookmarks(app) {
   const {state, run} = app;
 
+  /** Adds the current page as a bookmark, or removes it when already bookmarked. */
   async function bookmarkCurrent() {
     const existing = state.public?.bookmarks.find(item => item.url === location.href);
     const bookmarks = await app.rpc('BOOKMARK', existing ? {remove: existing.id} : {url: location.href, title: document.title.replace(/ [·|] (GitHub|GitLab)$/, '')});
     state.public.bookmarks = bookmarks; app.updateHeader(); if (state.tab === 'bookmarks') app.render();
     app.toast(existing ? 'Bookmark removed.' : 'Page bookmarked on this browser.');
   }
+
+  /** Renders the bookmarks matching the search. */
   function renderBookmarks() {
     const {body} = app.view;
     const query = state.query.toLowerCase();

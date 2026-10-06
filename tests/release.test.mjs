@@ -1,3 +1,8 @@
+/**
+ * Release workflow: tag and manual triggers, default-branch tagging, generated
+ * release notes, Chrome Web Store submission states, issue completion and
+ * notification variables.
+ */
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';

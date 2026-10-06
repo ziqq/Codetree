@@ -1,3 +1,7 @@
+/**
+ * Full-file diff reconstruction: LF/CRLF handling, added/deleted files and
+ * rejection of mismatched or truncated patches.
+ */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {fullDiff} from '../src/shared/diff.js';

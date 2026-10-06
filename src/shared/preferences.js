@@ -1,12 +1,28 @@
-/* Preferences, shortcuts and page-display rules. Shared, original implementation. */
+/**
+ * User preferences, keyboard shortcuts and page-display rules.
+ *
+ * The service worker normalizes stored and synced values with
+ * [preferences]; Settings and the content script use the same helpers so
+ * every context accepts exactly the same values.
+ *
+ * @module shared/preferences
+ */
 import {repoURL} from './routes.js';
 
+/** Default preferences used for new installations and invalid values. */
 export const defaults = Object.freeze({
   dock: 'left', width: 304, pinned: true, open: true,
   iconTheme: 'color', fontFamily: 'default', fontSize: 12,
   toggleShortcut: 'Shift+D', searchShortcut: 'Shift+S',
   pageScope: 'repository', hidePatterns: '', folderClick: true,
 });
+
+/**
+ * Code font choices and their CSS font stacks.
+ *
+ * Named fonts are never downloaded; each stack falls back to the system
+ * monospace font when the named font is not installed locally.
+ */
 export const fontFamilies = Object.freeze({
   default: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   'JetBrains Mono': '"JetBrains Mono", ui-monospace, monospace',
@@ -17,6 +33,17 @@ export const fontFamilies = Object.freeze({
   Consolas: 'Consolas, ui-monospace, monospace',
 });
 
+/**
+ * Parses a comma-separated list of keyboard shortcuts.
+ *
+ * Each shortcut is `Modifier+…+Key`. Modifiers are `Ctrl`, `Cmd`/`Meta`,
+ * `Alt`/`Option`, `Shift` and `Mod` (Ctrl on Windows/Linux, Cmd on macOS);
+ * `Space` and `Plus` name those keys. A blank value disables the action.
+ *
+ * @param {string} value Up to eight shortcuts, e.g. `Shift+D, Mod+B`.
+ * @returns {Array<{key: string, ctrl: boolean, meta: boolean, alt: boolean, shift: boolean, mod: boolean}>}
+ * @throws {Error} If a shortcut is malformed or there are more than eight.
+ */
 export function shortcuts(value) {
   if (typeof value !== 'string' || value.length > 512) throw new Error('Use at most eight shortcuts, separated by commas.');
   if (!value.trim()) return [];
@@ -35,11 +62,28 @@ export function shortcuts(value) {
   return bindings;
 }
 
+/**
+ * Whether a keyboard [event] matches any shortcut in [value].
+ *
+ * @param {string} value A shortcut list accepted by [shortcuts].
+ * @param {KeyboardEvent|Object} event A keyboard event or an equivalent object.
+ * @returns {boolean}
+ */
 export function shortcutMatches(value, event) {
   return shortcuts(value).some(binding => binding.key === event.key.toLowerCase() && binding.alt === event.altKey && binding.shift === event.shiftKey &&
     (binding.mod ? event.ctrlKey !== event.metaKey : binding.ctrl === event.ctrlKey && binding.meta === event.metaKey));
 }
 
+/**
+ * Validates the navigation preferences before they are saved.
+ *
+ * The toggle and search shortcuts must not overlap (with `Mod` checked
+ * against both Ctrl and Cmd), and URL exclusions are limited to 64
+ * non-empty lines within 16,384 characters.
+ *
+ * @param {Object} value Preferences with `toggleShortcut`, `searchShortcut` and `hidePatterns`.
+ * @throws {Error} If the values cannot be saved.
+ */
 export function validateNavigation(value) {
   const toggle = shortcuts(value.toggleShortcut); const search = shortcuts(value.searchShortcut);
   for (const binding of toggle) {
@@ -53,6 +97,12 @@ export function validateNavigation(value) {
   }
 }
 
+/**
+ * Matches [text] against a literal pattern where `*` matches any run of characters.
+ *
+ * Iterative backtracking keeps the cost linear in practice and avoids
+ * building regular expressions from user input.
+ */
 function globMatch(pattern, text) {
   let index = 0; let position = 0; let star = -1; let retry = 0;
   while (position < text.length) {
@@ -65,6 +115,18 @@ function globMatch(pattern, text) {
   return index === pattern.length;
 }
 
+/**
+ * Whether Codetree should appear on a page.
+ *
+ * Pages matching an exclusion pattern are hidden. With the `code` page
+ * scope, repository pages are limited to the repository root, request
+ * lists and commit lists; trees, files, requests and commits stay visible.
+ *
+ * @param {string} url The page URL.
+ * @param {?Object} context The parsed repository context, if any.
+ * @param {Object} value Normalized preferences.
+ * @returns {boolean}
+ */
 export function pageVisible(url, context, value) {
   if (!context) return false;
   const parsed = new URL(url);
@@ -74,6 +136,16 @@ export function pageVisible(url, context, value) {
   return path === root || (context.provider === 'gitlab' ? ['/merge_requests', '/commits'].some(part => path === root + '/-' + part) : ['/pulls', '/commits'].some(part => path === root + part));
 }
 
+/**
+ * Normalizes stored, synced or submitted preferences.
+ *
+ * Unknown keys are dropped and every field is clamped to a supported
+ * value. Invalid shortcut pairs fall back to the defaults together, and
+ * the legacy `outline` icon style becomes `monochrome`.
+ *
+ * @param {Object} [value={}] Raw preferences.
+ * @returns {Object} A complete preferences object.
+ */
 export function preferences(value = {}) {
   let toggleShortcut = value.toggleShortcut ?? defaults.toggleShortcut; let searchShortcut = value.searchShortcut ?? defaults.searchShortcut;
   try { shortcuts(toggleShortcut); shortcuts(searchShortcut); } catch { toggleShortcut = defaults.toggleShortcut; searchShortcut = defaults.searchShortcut; }

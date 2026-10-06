@@ -1,13 +1,35 @@
-/* Trusted OAuth device (GitHub) and PKCE (GitLab) flows with refresh. No client secret. */
+/**
+ * OAuth sign-in for github.com (device flow) and gitlab.com (authorization
+ * code with PKCE), and token refresh.
+ *
+ * Requests go directly to the provider without cookies, redirects or a
+ * client secret. A pending GitHub device authorization is kept in session
+ * storage so Settings can resume polling after it is reopened.
+ *
+ * @module background/oauth/flow
+ */
 import {responseJSON} from '../http.js';
 import {oauthConfig as config} from './config.js';
 
+/** The in-flight device poll, shared when Settings polls twice. */
 let pollPending = null;
+
+/**
+ * Returns the configured client ID.
+ *
+ * @throws {Error} When OAuth is not configured in this build.
+ */
 function clientId(provider) {
   const value = config[provider];
   if (typeof value !== 'string' || !/^[\w.-]{8,256}$/.test(value)) throw new Error('OAuth is not configured in this build. Connect a personal access token instead.');
   return value;
 }
+
+/**
+ * Posts a form to an OAuth endpoint and parses its bounded JSON reply.
+ *
+ * @throws {Error} With the provider's `error` code and `interval` attached.
+ */
 async function post(origin, path, parameters) {
   const response = await fetch(origin + path, {method: 'POST', headers: {Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams(parameters).toString(), credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(25000)});
@@ -19,17 +41,35 @@ async function post(origin, path, parameters) {
   }
   return value;
 }
+
+/** Validates a bearer token response and returns `{token, refreshToken, expiresAt}`. */
 function credentials(value) {
   if (typeof value.access_token !== 'string' || !value.access_token || value.access_token.length > 4096 || /\s/.test(value.access_token) || value.token_type?.toLowerCase() !== 'bearer') throw new Error('OAuth did not return a valid bearer token.');
   const refreshToken = typeof value.refresh_token === 'string' && value.refresh_token.length <= 4096 && !/\s/.test(value.refresh_token) ? value.refresh_token : '';
   return {token: value.access_token, refreshToken, expiresAt: Number(value.expires_in) > 0 ? Date.now() + Number(value.expires_in) * 1000 : 0};
 }
+
+/** Returns the device-flow fields Settings may display. */
 function deviceInfo(flow) { return flow ? {id: flow.id, userCode: flow.userCode, verificationURL: 'https://github.com/login/device', expires: flow.expires, interval: Math.max(1, Math.ceil((flow.nextPollAt - Date.now()) / 1000))} : null; }
+
+/**
+ * Returns the pending GitHub device authorization, if it has not expired.
+ *
+ * @returns {Promise<?Object>}
+ */
 export async function status() {
   const {oauthDevice} = await chrome.storage.session.get('oauthDevice');
   if (oauthDevice?.expires > Date.now()) return deviceInfo(oauthDevice);
   await chrome.storage.session.remove('oauthDevice'); return null;
 }
+
+/**
+ * Starts a GitHub device authorization.
+ *
+ * @param {'public'|'private'} access `private` requests the `repo` scope.
+ * @param {string} label The account label.
+ * @returns {Promise<Object>} The user code and verification URL to show.
+ */
 export async function start(access, label) {
   const id = clientId('github');
   const data = await post('https://github.com', '/login/device/code', {client_id: id, scope: access === 'private' ? 'repo read:user' : 'read:user'});
@@ -40,11 +80,25 @@ export async function start(access, label) {
     expires: Date.now() + Math.min(900, data.expires_in) * 1000, interval, nextPollAt: Date.now() + interval * 1000};
   await chrome.storage.session.set({oauthDevice: flow}); return deviceInfo(flow);
 }
+
+/**
+ * Cancels a pending device authorization.
+ *
+ * @param {string} id The flow ID.
+ * @returns {Promise<boolean>}
+ */
 export async function cancel(id) {
   const {oauthDevice} = await chrome.storage.session.get('oauthDevice');
   if (oauthDevice?.id === id) await chrome.storage.session.remove('oauthDevice');
   return true;
 }
+
+/**
+ * Polls GitHub once, respecting the interval and `slow_down` replies.
+ *
+ * @param {string} id The flow ID.
+ * @returns {Promise<{pending: Object}|{account: Object}>} The pending flow or the new account.
+ */
 export async function poll(id) {
   if (pollPending?.id === id) return pollPending.promise;
   const promise = (async () => {
@@ -72,7 +126,19 @@ export async function poll(id) {
   pollPending = {id, promise};
   try { return await promise; } finally { if (pollPending?.promise === promise) pollPending = null; }
 }
+
+/** Base64url encoding without padding, for PKCE values. */
 function base64(bytes) { return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, ''); }
+
+/**
+ * Signs in to gitlab.com in a browser authorization window with PKCE.
+ *
+ * The callback must return to the extension's redirect URI with the same
+ * random state.
+ *
+ * @param {string} label The account label.
+ * @returns {Promise<Object>} The new account with its credentials.
+ */
 export async function gitlab(label) {
   const id = clientId('gitlab'); const redirectUri = chrome.identity.getRedirectURL('gitlab');
   const state = base64(crypto.getRandomValues(new Uint8Array(32))); const verifier = base64(crypto.getRandomValues(new Uint8Array(32)));
@@ -85,6 +151,13 @@ export async function gitlab(label) {
   const data = await post('https://gitlab.com', '/oauth/token', {client_id: id, code: callback.searchParams.get('code'), grant_type: 'authorization_code', redirect_uri: redirectUri, code_verifier: verifier});
   return {origin: 'https://gitlab.com', provider: 'gitlab', auth: 'oauth', clientId: id, redirectUri, label: String(label || '').slice(0, 60), ...credentials(data)};
 }
+
+/**
+ * Exchanges an OAuth account's refresh token for new credentials.
+ *
+ * @param {Object} account A stored OAuth account.
+ * @returns {Promise<Object>} `{token, refreshToken, expiresAt}`.
+ */
 export async function refresh(account) {
   if (!account.refreshToken) throw new Error('OAuth access expired. Reconnect the account in Settings.');
   if (!['https://github.com', 'https://gitlab.com'].includes(account.origin)) throw new Error('Invalid OAuth account host.');

@@ -1,3 +1,13 @@
+/**
+ * Repository consistency checks run by `npm run check` and CI.
+ *
+ * Validates the manifest (version, permissions, CSP and assets of a fresh
+ * bundle), version labels, lockfile consistency, the license, JavaScript
+ * syntax, line endings, possible committed credentials, local Markdown
+ * links, HTML assets, YAML, pinned workflow actions and changelog order.
+ *
+ * Usage: `node scripts/check.mjs`.
+ */
 import {mkdtemp, readFile, readdir, rm, stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve, dirname, join, relative} from 'node:path';
@@ -14,6 +24,7 @@ const development = JSON.parse(await text('package.json'));
 const lock = JSON.parse(await text('package-lock.json'));
 const files = [];
 
+/** Collects every project file except Git data, dependencies and build output; symbolic links fail. */
 async function walk(directory = root) {
   for (const entry of await readdir(directory, {withFileTypes: true})) {
     if (['.git', 'node_modules', 'build', 'dist'].includes(entry.name)) continue;
@@ -25,6 +36,7 @@ async function walk(directory = root) {
 }
 await walk();
 
+/** Requires a safe relative asset path that exists in [base] (and is tracked when [base] is the project). */
 async function asset(path, base = root) {
   requireValue(typeof path === 'string' && !path.startsWith('/') && !path.split('/').some(part => !part || part === '.' || part === '..'), `Invalid asset path: ${path}`);
   requireValue((await stat(resolve(base, path)).catch(() => null))?.isFile() && (base !== root || files.includes(path)), `Missing asset: ${path}`);
@@ -34,6 +46,7 @@ const built = await mkdtemp(join(tmpdir(), 'codetree-check-'));
 await buildExtension(built);
 const extensionAsset = path => asset(path, built);
 
+// Manifest, versions and development metadata.
 requireValue(manifest.manifest_version === 3 && manifest.name === 'Codetree', 'Expected the Codetree Manifest V3 extension.');
 requireValue(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(manifest.version) && manifest.version.split('.').some(part => Number(part) > 0) && manifest.version.split('.').every(part => Number(part) <= 65535), 'Invalid release version.');
 requireValue(development.private === true && !Object.keys(development.dependencies || {}).length, 'Development tooling must remain private with no runtime dependencies.');
@@ -64,6 +77,7 @@ for (const [size, path] of Object.entries(manifest.icons)) {
   requireValue(data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && data.readUInt32BE(16) === Number(size) && data.readUInt32BE(20) === Number(size), `Invalid PNG icon dimensions: ${path}`);
 }
 
+// Per-file checks.
 let scripts = 0;
 let documents = 0;
 for (const path of files) {
@@ -105,6 +119,7 @@ for (const path of files) {
     }
   }
 }
+// Changelog: newest version first, categories ordered DEPRECATED, ADDED, CHANGED, FIXED.
 const changelog = await text('CHANGELOG.md');
 const sections = [...changelog.matchAll(/^## (\d+\.\d+\.\d+)$/gm)];
 requireValue(sections[0]?.[1] === manifest.version, 'The newest changelog version must match manifest.json.');

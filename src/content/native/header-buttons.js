@@ -1,17 +1,33 @@
-/* Idempotent "View full" buttons in native GitHub/GitLab diff file headers. */
+/**
+ * "View full" buttons in native GitHub and GitLab diff file headers.
+ *
+ * Provider markup changes over time, so several header layouts are
+ * supported (GitHub React and legacy, GitLab RapidDiffs and legacy).
+ * Insertion is idempotent: re-rendered headers get exactly one button,
+ * and navigation removes all of them.
+ *
+ * @module content/native/header-buttons
+ */
 import {icon} from '../../shared/icons.js';
 import {route} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {diffNode} from '../viewer/viewer.js';
 
+/** Creates the header-button feature: `clearHeaderButtons`, `prepareHeaderButtons` and `scheduleHeaderButtons`. */
 export function createHeaderButtons(app) {
   const {state, run} = app;
   let fullViewPaths = new Map(); let headerFrame = 0;
 
+  /** Removes every inserted button and forgets the diff files. */
   function clearHeaderButtons() {
     fullViewPaths.clear(); document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
   }
+
+  /**
+   * Indexes the diff files by path, previous path and GitHub `diff-<SHA-256>`
+   * anchor, then inserts the buttons.
+   */
   async function prepareHeaderButtons(diff, epoch) {
     const paths = new Map();
     await Promise.all(diff.files.map(async file => {
@@ -28,6 +44,12 @@ export function createHeaderButtons(app) {
     document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
     injectHeaderButtons();
   }
+
+  /**
+   * Adds a button to every native file header without one.
+   *
+   * Known binary file types get a disabled button.
+   */
   function injectHeaderButtons() {
     if (!['pull', 'commit'].includes(state.context?.kind)) return;
     const epoch = state.epoch;
@@ -62,6 +84,13 @@ export function createHeaderButtons(app) {
       else actions.prepend(full);
     }
   }
+
+  /**
+   * Opens the full-file viewer from a native header.
+   *
+   * Works with a closed sidebar: the diff is loaded on demand, and errors
+   * offer account connection and retry.
+   */
   async function showHeaderDiff(path, cardId) {
     const file = fullViewPaths.get(path) || fullViewPaths.get(cardId);
     if (file && state.diff) { await app.showDiff(diffNode(file)); return; }
@@ -82,6 +111,8 @@ export function createHeaderButtons(app) {
         el('button', {type: 'button', text: 'Retry', onClick: run(() => showHeaderDiff(path, cardId))}));
     }
   }
+
+  /** Re-checks native headers on the next animation frame after page updates. */
   function scheduleHeaderButtons() {
     if (!headerFrame) headerFrame = requestAnimationFrame(() => {
       headerFrame = 0; app.positionHandle();
