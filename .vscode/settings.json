@@ -68,6 +68,6 @@
     "package.json": "package-lock.json, .nvmrc, .npmrc",
     ".editorconfig": "eslint.config.*, .prettierrc, .stylelintrc",
     ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*",
-    "readme*": "agents.md, authors, changelog*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, governance.md, license*, maintainers, privacy.md, security.md"
+    "readme*": "agents.md, authors, third_party_notices.md, changelog*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, governance.md, license*, maintainers, privacy.md, security.md"
   }
 }
