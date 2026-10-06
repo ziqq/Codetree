@@ -1,36 +1,31 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
+import {createNavigation} from '../src/content/navigation.js';
+import {createBranches} from '../src/content/sidebar/branches.js';
+import {createPulls} from '../src/content/sidebar/pulls.js';
 
-const source = readFileSync(new URL('../content.js', import.meta.url), 'utf8');
 function deferred() {
   let resolve; let reject;
   const promise = new Promise((success, failure) => {resolve = success; reject = failure;});
   return {promise, resolve, reject};
 }
+// Detached elements are enough for the branch popover messages checked here.
+globalThis.document ??= {createElement: () => ({setAttribute() {}, addEventListener() {}, append() {}})};
+
 function sidebar(rpc) {
   const state = {epoch: 1, tab: 'files', filter: 'approved', branches: null, info: {ref: 'main'},
     public: {}, loading: false, error: '', pulls: [], totalPulls: 0};
   const calls = {headers: 0, files: [], branches: 0, branchMessage: ''};
-  const sandbox = vm.createContext({state, rpc, calls,
-    run: callback => callback, el: (tag, options) => options,
-    branchPopover: {hidden: true}, branchSearch: {value: '', focus() {}},
-    branchList: {replaceChildren(node) {calls.branchMessage = node.text;}},
-    branchButton: {setAttribute() {}, addEventListener(event, callback) {sandbox.openBranches = callback;}},
-    closeBranches() {sandbox.branchPopover.hidden = true;}, render() {},
+  const view = {branchPopover: {hidden: true}, branchSearch: {value: '', focus() {}},
+    branchList: {replaceChildren(node) {calls.branchMessage = node.textContent;}}, branchButton: {setAttribute() {}}};
+  const app = {state, rpc, calls, view, run: callback => callback, render() {},
     renderBranches() {calls.branches++;}, updateHeader() {calls.headers++;},
     async loadFiles(epoch = state.epoch) {calls.files.push(epoch);},
-  });
+  };
   // Execute the production handlers, controlling RPC completion rather than copying their logic.
-  for (const name of ['loadPulls', 'refresh']) {
-    const match = source.match(new RegExp(`^  async function ${name}\\([^]*?^  }`, 'm'));
-    assert.ok(match, `Production function ${name} must exist`);
-    vm.runInContext(match[0], sandbox);
-  }
-  const branchHandler = source.slice(source.indexOf("  branchButton.addEventListener('click'"), source.indexOf('  function renderBranches'));
-  vm.runInContext(branchHandler, sandbox);
-  return sandbox;
+  const {toggleBranches} = createBranches(app); const {loadPulls} = createPulls(app); const {refresh} = createNavigation(app);
+  return Object.assign(app, {state, branchPopover: view.branchPopover, openBranches: toggleBranches, loadPulls, refresh,
+    closeBranches() {view.branchPopover.hidden = true;}});
 }
 
 test('branches from the previous repository do not enter the current branch cache', async () => {

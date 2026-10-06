@@ -76,8 +76,8 @@ test('release notes combine the changelog, commits since the previous tag, detai
   const root = sandbox(t);
   const git = (...args) => execFileSync('git', args, {cwd: root, env: {...process.env,
     GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.com'}});
-  mkdirSync(join(root, 'dist'));
-  writeFileSync(join(root, 'manifest.json'), JSON.stringify({manifest_version: 3, version: '1.0.0', description: 'Synthetic description.', minimum_chrome_version: '116'}));
+  mkdirSync(join(root, 'dist')); mkdirSync(join(root, 'src'));
+  writeFileSync(join(root, 'src/manifest.json'), JSON.stringify({manifest_version: 3, version: '1.0.0', description: 'Synthetic description.', minimum_chrome_version: '116'}));
   writeFileSync(join(root, 'CHANGELOG.md'), '# Changelog\n\n## 1.0.0\n\n- **ADDED**: current entry\n\n## 0.9.0\n\n- **ADDED**: previous entry\n');
   writeFileSync(join(root, 'dist/code-tree-1.0.0.zip'), Buffer.alloc(2048));
   writeFileSync(join(root, 'dist/code-tree-1.0.0.sha256'), `${'b'.repeat(64)}  code-tree-1.0.0.zip\n`);

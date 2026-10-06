@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
-
-const context = vm.createContext({URL});
-vm.runInContext(readFileSync(new URL('../core.js', import.meta.url), 'utf8'), context);
-const {fullDiff} = context.CodeTree;
+import {fullDiff} from '../src/shared/diff.js';
 
 for (const [name, sourceEnding, patchEnding] of [
   ['LF', '\n', '\n'], ['CRLF', '\r\n', '\r\n'], ['CRLF source / LF patch', '\r\n', '\n'],

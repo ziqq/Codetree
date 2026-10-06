@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import {buildExtension} from '../scripts/build.mjs';
+
+// Run the shipped service-worker bundle, built exactly as the extension package builds it.
+const built = mkdtempSync(join(tmpdir(), 'code-tree-viewed-'));
+await buildExtension(built);
+const worker = readFileSync(join(built, 'background.js'), 'utf8');
+rmSync(built, {recursive: true, force: true});
 
 const headA = 'a'.repeat(40); const headB = 'b'.repeat(40); const base = 'c'.repeat(40);
 const file = 'src/file.js';
@@ -41,8 +50,7 @@ function broker(provider, native = false) {
   };
   class Clock extends Date {static now() {return now;}}
   const sandbox = vm.createContext({chrome, fetch, URL, AbortSignal, TextDecoder, Uint8Array, crypto: webcrypto, Date: Clock});
-  sandbox.importScripts = name => vm.runInContext(readFileSync(new URL(`../${name}`, import.meta.url), 'utf8'), sandbox);
-  vm.runInContext(readFileSync(new URL('../background.js', import.meta.url), 'utf8'), sandbox);
+  vm.runInContext(worker, sandbox);
   const send = (type, values = {}) => new Promise(resolve => listener({type, context, ...values}, {url: `${origin}/sample/repo/pull/42`, tab: {id: 1}}, resolve));
   return {send, store, advance() {head = headB;}, expire() {now += 20000;}, get mutations() {return mutations;}, get metadataReads() {return metadataReads;}};
 }

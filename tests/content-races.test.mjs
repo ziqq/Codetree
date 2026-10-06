@@ -1,29 +1,19 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
+import {createFiles} from '../src/content/sidebar/files.js';
+import {makeTree} from '../src/shared/tree.js';
 
-const source = readFileSync(new URL('../content.js', import.meta.url), 'utf8');
 const deferred = () => {let resolve; const promise = new Promise(value => {resolve = value;}); return {promise, resolve};};
 
 function sidebar(rpc) {
-  const sandbox = vm.createContext({URL});
-  vm.runInContext(readFileSync(new URL('../core.js', import.meta.url), 'utf8'), sandbox);
   const folder = {path: 'src', type: 'tree', sha: 'a'.repeat(40), loaded: false};
   const state = {epoch: 1, filesGeneration: 0, mode: 'files', entries: [folder], selected: '', expanded: new Set(),
     context: {origin: 'https://github.com', provider: 'github', owner: 'sample', repo: 'repo'}, info: {ref: 'main', treeSha: 'b'.repeat(40)}};
-  Object.assign(sandbox, {C: sandbox.CodeTree, state, rpc, loadingFolders: new Map(), expansionMemory: new Map(),
-    body: {scrollTop: 0}, render() {}, updateTree() {}, async prepareHeaderButtons() {}});
-  state.tree = sandbox.C.makeTree(state.entries);
-  // Run the actual production functions with controlled RPC completion order.
+  state.tree = makeTree(state.entries);
+  // Run the production loader with controlled RPC completion order.
   // DOM rendering is covered separately in the browser, not simulated here.
-  for (const name of ['expansionKey', 'rememberExpansion', 'loadFiles', 'loadFolder', 'toggleFolder', 'loadAllFolders']) {
-    const prefix = `^  (?:async )?function ${name}\\(`;
-    const match = source.match(new RegExp(`${prefix}[^\\n]*}$`, 'm')) || source.match(new RegExp(`${prefix}[^]*?^  }`, 'm'));
-    assert.ok(match, `Production function ${name} must exist`);
-    vm.runInContext(match[0], sandbox);
-  }
-  return sandbox;
+  const app = {state, rpc, view: {body: {scrollTop: 0}}, render() {}, updateTree() {}, async prepareHeaderButtons() {}};
+  return Object.assign(app, createFiles(app));
 }
 
 test('an old folder reply cannot insert repository files into the changes tree', async () => {
