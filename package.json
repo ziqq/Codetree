@@ -20,7 +20,7 @@
     "globals": "17.13.0",
     "mdn-data": "2.27.1",
     "postcss": "8.5.28",
-    "postcss-selector-parser": "7.1.5",
+    "postcss-selector-parser": "7.1.6",
     "yaml": "2.9.1"
   }
 }

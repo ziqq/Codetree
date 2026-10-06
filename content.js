@@ -12,12 +12,17 @@
   let lastURL = ''; let renderFrame = 0; let toastTimer; let hoverTimer; let queryTimer;
   let viewerGeneration = 0; let resizeStart = null;
   let headerFrame = 0; let fullViewPaths = new Map();
+  let uiReady = false; let nativeSidebar = null;
   const expansionMemory = new Map(); const loadingFolders = new Map();
   const host = document.createElement('div');
   host.id = 'code-tree-extension';
-  host.style.cssText = 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;';
+  host.style.cssText = 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;visibility:hidden;';
   const shadow = host.attachShadow({mode: 'closed'});
   const sheet = document.createElement('link'); sheet.rel = 'stylesheet'; sheet.href = chrome.runtime.getURL('sidebar.css');
+  const stylesheetLoaded = new Promise((resolve, reject) => {
+    sheet.addEventListener('load', resolve, {once: true});
+    sheet.addEventListener('error', () => reject(new Error('Code Tree styles could not load. Refresh this page.')), {once: true});
+  });
   shadow.append(sheet);
   const pageStyle = document.createElement('style'); pageStyle.id = 'code-tree-page-style';
   document.documentElement.append(host, pageStyle);
@@ -75,7 +80,8 @@
     return mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   }
   function layout() {
-    const prefs = state.preferences; const available = Boolean(state.context);
+    const prefs = state.preferences; const available = uiReady && Boolean(state.context);
+    host.style.visibility = uiReady ? 'visible' : 'hidden';
     host.dataset.theme = isDark() ? 'dark' : 'light'; host.dataset.icons = prefs.iconTheme;
     host.dataset.provider = state.context?.provider || 'github';
     host.style.setProperty('--panel-width', `${prefs.width}px`);
@@ -85,6 +91,7 @@
     panel.dataset.dock = prefs.dock; handle.dataset.dock = prefs.dock; resize.dataset.dock = prefs.dock;
     panel.hidden = !available || !prefs.open; handle.hidden = !available || prefs.open;
     resize.hidden = !available || !prefs.open;
+    positionHandle();
     pinButton.classList.toggle('active', prefs.pinned); pinButton.setAttribute('aria-pressed', String(prefs.pinned));
     const closeLabel = `Close sidebar${prefs.toggleShortcut ? ` · ${prefs.toggleShortcut}` : ''}`;
     closeButton.title = closeLabel; closeButton.setAttribute('aria-label', closeLabel);
@@ -96,6 +103,19 @@
       .code-tree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
       .code-tree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.code-tree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.code-tree-view-full:disabled{opacity:.5;cursor:default}.code-tree-view-full .icon{height:15px;width:15px}`;
     requestTreeRender();
+  }
+  const nativeSidebarObserver = new ResizeObserver(positionHandle);
+  function positionHandle() {
+    const sidebar = state.context?.provider === 'github' ? document.querySelector('[aria-label="Issues sidebar navigation"]') : null;
+    if (sidebar !== nativeSidebar) {
+      if (nativeSidebar) nativeSidebarObserver.unobserve(nativeSidebar);
+      nativeSidebar = sidebar;
+      if (sidebar) nativeSidebarObserver.observe(sidebar);
+    }
+    const rect = sidebar?.getBoundingClientRect();
+    const offset = state.preferences.dock === 'left' && rect?.width > 0 && rect.height > 0 && rect.left >= -1 && rect.left < Math.max(1, handle.getBoundingClientRect().width) && rect.right < innerWidth / 2
+      ? Math.ceil(Math.max(0, rect.right)) : 0;
+    host.style.setProperty('--handle-offset', `${offset}px`);
   }
   async function setPreferences(value) {
     state.preferences = C.preferences({...state.preferences, ...value}); layout();
@@ -205,6 +225,7 @@
   function expansionKey() { return `${state.context?.origin}/${state.context?.owner}/${state.context?.repo}:${state.info?.ref}:${state.mode}`; }
   function rememberExpansion() { expansionMemory.set(expansionKey(), new Set(state.expanded)); }
   async function loadPage(force = false) {
+    if (!uiReady) return;
     const context = currentContext(); const url = location.href;
     if (!force && url === lastURL) return;
     lastURL = url; const epoch = ++state.epoch; state.viewGeneration++; state.refreshGeneration++; state.branchGeneration++;
@@ -419,7 +440,10 @@
     }
   }
   function scheduleHeaderButtons() {
-    if (['pull', 'commit'].includes(state.context?.kind) && !headerFrame) headerFrame = requestAnimationFrame(() => { headerFrame = 0; injectHeaderButtons(); });
+    if (!headerFrame) headerFrame = requestAnimationFrame(() => {
+      headerFrame = 0; positionHandle();
+      if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
+    });
   }
   function renderToolbar() {
     toolbar.replaceChildren();
@@ -503,7 +527,7 @@
         }}, [C.icon('chevron')]));
       }
       else row.append(el('span', {class: 'spacer'}));
-      const kind = folder ? 'folder' : C.fileKind(node.path); row.append(C.icon(kind, 'file-icon')); row.lastChild.classList.add(`kind-${kind}`);
+      const kind = folder ? 'folder' : C.fileKind(node.path); row.append(C.icon(folder && state.expanded.has(node.path) ? 'folder-open' : kind === 'code' ? 'file-code' : kind, 'file-icon')); row.lastChild.classList.add(`kind-${kind}`);
       row.append(highlight(node.name, state.query));
       if (state.mode === 'changes') {
         if (node.status) row.append(el('span', {class: `file-status ${node.status}`, text: ({added: 'A', removed: 'D', renamed: 'R', modified: 'M'})[node.status] || node.status[0].toUpperCase()}));
@@ -741,9 +765,13 @@
     new MutationObserver(scheduleHeaderButtons).observe(document.body, {childList: true, subtree: true});
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', layout);
-  window.addEventListener('resize', requestTreeRender, {passive: true});
+  window.addEventListener('resize', () => { positionHandle(); requestTreeRender(); }, {passive: true});
   window.addEventListener('popstate', run(() => loadPage()));
   for (const event of ['turbo:load', 'turbo:render', 'pjax:end']) document.addEventListener(event, run(() => loadPage()));
   setInterval(() => { if (location.href !== lastURL) run(() => loadPage())(); }, 1000);
-  run(async () => { state.public = await rpc('STATE'); state.preferences = state.public.preferences; await loadPage(); })();
+  run(async () => {
+    const [publicData] = await Promise.all([rpc('STATE'), stylesheetLoaded]);
+    state.public = publicData; state.preferences = publicData.preferences; uiReady = true;
+    await loadPage();
+  })();
 })();

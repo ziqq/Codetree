@@ -17,6 +17,7 @@
 - **CHANGED**: product name from `GitHub Code Tree` to `Code Tree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip
+- **CHANGED**: original file icons distinguish JSON, Markdown, licenses, ignore files and source documents; folders show their expanded state, and branch/PR controls use circular nodes
 - **CHANGED**: minimum Chrome version to 116 for OAuth authorization-window lifecycle support
 - **FIXED**: GitLab discussions requiring authentication no longer block a public MR/commit diff; unavailable comments are reported separately
 - **FIXED**: unauthenticated API operations report that an account is required instead of saying a token was rejected
@@ -30,7 +31,10 @@
 - **FIXED**: native View full controls remain visible when API authentication fails and provide account connection/retry guidance
 - **FIXED**: GitHub commit diff headers without a diff ID receive native View full controls
 - **FIXED**: settings dropdown chevrons have consistent spacing and theme colors while retaining native keyboard controls
-- **FIXED**: the sidebar starts hidden until saved preferences are applied, preventing a collapsed sidebar from flashing open when a repository loads
+- **FIXED**: initial page events wait for saved preferences and the sidebar stylesheet before revealing the panel or applying page padding, preventing a collapsed sidebar from flashing open
+- **FIXED**: the collapsed handle accounts for GitHub Issues sidebar width, including native collapse/expand and page navigation
+- **FIXED**: the search shortcut hint keeps its width instead of being squeezed by the search input
+- **FIXED**: upgraded the development selector parser to 7.1.6 to remove quadratic flat-selector parsing (GHSA-rj75-hqrm-r3gf) without weakening CSS validation
 - **FIXED**: removed the vulnerable Stylelint glob dependency chain while retaining CSS syntax checks, seven stylesheet rule categories and the strict development dependency audit
 
 - **FIXED**: closed sidebar Shadow DOM prevents connected pages from reading or deleting bookmarks across repository hosts; synthetic global shortcuts cannot change preferences
