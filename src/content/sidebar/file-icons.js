@@ -42,7 +42,12 @@ export function matchIcon(path, directory = false) {
 // Fonts must be declared in the page document; @font-face rules inside a shadow root are ignored.
 /** Returns `@font-face` rules for the bundled icon fonts. */
 export function fontFaces() {
-  return fonts.map((file, index) => `@font-face{font-family:"${family(index)}";src:url("${chrome.runtime.getURL(`fonts/${file}`)}") format("woff2");font-weight:normal;font-style:normal;font-display:block}`).join('');
+  return fonts
+    .map(
+      (file, index) =>
+        `@font-face{font-family:"${family(index)}";src:url("${chrome.runtime.getURL(`fonts/${file}`)}") format("woff2");font-weight:normal;font-style:normal;font-display:block}`,
+    )
+    .join('');
 }
 
 /**
@@ -54,19 +59,27 @@ export function fontFaces() {
  * @returns {Element}
  */
 export function fileIconElement(rule, {coloured, dark}) {
-  const glyph = glyphs[rule[0]]; const colour = coloured ? rule[dark ? 1 : 2] : null;
+  const glyph = glyphs[rule[0]];
+  const colour = coloured ? rule[dark ? 1 : 2] : null;
   let node;
   if (glyph.svg) {
     node = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    node.setAttribute('viewBox', '0 0 16 16'); node.setAttribute('fill', 'currentColor'); node.setAttribute('aria-hidden', 'true');
+    node.setAttribute('viewBox', '0 0 16 16');
+    node.setAttribute('fill', 'currentColor');
+    node.setAttribute('aria-hidden', 'true');
     for (const value of glyph.svg) {
-      const path = document.createElementNS(node.namespaceURI, 'path'); path.setAttribute('d', value); node.append(path);
+      const path = document.createElementNS(node.namespaceURI, 'path');
+      path.setAttribute('d', value);
+      node.append(path);
     }
     node.classList.add('file-icon', 'octicon');
   } else {
-    node = document.createElement('span'); node.className = 'file-icon glyph'; node.setAttribute('aria-hidden', 'true');
+    node = document.createElement('span');
+    node.className = 'file-icon glyph';
+    node.setAttribute('aria-hidden', 'true');
     node.textContent = glyph.text;
-    node.style.fontFamily = `"${family(glyph.font)}"`; node.style.fontSize = `${glyph.size}px`;
+    node.style.fontFamily = `"${family(glyph.font)}"`;
+    node.style.fontSize = `${glyph.size}px`;
     if (glyph.top) node.style.top = `${glyph.top}px`;
     if (glyph.left) node.style.left = `${glyph.left}px`;
     if (glyph.transform) node.style.transform = glyph.transform;

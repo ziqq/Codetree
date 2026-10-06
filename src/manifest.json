@@ -9,15 +9,25 @@
   "optional_host_permissions": ["https://*/*"],
   "optional_permissions": ["identity"],
   "background": {"service_worker": "background.js"},
-  "content_scripts": [{
-    "matches": ["https://github.com/*", "https://gitlab.com/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle"
-  }],
-  "web_accessible_resources": [{
-    "resources": ["sidebar.css", "fonts/file-icons.woff2", "fonts/fontawesome.woff2", "fonts/mfixx.woff2", "fonts/devopicons.woff2"],
-    "matches": ["https://*/*"]
-  }],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*", "https://gitlab.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidebar.css",
+        "fonts/file-icons.woff2",
+        "fonts/fontawesome.woff2",
+        "fonts/mfixx.woff2",
+        "fonts/devopicons.woff2"
+      ],
+      "matches": ["https://*/*"]
+    }
+  ],
   "action": {"default_title": "Open Codetree"},
   "options_page": "options.html",
   "icons": {"16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png"},

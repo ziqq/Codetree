@@ -21,9 +21,7 @@
       },
       "type": "shell",
       "command": "make lint",
-      "problemMatcher": [
-        "$eslint-stylish"
-      ]
+      "problemMatcher": ["$eslint-stylish"]
     },
     {
       "label": "make:test",
@@ -86,9 +84,7 @@
       },
       "type": "shell",
       "command": "make verify",
-      "problemMatcher": [
-        "$eslint-stylish"
-      ]
+      "problemMatcher": ["$eslint-stylish"]
     },
     {
       "label": "make:ci",
@@ -99,9 +95,7 @@
       },
       "type": "shell",
       "command": "make ci",
-      "problemMatcher": [
-        "$eslint-stylish"
-      ]
+      "problemMatcher": ["$eslint-stylish"]
     },
     {
       "label": "make:clean",

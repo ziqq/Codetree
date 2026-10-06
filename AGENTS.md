@@ -48,7 +48,7 @@ git diff --check
 
 ## Coding conventions
 
-- Two spaces, single quotes, semicolons and explicit DOM APIs.
+- Prettier formatting (`npm run format`; two spaces, single quotes, semicolons, 120 columns) and explicit DOM APIs.
 - Render server/user text with `textContent`; no `innerHTML`, `eval` or remote executable dependencies.
 - Keep tokens/API requests in the trusted broker. Settings sends account commands to the service worker.
 - Validate origins, providers, repository identifiers, source revisions and paths; bind requests to the sender's configured host.

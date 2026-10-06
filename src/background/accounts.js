@@ -32,7 +32,13 @@ export async function publicState(store, sender) {
   }
   return {
     preferences: value,
-    accounts: (store.accounts || []).map(({id, origin, login, label}) => ({id, origin, login, label, provider: providerFor(origin, store)})),
+    accounts: (store.accounts || []).map(({id, origin, login, label}) => ({
+      id,
+      origin,
+      login,
+      label,
+      provider: providerFor(origin, store),
+    })),
     hosts: [...origins(store)].map(origin => ({origin, provider: providerFor(origin, store)})),
     selectedAccounts: store.selectedAccounts || {},
     bookmarks: store.bookmarks || [],
@@ -57,7 +63,15 @@ export async function registerEnterpriseScripts() {
   if (obsolete.length) await chrome.scripting.unregisterContentScripts({ids: obsolete});
   for (let index = 0; index < hosts.length; index++) {
     if (await chrome.permissions.contains({origins: [`${hosts[index]}/*`]})) {
-      await chrome.scripting.registerContentScripts([{id: `codetree-${index}`, matches: [`${hosts[index]}/*`], js: ['content.js'], runAt: 'document_idle', persistAcrossSessions: true}]);
+      await chrome.scripting.registerContentScripts([
+        {
+          id: `codetree-${index}`,
+          matches: [`${hosts[index]}/*`],
+          js: ['content.js'],
+          runAt: 'document_idle',
+          persistAcrossSessions: true,
+        },
+      ]);
     }
   }
 }
@@ -75,20 +89,35 @@ export async function registerEnterpriseScripts() {
  *     another provider or the server rejects the credentials.
  */
 export async function saveAccount(value, store) {
-  const origin = normalizeOrigin(value.origin); const provider = value.provider;
-  if (providerFor(origin, store) !== provider && origins(store).has(origin)) throw new Error('This host is connected to another repository provider.');
-  if (!(await chrome.permissions.contains({origins: [`${origin === 'https://github.com' ? 'https://api.github.com' : origin}/*`]}))) throw new Error('Grant browser access to this repository host first.');
+  const origin = normalizeOrigin(value.origin);
+  const provider = value.provider;
+  if (providerFor(origin, store) !== provider && origins(store).has(origin))
+    throw new Error('This host is connected to another repository provider.');
+  if (
+    !(await chrome.permissions.contains({
+      origins: [`${origin === 'https://github.com' ? 'https://api.github.com' : origin}/*`],
+    }))
+  )
+    throw new Error('Grant browser access to this repository host first.');
   const temporary = {...value, id: crypto.randomUUID(), origin};
   const user = await client({origin, provider}, store, temporary).json('/user', 0, true);
   const login = provider === 'gitlab' ? user.username : user.login;
   if (!login) throw new Error('The server did not return an account username.');
   await writeStore(current => {
-    const accounts = [...(current.accounts || [])]; const index = accounts.findIndex(account => account.origin === origin && account.login === login);
-    const account = {...temporary, id: index === -1 ? temporary.id : accounts[index].id, login, label: String(value.label || login).slice(0, 60)};
-    if (index === -1) accounts.push(account); else accounts[index] = account;
+    const accounts = [...(current.accounts || [])];
+    const index = accounts.findIndex(account => account.origin === origin && account.login === login);
+    const account = {
+      ...temporary,
+      id: index === -1 ? temporary.id : accounts[index].id,
+      login,
+      label: String(value.label || login).slice(0, 60),
+    };
+    if (index === -1) accounts.push(account);
+    else accounts[index] = account;
     return {accounts};
   });
-  await clearCache(); await registerEnterpriseScripts();
+  await clearCache();
+  await registerEnterpriseScripts();
 }
 
 /**
@@ -103,8 +132,10 @@ export async function removeAccount(id) {
   await writeStore(current => {
     const accounts = (current.accounts || []).filter(account => account.id !== id);
     const selectedAccounts = {...current.selectedAccounts};
-    for (const origin of Object.keys(selectedAccounts)) if (selectedAccounts[origin] === id) selectedAccounts[origin] = 'auto';
+    for (const origin of Object.keys(selectedAccounts))
+      if (selectedAccounts[origin] === id) selectedAccounts[origin] = 'auto';
     return {accounts, selectedAccounts};
   });
-  await clearCache(); await registerEnterpriseScripts();
+  await clearCache();
+  await registerEnterpriseScripts();
 }

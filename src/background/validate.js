@@ -34,6 +34,7 @@ export function sha(value) {
  * @returns {string} The percent-encoded path.
  */
 export function filePath(value) {
-  if (typeof value !== 'string' || !value || value.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid file path.');
+  if (typeof value !== 'string' || !value || value.split('/').some(part => !part || part === '.' || part === '..'))
+    throw new Error('Invalid file path.');
   return pathURL(value);
 }

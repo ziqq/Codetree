@@ -136,7 +136,7 @@ esbuild bundles each entry point (`background`, `content`, `options`) into one c
 
 ## Development
 
-Edit `src/`, run `npm run build` and load `build/` as an unpacked extension. JavaScript uses ES modules, two-space indentation, single quotes and explicit DOM construction. Node.js/npm provide bundling and checks only; the extension has no runtime dependencies. Python 3 creates the distributable ZIP. `make help` lists the same commands.
+Edit `src/`, run `npm run build` and load `build/` as an unpacked extension. JavaScript uses ES modules and explicit DOM construction; run `npm run format` (Prettier) before committing. Node.js/npm provide bundling and checks only; the extension has no runtime dependencies. Python 3 creates the distributable ZIP. `make help` lists the same commands.
 
 ```sh
 npm ci

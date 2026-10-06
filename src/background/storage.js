@@ -62,11 +62,13 @@ export function windowPin(windowId, pinned, initial = false) {
     const {windowPins = {}} = await chrome.storage.session.get('windowPins');
     if (initial && typeof windowPins[windowId] === 'boolean') return windowPins[windowId];
     windowPins[windowId] = pinned;
-    const keys = Object.keys(windowPins); while (keys.length > 100) delete windowPins[keys.shift()];
+    const keys = Object.keys(windowPins);
+    while (keys.length > 100) delete windowPins[keys.shift()];
     await chrome.storage.session.set({windowPins});
     return pinned;
   });
-  sessionWrites = result.catch(() => {}); return result;
+  sessionWrites = result.catch(() => {});
+  return result;
 }
 
 /**

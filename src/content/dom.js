@@ -30,7 +30,8 @@ export function el(tag, options = {}, children = []) {
     else if (key === 'value') node.value = value;
     else node.setAttribute(key, String(value));
   }
-  node.append(...children); return node;
+  node.append(...children);
+  return node;
 }
 
 /**
@@ -43,7 +44,11 @@ export function el(tag, options = {}, children = []) {
  * @returns {HTMLButtonElement}
  */
 export function button(name, label, callback, className = '') {
-  return el('button', {type: 'button', class: `icon-button ${className}`, title: label, 'aria-label': label, onClick: callback}, [icon(name)]);
+  return el(
+    'button',
+    {type: 'button', class: `icon-button ${className}`, title: label, 'aria-label': label, onClick: callback},
+    [icon(name)],
+  );
 }
 
 /** Creates the empty, loading or error state of a view. */
@@ -53,8 +58,14 @@ export function empty(title, text, name = 'search') {
 
 /** Renders [label] with the first case-insensitive match of [query] marked. */
 export function highlight(label, query) {
-  const span = el('span', {class: 'file-label'}); const index = query ? label.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  const span = el('span', {class: 'file-label'});
+  const index = query ? label.toLowerCase().indexOf(query.toLowerCase()) : -1;
   if (index === -1) span.textContent = label;
-  else span.append(document.createTextNode(label.slice(0, index)), el('mark', {text: label.slice(index, index + query.length)}), document.createTextNode(label.slice(index + query.length)));
+  else
+    span.append(
+      document.createTextNode(label.slice(0, index)),
+      el('mark', {text: label.slice(index, index + query.length)}),
+      document.createTextNode(label.slice(index + query.length)),
+    );
   return span;
 }

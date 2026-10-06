@@ -50,8 +50,12 @@ export function mount() {
   /** Shows a status message at the bottom of the sidebar for six seconds. */
   app.toast = text => {
     const {toastBox} = app.view;
-    toastBox.textContent = text; toastBox.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastBox.hidden = true; }, 6000);
+    toastBox.textContent = text;
+    toastBox.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastBox.hidden = true;
+    }, 6000);
   };
 
   /**
@@ -60,41 +64,92 @@ export function mount() {
    * @param {Function} callback A synchronous or asynchronous handler.
    * @returns {Function}
    */
-  app.run = callback => (...args) => Promise.resolve().then(() => callback(...args)).catch(error => app.toast(error.message));
+  app.run =
+    callback =>
+    (...args) =>
+      Promise.resolve()
+        .then(() => callback(...args))
+        .catch(error => app.toast(error.message));
   app.view = createView(app);
-  Object.assign(app, createLayout(app), createFiles(app), createTree(app), createBranches(app), createPulls(app),
-    createBookmarks(app), createRender(app), createNavigation(app), createViewer(app), createHeaderButtons(app));
-  const {run} = app; const {host, shadow, pageStyle, iconFonts, search, stylesheetLoaded} = app.view;
+  Object.assign(
+    app,
+    createLayout(app),
+    createFiles(app),
+    createTree(app),
+    createBranches(app),
+    createPulls(app),
+    createBookmarks(app),
+    createRender(app),
+    createNavigation(app),
+    createViewer(app),
+    createHeaderButtons(app),
+  );
+  const {run} = app;
+  const {host, shadow, pageStyle, iconFonts, search, stylesheetLoaded} = app.view;
   document.documentElement.append(host, pageStyle, iconFonts);
 
   // Global shortcuts are ignored while typing, composing text or using AltGr.
   document.addEventListener('keydown', event => {
     if (!event.isTrusted) return;
-    const editing = [shadow.activeElement, ...event.composedPath()].some(node => node instanceof Element && (node.matches('input,textarea,select') || node.isContentEditable));
+    const editing = [shadow.activeElement, ...event.composedPath()].some(
+      node => node instanceof Element && (node.matches('input,textarea,select') || node.isContentEditable),
+    );
     if (!state.context || editing || event.repeat || event.isComposing || event.getModifierState('AltGraph')) return;
-    if (shortcutMatches(state.preferences.toggleShortcut, event)) { event.preventDefault(); run(() => app.setPreferences({open: !state.preferences.open}))(); }
-    else if (shortcutMatches(state.preferences.searchShortcut, event)) { event.preventDefault(); run(async () => { await app.setPreferences({open: true}); search.focus(); })(); }
+    if (shortcutMatches(state.preferences.toggleShortcut, event)) {
+      event.preventDefault();
+      run(() => app.setPreferences({open: !state.preferences.open}))();
+    } else if (shortcutMatches(state.preferences.searchShortcut, event)) {
+      event.preventDefault();
+      run(async () => {
+        await app.setPreferences({open: true});
+        search.focus();
+      })();
+    }
   });
   chrome.runtime.onMessage.addListener(message => {
     if (message.type === 'TOGGLE') run(() => app.setPreferences({open: !state.preferences.open}))();
-    if (message.type === 'WINDOW_PIN_CHANGED') { state.preferences.pinned = message.pinned; app.layout(); }
+    if (message.type === 'WINDOW_PIN_CHANGED') {
+      state.preferences.pinned = message.pinned;
+      app.layout();
+    }
   });
   // Follow provider theme switches and re-insert header buttons after page updates.
   const themeObserver = new MutationObserver(app.layout);
-  themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ['class', 'data-color-mode', 'data-dark-theme', 'data-light-theme']});
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'data-color-mode', 'data-dark-theme', 'data-light-theme'],
+  });
   if (document.body) {
     themeObserver.observe(document.body, {attributes: true, attributeFilter: ['class']});
     new MutationObserver(app.scheduleHeaderButtons).observe(document.body, {childList: true, subtree: true});
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app.layout);
-  window.addEventListener('resize', () => { app.positionHandle(); app.requestTreeRender(); }, {passive: true});
+  window.addEventListener(
+    'resize',
+    () => {
+      app.positionHandle();
+      app.requestTreeRender();
+    },
+    {passive: true},
+  );
   // GitHub and GitLab navigate without full reloads; every route change reloads the sidebar.
-  window.addEventListener('popstate', run(() => app.loadPage()));
-  for (const event of ['turbo:load', 'turbo:render', 'pjax:end']) document.addEventListener(event, run(() => app.loadPage()));
-  setInterval(() => { if (location.href !== app.lastURL) run(() => app.loadPage())(); }, 1000);
+  window.addEventListener(
+    'popstate',
+    run(() => app.loadPage()),
+  );
+  for (const event of ['turbo:load', 'turbo:render', 'pjax:end'])
+    document.addEventListener(
+      event,
+      run(() => app.loadPage()),
+    );
+  setInterval(() => {
+    if (location.href !== app.lastURL) run(() => app.loadPage())();
+  }, 1000);
   run(async () => {
     const [publicData] = await Promise.all([app.rpc('STATE'), stylesheetLoaded]);
-    state.public = publicData; state.preferences = publicData.preferences; app.uiReady = true;
+    state.public = publicData;
+    state.preferences = publicData.preferences;
+    app.uiReady = true;
     await app.loadPage();
   })();
 }

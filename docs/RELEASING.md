@@ -11,7 +11,7 @@ npm audit --audit-level=high
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
-`npm run check` runs ESLint, CSS validation, the Node.js regression suite and JavaScript syntax checks, then bundles a temporary build and validates Manifest V3 metadata, CSP, permissions, bundled assets, PNG dimensions, local documentation links, YAML, dependency/version consistency, possible credential strings and changelog ordering. `actionlint` validates workflow semantics. The audit includes development dependencies.
+`npm run check` runs the Prettier format check, ESLint, CSS validation, the Node.js regression suite and JavaScript syntax checks, then bundles a temporary build and validates Manifest V3 metadata, CSP, permissions, bundled assets, PNG dimensions, local documentation links, YAML, dependency/version consistency, possible credential strings and changelog ordering. `actionlint` validates workflow semantics. The audit includes development dependencies.
 
 Functional browser checks remain necessary. The approved regressions cover Viewed head changes with cached/expired metadata, lazy-folder races, overlapping tree loads, CRLF patches and post-publication automation wiring. These checks do not establish native Chrome installation, private account access or authenticated server writes.
 

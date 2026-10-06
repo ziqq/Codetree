@@ -36,15 +36,37 @@ export function fileKind(path) {
  * @returns {{root: Object, nodes: Map<string, Object>}} The root node and every node by path.
  */
 export function makeTree(entries) {
-  const root = {path: '', name: '', type: 'tree', depth: 0, children: [], loaded: true, adds: 0, dels: 0, commentCount: 0};
+  const root = {
+    path: '',
+    name: '',
+    type: 'tree',
+    depth: 0,
+    children: [],
+    loaded: true,
+    adds: 0,
+    dels: 0,
+    commentCount: 0,
+  };
   const nodes = new Map([['', root]]);
   function ensure(path, type = 'tree') {
     if (nodes.has(path)) return nodes.get(path);
     const index = path.lastIndexOf('/');
     const parentPath = index === -1 ? '' : path.slice(0, index);
     const parent = ensure(parentPath);
-    const node = {path, name: path.slice(index + 1), type, depth: parent.depth + 1, children: [], loaded: true, adds: 0, dels: 0, commentCount: 0, search: path.toLowerCase()};
-    nodes.set(path, node); parent.children.push(node);
+    const node = {
+      path,
+      name: path.slice(index + 1),
+      type,
+      depth: parent.depth + 1,
+      children: [],
+      loaded: true,
+      adds: 0,
+      dels: 0,
+      commentCount: 0,
+      search: path.toLowerCase(),
+    };
+    nodes.set(path, node);
+    parent.children.push(node);
     return node;
   }
   for (const entry of entries) {
@@ -54,16 +76,21 @@ export function makeTree(entries) {
     Object.assign(node, entry, {path, name: node.name, depth: node.depth});
     node.type = entry.type || 'blob';
     node.loaded = entry.loaded !== false;
-    node.adds = entry.additions || 0; node.dels = entry.deletions || 0;
+    node.adds = entry.additions || 0;
+    node.dels = entry.deletions || 0;
     node.commentCount = entry.comments?.length || 0;
   }
   const collator = new Intl.Collator('en', {numeric: true, sensitivity: 'base'});
   const sorted = Array.from(nodes.values()).sort((a, b) => b.depth - a.depth);
   for (const node of sorted) {
-    node.children.sort((a, b) => Number(b.type === 'tree') - Number(a.type === 'tree') || collator.compare(a.name, b.name));
+    node.children.sort(
+      (a, b) => Number(b.type === 'tree') - Number(a.type === 'tree') || collator.compare(a.name, b.name),
+    );
     if (node.path) {
       const parent = nodes.get(node.path.slice(0, Math.max(0, node.path.lastIndexOf('/'))));
-      parent.adds += node.adds; parent.dels += node.dels; parent.commentCount += node.commentCount;
+      parent.adds += node.adds;
+      parent.dels += node.dels;
+      parent.commentCount += node.commentCount;
     }
   }
   return {root, nodes};

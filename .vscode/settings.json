@@ -2,9 +2,7 @@
   "editor.insertSpaces": true,
   "editor.tabSize": 2,
   "editor.detectIndentation": false,
-  "editor.rulers": [
-    120
-  ],
+  "editor.rulers": [120],
   "files.eol": "\n",
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
@@ -54,16 +52,12 @@
     "editor.detectIndentation": false
   },
   "eslint.useFlatConfig": true,
-  "eslint.validate": [
-    "javascript"
-  ],
+  "eslint.validate": ["javascript"],
   "html.format.wrapLineLength": 0,
   "html.validate.styles": false,
   "json.schemas": [
     {
-      "fileMatch": [
-        "/src/manifest.json"
-      ],
+      "fileMatch": ["/src/manifest.json"],
       "url": "https://json.schemastore.org/chrome-manifest.json"
     }
   ],

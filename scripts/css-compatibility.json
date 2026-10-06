@@ -392,15 +392,7 @@
     "step-down",
     "step-up"
   ],
-  "pageClasses": [
-    "blank",
-    "first",
-    "left",
-    "nth",
-    "recto",
-    "right",
-    "verso"
-  ],
+  "pageClasses": ["blank", "first", "left", "nth", "recto", "right", "verso"],
   "scrollbarClasses": [
     "corner-present",
     "decrement",
