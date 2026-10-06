@@ -13,30 +13,32 @@
     "*.cjs": "javascript",
     "*.mjs": "javascript"
   },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.prettierPath": "./node_modules/prettier/index.cjs",
+  "prettier.requireConfig": true,
   "[javascript]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
   },
-  // Stylesheets and Settings HTML are hand-formatted; built-in formatters would reflow them.
   "[css]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": "vscode.css-language-features"
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[html]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": "vscode.html-language-features"
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[json]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.tabSize": 2
   },
   "[jsonc]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.tabSize": 2
   },
   "[yaml]": {
@@ -52,7 +54,6 @@
     "editor.detectIndentation": false
   },
   "eslint.useFlatConfig": true,
-  "eslint.format.enable": true,
   "eslint.validate": [
     "javascript"
   ],
@@ -87,26 +88,10 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    // Root
     "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, .nvmrc, .npmrc, .yarnrc",
-    ".editorconfig": ".babelrc, .prettierrc, .stylelintrc, eslint.config.*, tsconfig.*, jsconfig.*",
+    ".editorconfig": ".prettierrc, .prettierignore, .stylelintrc, eslint.config.*, tsconfig.*, jsconfig.*",
     ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*, .npmignore",
     ".env": ".env.*",
-    "readme*": "agents.md, authors, backers.md, changelog*, citation*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, copying, credits, governance.md, history.md, license*, maintainers, migration.md, privacy.md, security.md, sponsors.md, third_party_notices.md",
-    // src/background and src/content: entry point with its core modules
-    "index.js": "accounts.js, cache.js, client.js, hosts.js, http.js, storage.js, sync.js, validate.js, app.js, state.js, dom.js, page.js, navigation.js",
-    "flow.js": "config.js",
-    // src/content/sidebar
-    "view.js": "layout.js, render.js",
-    "tree.js": "files.js, file-icons.js",
-    // src/content/viewer
-    "viewer.js": "syntax.js",
-    // src/options
-    "options.html": "options.css, index.js",
-    // scripts
-    "build.mjs": "file-icons.mjs, package.py",
-    "check.mjs": "check-css.mjs, css-compatibility.json",
-    // vendor/file-icons
-    "icondb.cjs": "icons.less, colours.less"
+    "readme*": "agents.md, authors, backers.md, changelog*, citation*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, copying, credits, governance.md, history.md, license*, maintainers, migration.md, privacy.md, security.md, sponsors.md, third_party_notices.md"
   }
 }
