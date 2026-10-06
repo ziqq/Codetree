@@ -19,7 +19,7 @@
 - **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
 - **ADDED**: opt-in browser Sync for preferences and bookmark metadata, with trusted storage, an explicit allowlist, bounded snapshots and visible quota errors
 - **CHANGED**: source moved to `src/` as ES modules (shared, service worker, content script, Settings) and bundled with esbuild into `build/`; the release ZIP is packaged from the reproducible bundle
-- **CHANGED**: product name from `GitHub Codetree` to `Codetree`
+- **CHANGED**: product name from `GitHub Code Tree` to `Codetree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip
 - **CHANGED**: icon styles are Color and Monochrome file-icons plus Minimal original icons; a saved Outline style becomes Monochrome
