@@ -131,7 +131,7 @@ npm ci
 npm run verify
 ```
 
-CI checks JavaScript/CSS, manifest/CSP/assets, documentation, workflow syntax, locked dependencies and reproducible packaging on push/PR. Stable tags `vX.Y.Z` run the same checks before publishing a GitHub Release containing the runtime ZIP and SHA-256. Tags must match the manifest/changelog version and publication requires an approved license. See [Checks and releases](docs/RELEASING.md).
+CI checks JavaScript/CSS, manifest/CSP/assets, documentation, workflow syntax, locked dependencies and reproducible packaging on push/PR. Stable tags `vX.Y.Z` or a manual release run repeat the same checks before publishing a GitHub Release containing the runtime ZIP and SHA-256, then submit the ZIP to the Chrome Web Store when configured. Tags must match the manifest/changelog version and publication requires an approved license. See [Checks and releases](docs/RELEASING.md).
 
 Automated checks do not exercise Chrome's installed extension environment. Read [Contributing](CONTRIBUTING.md), [Verification](docs/VERIFICATION.md), [Changelog](CHANGELOG.md) and [AGENTS.md](AGENTS.md).
 

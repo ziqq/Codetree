@@ -50,11 +50,11 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 
 GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no registered client IDs and cannot complete live OAuth sign-in yet. See [OAuth setup](OAUTH.md). Optional browser Sync covers preferences and bookmarks within one browser ecosystem. Cross-browser sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
 
-## Octotree comparison
+## Feature coverage
 
-Checked against the current [Octotree feature guide](https://www.octotree.io/features) on 2026-10-02. Code Tree is a working beta with independent equivalents for the ten listed Pro capability groups. The table separates implemented behavior from verified environments; it is not a claim of complete product parity.
+Reviewed on 2026-10-02. Code Tree is a working beta covering ten common repository-sidebar capability groups with an independent implementation. The table separates implemented behavior from verified environments.
 
-| Octotree Pro capability | Code Tree status |
+| Capability group | Code Tree status |
 | --- | --- |
 | PR/commit changed-file tree | Implemented with statistics, comments and Viewed marks. Public GitHub comments and local Viewed are verified; authenticated GitHub writes and GitLab discussions remain pending. |
 | Full-file diffs | Verified on real GitHub/GitLab pages, including a closed sidebar and collapsed native file. Text limits and unavailable-preview states are documented. |
@@ -67,4 +67,4 @@ Checked against the current [Octotree feature guide](https://www.octotree.io/fea
 | Multiple accounts | PAT accounts and automatic/manual selection are implemented; real multi-account verification remains pending. |
 | GitHub Enterprise | HTTPS custom-host support is implemented; a live Enterprise Server has not been verified. |
 
-The guide also describes configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache; independent equivalents are now implemented. OAuth is prepared pending registration and live verification. GitLab repository/MR support is an additional provider implementation, with the differences above.
+Configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache are also implemented. OAuth is prepared pending registration and live verification. GitLab repository/MR support is an additional provider implementation, with the differences above.

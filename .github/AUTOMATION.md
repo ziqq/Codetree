@@ -48,8 +48,10 @@ Templates belong to this repository: `.github/notify/templates/issue.md` and
 code with repository secrets.
 
 The separate `ci.yml` workflow verifies source, dependencies and runtime packaging.
-`release.yml` repeats those checks and publishes archives on approved stable tags;
-see [Checks and releases](../docs/RELEASING.md).
+`release.yml` repeats those checks, publishes archives on approved stable tags
+or manual runs, submits the ZIP to the Chrome Web Store when configured,
+completes released issues and reports the result; see
+[Checks and releases](../docs/RELEASING.md).
 
 `notifications.yml` sends a required notification when a GitHub release is
 published, including prereleases. It does not create tags, builds, or releases.
