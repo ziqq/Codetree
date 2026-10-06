@@ -19,7 +19,7 @@ Functional browser checks remain necessary. The approved regressions cover Viewe
 
 ```sh
 npm run package
-python3 scripts/package.py --verify dist/code-tree-0.2.0.zip
+python3 scripts/package.py --verify dist/code-tree-1.0.0.zip
 ```
 
 The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist, `PRIVACY.md` and the maintainer-approved [LICENSE](../LICENSE). CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded. Development metadata points to `LICENSE`; CI checks that it exists, is nonempty and agrees with the lockfile's license metadata.
@@ -63,8 +63,8 @@ Releases created with `GITHUB_TOKEN` do not trigger separate `release.published`
 5. When the maintainer requests publication, either run **Release Code Tree** manually from the default branch with the version, or create and push the matching annotated tag:
 
 ```sh
-git tag -a v0.2.0 -m 'Code Tree 0.2.0'
-git push origin v0.2.0
+git tag -a v1.0.0 -m 'Code Tree 1.0.0'
+git push origin v1.0.0
 ```
 
 6. Verify the release workflow conclusion and download the ZIP/checksum from the release. Compare them to the expected tagged package. Check the Chrome Web Store submission state in the Developer Dashboard. A queued workflow or a tag push alone is not release proof.
