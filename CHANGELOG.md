@@ -8,6 +8,8 @@
 - **ADDED**: contribution rules, agent instructions, privacy and feature/verification documentation
 - **ADDED**: push/PR CI with JavaScript/CSS/workflow checks, manifest/CSP/assets/docs validation, locked dependency audit and verified runtime packaging
 - **ADDED**: stable-tag GitHub Releases with version/license gates, reproducible ZIP, SHA-256 and verification of downloaded CI artifacts
+- **ADDED**: manual release runs that tag the verified commit, detailed release notes with installation steps, commits and checksum, and Chrome Web Store API v2 submission when the store is configured
+- **ADDED**: Chrome Web Store listing text and privacy-practice justifications
 - **ADDED**: Code Tree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
 - **ADDED**: configurable toggle/search shortcuts, page scopes, URL exclusions, folder click settings and pinning per browser window
 - **ADDED**: account/host/revision-scoped persistent tree cache with expiration, size limits and refresh/account invalidation
@@ -26,7 +28,7 @@
 - **FIXED**: Viewed marks validate the displayed head revision against fresh PR/MR metadata before writing
 - **FIXED**: stale lazy-folder replies and overlapping tree loads cannot mutate a refreshed tree or a different file mode
 - **FIXED**: full-file patch validation normalizes CRLF consistently with source files
-- **FIXED**: tag releases invoke the existing labeler and notification actions directly after publication instead of relying on suppressed `GITHUB_TOKEN` release events
+- **FIXED**: releases complete issues through the labeler's `release-completed` operation and notify every outcome directly instead of relying on suppressed `GITHUB_TOKEN` release events
 - **FIXED**: delayed refresh and branch responses cannot overwrite the active repository after navigation; errors from an old PR/MR filter cannot hide current results
 - **FIXED**: native View full controls remain visible when API authentication fails and provide account connection/retry guidance
 - **FIXED**: GitHub commit diff headers without a diff ID receive native View full controls

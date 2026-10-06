@@ -56,7 +56,7 @@ README screenshots are captures of the local fixture. JavaScript syntax, manifes
 
 ## Installed Chrome
 
-Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer's Chrome profile, with Octotree disabled. The installed directory was synchronized with the `fe8f277` source. Chrome's extension Details page confirmed the directory, and the extension's Reload action displayed its restarted confirmation. The service worker was inactive immediately afterward; refreshing the repository tabs successfully initialized the extension. The following checks were repeated after Reload using actual extension messaging/storage and live public pages, without a PAT:
+Code Tree 0.2.0 was confirmed enabled as an unpacked extension in the maintainer's Chrome profile, with other repository-sidebar extensions disabled. The installed directory was synchronized with the `fe8f277` source. Chrome's extension Details page confirmed the directory, and the extension's Reload action displayed its restarted confirmation. The service worker was inactive immediately afterward; refreshing the repository tabs successfully initialized the extension. The following checks were repeated after Reload using actual extension messaging/storage and live public pages, without a PAT:
 
 - GitHub `ziqq/Codetree`: repository tree, branches, file search and Refresh worked; the sidebar background matched the page's computed background.
 - GitHub `octocat/Hello-World`, PR #1: native-header `View full` opened a validated 7-row preview with the sidebar closed and the native file collapsed. Local Viewed marking and unmarking succeeded.

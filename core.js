@@ -1,4 +1,4 @@
-/* Shared, original implementation. No Octotree source or assets. */
+/* Shared, original implementation. No third-party extension source or assets. */
 (() => {
   'use strict';
 
