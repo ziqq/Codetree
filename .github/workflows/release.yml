@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Stable version without the v prefix, e.g. 1.0.0
+        description: Stable version without the v prefix, e.g. 0.3.0
         required: true
         type: string
 

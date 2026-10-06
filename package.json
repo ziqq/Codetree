@@ -1,6 +1,6 @@
 {
   "name": "code-tree-development",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Development checks, bundling and packaging for Code Tree; the extension has no runtime dependencies.",

@@ -19,7 +19,7 @@ Functional browser checks remain necessary. The approved regressions cover Viewe
 
 ```sh
 npm run package
-python3 scripts/package.py --verify dist/code-tree-1.0.0.zip
+python3 scripts/package.py --verify dist/code-tree-0.3.0.zip
 ```
 
 `npm run build` bundles `src/background/index.js`, `src/content/index.js` and `src/options/index.js` with esbuild into classic scripts (`background.js`, `content.js`, `options.js`) and copies the manifest, styles, Settings page and icons into `build/`. The service worker, content script and Settings page load no other scripts at runtime. Bundles are not minified, so store reviewers can read them, and the output is byte-for-byte reproducible for a checkout.
@@ -65,8 +65,8 @@ Releases created with `GITHUB_TOKEN` do not trigger separate `release.published`
 5. When the maintainer requests publication, either run **Release Code Tree** manually from the default branch with the version, or create and push the matching annotated tag:
 
 ```sh
-git tag -a v1.0.0 -m 'Code Tree 1.0.0'
-git push origin v1.0.0
+git tag -a v0.3.0 -m 'Code Tree 0.3.0'
+git push origin v0.3.0
 ```
 
 6. Verify the release workflow conclusion and download the ZIP/checksum from the release. Compare them to the expected tagged package. Check the Chrome Web Store submission state in the Developer Dashboard. A queued workflow or a tag push alone is not release proof.

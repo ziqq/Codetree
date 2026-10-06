@@ -80,7 +80,7 @@ clean: ## Remove build output
 				@rm -rf build dist scripts/__pycache__
 
 .PHONY: tag
-tag: ## Tag and push the manifest version, e.g. v1.0.0
+tag: ## Tag and push the manifest version, e.g. v0.3.0
 				@if [ -n "$$(git status --porcelain)" ]; then echo "¯\_(ツ)_/¯ There are uncommitted changes"; exit 1; fi
 				@git fetch --quiet origin
 				@if [ "$$(git rev-list --count @{u}..HEAD)" != "0" ]; then echo "¯\_(ツ)_/¯ There are unpushed changes"; exit 1; fi
@@ -89,7 +89,7 @@ tag: ## Tag and push the manifest version, e.g. v1.0.0
 				@$(MAKE) --no-print-directory tag-add TAG=v$(VERSION)
 
 .PHONY: tag-add
-tag-add: ## Add TAG. E.g: make tag-add TAG=v1.0.0
+tag-add: ## Add TAG. E.g: make tag-add TAG=v0.3.0
 				@if [ -z "$(TAG)" ]; then echo "¯\_(ツ)_/¯ TAG is not set"; exit 1; fi
 				@echo ""
 				@echo "START ADDING TAG: $(TAG)"
@@ -101,7 +101,7 @@ tag-add: ## Add TAG. E.g: make tag-add TAG=v1.0.0
 				@echo ""
 
 .PHONY: tag-remove
-tag-remove: ## Delete TAG. E.g: make tag-remove TAG=v1.0.0
+tag-remove: ## Delete TAG. E.g: make tag-remove TAG=v0.3.0
 				@if [ -z "$(TAG)" ]; then echo "¯\_(ツ)_/¯ TAG is not set"; exit 1; fi
 				@echo ""
 				@echo "START REMOVING TAG: $(TAG)"
