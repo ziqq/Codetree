@@ -1,0 +1,73 @@
+{
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+  "[javascript]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false,
+    "editor.wordWrap": "on"
+  },
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false
+  },
+  "eslint.useFlatConfig": true,
+  "eslint.validate": [
+    "javascript"
+  ],
+  "html.format.wrapLineLength": 0,
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "/src/manifest.json"
+      ],
+      "url": "https://json.schemastore.org/chrome-manifest.json"
+    }
+  ],
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "build": true,
+    "dist": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true,
+    "build/**": true,
+    "dist/**": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.DS_Store": true
+  },
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "options.html": "options.css, index.js",
+    "index.js": "app.js, state.js",
+    "package.json": "package-lock.json, .nvmrc, .npmrc",
+    ".editorconfig": "eslint.config.*, .prettierrc, .stylelintrc",
+    ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*",
+    "readme*": "agents.md, authors, changelog*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, governance.md, license*, maintainers, privacy.md, security.md"
+  }
+}

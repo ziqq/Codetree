@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "make:get",
+      "detail": "Install locked development tools (npm ci)",
+      "type": "shell",
+      "command": "make get",
+      "problemMatcher": []
+    },
+    {
+      "label": "make:lint",
+      "detail": "ESLint and CSS validation",
+      "type": "shell",
+      "command": "make lint",
+      "problemMatcher": [
+        "$eslint-stylish"
+      ]
+    },
+    {
+      "label": "make:test",
+      "detail": "Node.js regression tests",
+      "type": "shell",
+      "command": "make test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "make:build",
+      "detail": "Bundle src/ into the unpacked extension in build/",
+      "type": "shell",
+      "command": "make build",
+      "problemMatcher": []
+    },
+    {
+      "label": "make:package",
+      "detail": "Build the reproducible extension ZIP into dist/",
+      "type": "shell",
+      "command": "make package",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "make:verify",
+      "detail": "Lint, tests, repository checks and packaging",
+      "type": "shell",
+      "command": "make verify",
+      "problemMatcher": [
+        "$eslint-stylish"
+      ]
+    },
+    {
+      "label": "make:ci",
+      "detail": "Local equivalent of the CI pipeline",
+      "type": "shell",
+      "command": "make ci",
+      "problemMatcher": [
+        "$eslint-stylish"
+      ]
+    }
+  ]
+}
