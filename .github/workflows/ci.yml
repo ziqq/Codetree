@@ -1,4 +1,4 @@
-name: Verify Code Tree
+name: Verify Codetree
 
 on:
   push:
@@ -51,20 +51,23 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          npm run build
           if [ -n "$RELEASE_TAG" ]; then
             python3 scripts/package.py --tag "$RELEASE_TAG"
           else
             python3 scripts/package.py
           fi
-          python3 scripts/package.py --output "$RUNNER_TEMP/code-tree-rebuild"
-          cmp dist/*.zip "$RUNNER_TEMP"/code-tree-rebuild/*.zip
+          # An independent bundle must produce the same ZIP bytes.
+          node scripts/build.mjs --outdir "$RUNNER_TEMP/codetree-build"
+          python3 scripts/package.py --source "$RUNNER_TEMP/codetree-build" --output "$RUNNER_TEMP/codetree-rebuild"
+          cmp dist/*.zip "$RUNNER_TEMP"/codetree-rebuild/*.zip
 
       - name: Upload validated extension
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: code-tree-${{ github.sha }}
+          name: codetree-${{ github.sha }}
           path: |
-            dist/code-tree-*.zip
-            dist/code-tree-*.sha256
+            dist/codetree-*.zip
+            dist/codetree-*.sha256
           if-no-files-found: error
           retention-days: 14

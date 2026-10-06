@@ -1,10 +1,10 @@
-# Code Tree Source-Available License 1.0
+# Codetree Source-Available License 1.0
 
-Licensor: **ziqq**, solely to the extent of the copyrights and other rights that the licensor owns or is authorized to license. This license concerns Code Tree's original software and assets; it does not replace licenses of third-party components.
+Licensor: **ziqq**, solely to the extent of the copyrights and other rights that the licensor owns or is authorized to license. This license concerns Codetree's original software and assets; it does not replace licenses of third-party components.
 
 ## 1. Scope and definitions
 
-**Software** means the Code Tree code and assets expressly released by the licensor under these terms, including covered portions of them.
+**Software** means the Codetree code and assets expressly released by the licensor under these terms, including covered portions of them.
 
 **Derivative** means a modification, fork, adaptation, or other derivative work of the Software that uses material protected by the licensor's rights. A different name, additional features, or combination with a larger product does not remove the restrictions on covered material.
 
@@ -24,12 +24,12 @@ Subject to these terms, the licensor grants a worldwide, non-exclusive copyright
 
 - Read, run, and copy the Software for personal use and as a development tool at work, including on private repositories and commercial projects.
 - Make and use modifications for your own internal needs, including those of your employer or business.
-- Create forks and submit proposed changes to the Code Tree project.
+- Create forks and submit proposed changes to the Codetree project.
 - Share the Software or a Derivative without charge for purposes that do not involve Monetization.
 
-Being paid for ordinary development work, using Code Tree to inspect or review a client's repository, and gaining internal productivity or cost savings are permitted. Salaries or fees for internal deployment or modification within the organization using Code Tree are also permitted. These permissions do not authorize selling a fork, charging others for Code Tree functionality, or offering commercial fork-related services to third parties.
+Being paid for ordinary development work, using Codetree to inspect or review a client's repository, and gaining internal productivity or cost savings are permitted. Salaries or fees for internal deployment or modification within the organization using Codetree are also permitted. These permissions do not authorize selling a fork, charging others for Codetree functionality, or offering commercial fork-related services to third parties.
 
-Repositories viewed by the tool, independent programs developed while using it, and the revenue from those programs are not covered merely because Code Tree was used during their development. Copying covered Software into such a program is a different activity and remains subject to these terms.
+Repositories viewed by the tool, independent programs developed while using it, and the revenue from those programs are not covered merely because Codetree was used during their development. Copying covered Software into such a program is a different activity and remains subject to these terms.
 
 ## 3. Restriction on monetization
 
@@ -39,9 +39,9 @@ These terms do not automatically convert to a permissive license after any perio
 
 ## 4. Redistribution and notices
 
-When sharing any covered material, include these terms and preserve applicable copyright and licensing notices. Identify your modifications so recipients can distinguish them from the original release. Do not present a fork as an official Code Tree release without authorization.
+When sharing any covered material, include these terms and preserve applicable copyright and licensing notices. Identify your modifications so recipients can distinguish them from the original release. Do not present a fork as an official Codetree release without authorization.
 
-You may grant rights in your own additions only to the extent that doing so does not authorize an activity prohibited for the covered Software. A fork's separate license cannot remove the restrictions on Code Tree material.
+You may grant rights in your own additions only to the extent that doing so does not authorize an activity prohibited for the covered Software. A fork's separate license cannot remove the restrictions on Codetree material.
 
 ## 5. Reserved rights and termination
 

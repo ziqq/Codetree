@@ -1,0 +1,91 @@
+{
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "editor.rulers": [120],
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+  "files.associations": {
+    "*.cjs": "javascript",
+    "*.mjs": "javascript"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.prettierPath": "./node_modules/prettier/index.cjs",
+  "prettier.requireConfig": true,
+  "[javascript]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "[css]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[html]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[jsonc]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false,
+    "editor.wordWrap": "on"
+  },
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false
+  },
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["javascript"],
+  "html.format.wrapLineLength": 0,
+  "html.validate.styles": false,
+  "json.schemas": [
+    {
+      "fileMatch": ["/src/manifest.json"],
+      "url": "https://json.schemastore.org/chrome-manifest.json"
+    }
+  ],
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "build": true,
+    "dist": true,
+    "vendor/file-icons/icondb.cjs": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true,
+    "build/**": true,
+    "dist/**": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.DS_Store": true
+  },
+  "debug.openDebug": "openOnDebugBreak",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, .nvmrc, .npmrc, .yarnrc",
+    ".editorconfig": ".prettierrc, .prettierignore, .stylelintrc, eslint.config.*, tsconfig.*, jsconfig.*",
+    ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*, .npmignore",
+    ".env": ".env.*",
+    "readme*": "agents.md, authors, backers.md, changelog*, citation*, claude.md, code_of_conduct.md, codeowners, contributing.md, contributors, copying, credits, governance.md, history.md, license*, maintainers, migration.md, privacy.md, security.md, sponsors.md, third_party_notices.md"
+  }
+}

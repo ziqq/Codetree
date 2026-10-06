@@ -1,24 +1,30 @@
+/**
+ * Full-file diff reconstruction: LF/CRLF handling, added/deleted files and
+ * rejection of mismatched or truncated patches.
+ */
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
-
-const context = vm.createContext({URL});
-vm.runInContext(readFileSync(new URL('../core.js', import.meta.url), 'utf8'), context);
-const {fullDiff} = context.CodeTree;
+import {fullDiff} from '../src/shared/diff.js';
 
 for (const [name, sourceEnding, patchEnding] of [
-  ['LF', '\n', '\n'], ['CRLF', '\r\n', '\r\n'], ['CRLF source / LF patch', '\r\n', '\n'],
+  ['LF', '\n', '\n'],
+  ['CRLF', '\r\n', '\r\n'],
+  ['CRLF source / LF patch', '\r\n', '\n'],
 ]) {
   test(`full-file diff validates ${name} context, removals and additions`, () => {
     const before = ['unchanged', 'old', 'tail', ''].join(sourceEnding);
     const after = ['unchanged', 'new', 'tail', ''].join(sourceEnding);
     const patch = ['@@ -1,3 +1,3 @@', ' unchanged', '-old', '+new', ' tail'].join(patchEnding);
     const rows = fullDiff(before, after, patch);
-    assert.deepEqual(Array.from(rows, row => [row.type, row.text, row.oldLine, row.newLine]), [
-      ['context', 'unchanged', 1, 1], ['removed', 'old', 2, null],
-      ['added', 'new', null, 2], ['context', 'tail', 3, 3],
-    ]);
+    assert.deepEqual(
+      Array.from(rows, row => [row.type, row.text, row.oldLine, row.newLine]),
+      [
+        ['context', 'unchanged', 1, 1],
+        ['removed', 'old', 2, null],
+        ['added', 'new', null, 2],
+        ['context', 'tail', 3, 3],
+      ],
+    );
   });
 }
 

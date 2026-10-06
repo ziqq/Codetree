@@ -1,6 +1,6 @@
 # Privacy
 
-Code Tree has no backend, analytics, advertising, paid account or telemetry. Repository requests go directly to the provider selected by the user. Optional browser Sync uses the browser vendor’s account storage; Code Tree operates no synchronization server.
+Codetree has no backend, analytics, advertising, paid account or telemetry. Repository requests go directly to the provider selected by the user. Optional browser Sync uses the browser vendor’s account storage; Codetree operates no synchronization server.
 
 ## Local data
 
@@ -40,7 +40,7 @@ The repository service processes API requests under its own policies. Opening a 
 | Optional HTTPS host access | Connect a specific custom origin submitted in Settings |
 | Optional `identity` | GitLab OAuth authorization window; requested only when signing in with GitLab |
 
-The optional HTTPS pattern allows requesting custom origins; Code Tree requests only the submitted origin. Accounts can be added/removed only through extension Settings, not from content scripts.
+The optional HTTPS pattern allows requesting custom origins; Codetree requests only the submitted origin. Accounts can be added/removed only through extension Settings, not from content scripts.
 
 ## Writes
 

@@ -1,6 +1,6 @@
-# Code Tree
+# Codetree
 
-Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Code Tree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks, and Python packages the unchanged runtime files.
+Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Codetree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
 
 ## General rules
 
@@ -14,22 +14,24 @@ Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repositor
 
 ## Environment setup
 
-Load the repository root as an unpacked extension in Chrome/Chromium 116+. Reload the extension and refresh repository tabs after changes. Use Node.js 24, `npm ci` and Python 3 for the full development/packaging checks; these tools are not needed by users loading the extension.
+Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in Chrome/Chromium 116+. Rebuild, reload the extension and refresh repository tabs after changes. Use Node.js 24 and Python 3 for the full development/packaging checks; users loading a release ZIP need neither.
 
 ## Project structure
 
-- `core.js`: defaults/preferences, routes/URLs, original icons, tree logic and patch validation.
-- `syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
-- `background.js`: trusted service worker, host-bound broker, accounts/storage, bounded cache and GitHub REST/GraphQL adapter.
-- `sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
-- `gitlab.js`: GitLab adapter using the broker's client/cache.
-- `oauth*.js`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
-- `content.js`: Shadow DOM sidebar/viewer and native diff-header buttons.
-- `sidebar.css`: isolated UI styles; page styles are constructed in `content.js`.
-- `options.*`: appearance and account settings.
-- `manifest.json`, `icons/`: distribution metadata and original assets.
-- `scripts/`, `.github/workflows/`: validation, deterministic runtime packaging and releases by stable tag.
-- `docs/`, `PRIVACY.md`: feature boundaries and validation/data records.
+- `src/shared/`: preferences/shortcuts, routes/URLs, tree model, patch validation and original icons; side-effect-free ES modules used by every context.
+- `src/background/`: trusted service worker. `index.js` routes messages; `storage`, `cache`, `http`, `client`, `hosts`, `accounts` and `validate` hold the host-bound broker, bounded caches and request validation.
+- `src/background/providers/`: GitHub REST/GraphQL and GitLab REST adapters, each with its own request handler.
+- `src/background/sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
+- `src/background/oauth/`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
+- `src/content/`: Shadow DOM sidebar. `app.js` composes feature factories (`createX(app)`) from `sidebar/`, `viewer/` and `native/`; factories receive shared state and functions through `app`, so they run in tests without a page.
+- `src/content/viewer/syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
+- `src/content/sidebar.css`: isolated UI styles; page styles are constructed in `sidebar/layout.js`.
+- `src/options/`: appearance and account settings.
+- `src/manifest.json`, `src/icons/`: distribution metadata and original assets.
+- `vendor/file-icons/`, `scripts/file-icons.mjs`: maintainer-approved file-icons/atom rules, styles and fonts, compiled into the content script at build time. Keep the files unmodified, record the source commit and keep `THIRD_PARTY_NOTICES.md` packaged.
+- `scripts/`, `.github/workflows/`: bundling, validation, deterministic runtime packaging and releases by stable tag.
+- `docs/`, `PRIVACY.md`: architecture, feature boundaries and validation/data records. Read [Architecture](docs/ARCHITECTURE.md) before changing messages, storage or the content factories.
+- Document every module and function with JSDoc (Python: docstrings); explain non-obvious invariants such as request generations, limits and security checks.
 
 ## Key commands
 
@@ -42,11 +44,11 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
-`npm test` runs approved regressions for Viewed revision checks, asynchronous tree loading, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
+`npm test` runs approved regressions for Viewed revision checks against the bundled service worker, asynchronous tree loading through the content factories, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
 
 ## Coding conventions
 
-- Two spaces, single quotes, semicolons and explicit DOM APIs.
+- Prettier formatting (`npm run format`; two spaces, single quotes, semicolons, 120 columns) and explicit DOM APIs.
 - Render server/user text with `textContent`; no `innerHTML`, `eval` or remote executable dependencies.
 - Keep tokens/API requests in the trusted broker. Settings sends account commands to the service worker.
 - Validate origins, providers, repository identifiers, source revisions and paths; bind requests to the sender's configured host.
@@ -55,7 +57,7 @@ git diff --check
 - Keep persisted trees scoped by account/host/repository/revision, clear them on Refresh/account changes and reject stale cache writes after invalidation. Do not persist raw files or comments.
 - Use validated patches and exact request revisions for full-file diffs. Preserve limits/error paths.
 - Distinguish local GitLab Viewed marks from synchronized GitHub marks.
-- Native selectors may change. Keep insertion idempotent and clean up on navigation. Do not copy another extension's source/assets.
+- Native selectors may change. Keep insertion idempotent and clean up on navigation. Do not copy another extension's source/assets; the vendored file-icons/atom icon set is the approved exception.
 
 ## Validation and delivery
 
@@ -63,4 +65,4 @@ Verify affected browser interactions and use real public APIs when possible. Sep
 
 Keep fixtures, archives, development tools, temporary screenshots and secrets out of the runtime package. Identify fixture images in README. Stage intended paths, inspect archive contents and verify the remote before an authorized push. Follow [Checks and releases](docs/RELEASING.md); tags must match manifest/development/changelog versions and an approved license. Do not create tags, releases or store submissions without a request.
 
-The maintainer has approved the custom [Code Tree Source-Available License 1.0](LICENSE): workplace use and free forks are allowed; monetization of covered derivatives, including donations and paid fork services, is restricted. Preserve the full terms in distribution packages. License changes belong to the maintainer; do not replace these terms or grant additional commercial rights without authorization.
+The maintainer has approved the custom [Codetree Source-Available License 1.0](LICENSE): workplace use and free forks are allowed; monetization of covered derivatives, including donations and paid fork services, is restricted. Preserve the full terms in distribution packages. License changes belong to the maintainer; do not replace these terms or grant additional commercial rights without authorization.

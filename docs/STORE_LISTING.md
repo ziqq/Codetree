@@ -1,12 +1,12 @@
 # Chrome Web Store listing
 
-Source text for the Chrome Web Store Developer Dashboard. The upload API does not change listing fields; paste these values manually and keep them consistent with `manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
+Source text for the Chrome Web Store Developer Dashboard. The upload API does not change listing fields; paste these values manually and keep them consistent with `src/manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
 
 ## Store listing
 
 | Field | Value |
 | --- | --- |
-| Name | Code Tree |
+| Name | Codetree |
 | Summary | Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks. |
 | Category | Developer Tools |
 | Language | English |
@@ -19,7 +19,7 @@ The summary must stay within 132 characters and match the manifest description.
 ### Description
 
 ```text
-Code Tree adds a fast file tree to GitHub and GitLab, so you can browse repositories and review pull/merge requests without losing your place.
+Codetree adds a fast file tree to GitHub and GitLab, so you can browse repositories and review pull/merge requests without losing your place.
 
 REPOSITORY NAVIGATION
 • Repository file tree with search, keyboard navigation and branch switching
@@ -35,7 +35,7 @@ CODE REVIEW
 
 PERSONALIZATION
 • Left or right docking, pinning per window, hover opening and resizing
-• Three icon styles, configurable code font and size
+• File and folder icons from file-icons, configurable code font and size
 • Custom shortcuts (default Shift+D to toggle, Shift+S to search), page rules and URL exclusions
 
 ACCOUNTS AND SERVERS
@@ -44,19 +44,19 @@ ACCOUNTS AND SERVERS
 • GitHub Enterprise Server and self-managed GitLab over HTTPS
 
 PRIVACY
-• No Code Tree account, backend, analytics or advertising
+• No Codetree account, backend, analytics or advertising
 • Requests go directly from your browser to your repository host
 • Tokens stay in local extension storage and are never shared with web pages
 • Optional browser Sync covers only preferences and bookmarks
 
-Code Tree is source-available: https://github.com/ziqq/Codetree
+Codetree is source-available: https://github.com/ziqq/Codetree
 ```
 
 ### Graphics
 
 | Asset | Size | Source |
 | --- | --- | --- |
-| Store icon | 128×128 PNG | `icons/icon128.png` |
+| Store icon | 128×128 PNG | `src/icons/icon128.png` |
 | Screenshots (1–5) | 1280×800 or 640×400 | Captures of the installed extension on live public repositories |
 | Small promo tile | 440×280 | Optional |
 

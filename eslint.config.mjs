@@ -2,15 +2,15 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  {ignores: ['dist/**', 'node_modules/**']},
+  {ignores: ['build/**', 'dist/**', 'node_modules/**', 'vendor/**']},
   js.configs.recommended,
   {
-    files: ['*.js'],
-    languageOptions: {sourceType: 'script', globals: {...globals.browser, ...globals.webextensions}},
+    files: ['src/**/*.js'],
+    languageOptions: {sourceType: 'module', globals: {...globals.browser, ...globals.webextensions}},
     rules: {'no-eval': 'error', 'no-implied-eval': 'error', 'no-new-func': 'error'},
   },
   {
-    files: ['background.js', 'gitlab.js'],
+    files: ['src/background/**/*.js'],
     languageOptions: {globals: {...globals.serviceworker, ...globals.webextensions}},
   },
   {

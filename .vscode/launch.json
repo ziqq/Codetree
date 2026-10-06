@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // Branded Chrome 137+ ignores --load-extension; set CHROME_PATH to Chromium or Chrome for Testing.
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "extension:chromium",
+      "preLaunchTask": "make:build",
+      "runtimeExecutable": "${env:CHROME_PATH}",
+      "runtimeArgs": [
+        "--disable-extensions-except=${workspaceFolder}/build",
+        "--load-extension=${workspaceFolder}/build"
+      ],
+      "url": "https://github.com/ziqq/Codetree",
+      "userDataDir": true,
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "test:all",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--test", "tests/*.test.mjs"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "test:current-file",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--test", "${file}"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "scripts:check",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/scripts/check.mjs",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

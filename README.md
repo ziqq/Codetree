@@ -1,14 +1,14 @@
-# Code Tree
+# Codetree
 
 A browser extension for exploring and reviewing **GitHub and GitLab** repositories from a code tree.
 
-**Version 1.0.0 · Chrome / Chromium 116+ · Manifest V3**
+**Version 0.3.0 · Chrome / Chromium 116+ · Manifest V3**
 
-Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Code Tree runs locally and talks directly to your repository host. No Code Tree account, subscription or backend is required.
+Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Codetree runs locally and talks directly to your repository host. No Codetree account, subscription or backend is required.
 
 ## Preview
 
-![Code Tree on a GitLab development fixture](.github/images/gitlab.jpg)
+![Codetree on a GitLab development fixture](.github/images/gitlab.jpg)
 
 ![Whole-file preview with highlighted changes](.github/images/full-file.jpg)
 
@@ -21,25 +21,30 @@ These screenshots show a local development fixture with sample data and the actu
 - Inline review comments with authors and links to their discussions.
 - **View full** in native file headers: complete UTF-8 text, highlighted changes and both revision line numbers. Works with a closed sidebar, collapsed files, additions, deletions and unchanged renames.
 - Open PR/MR lists with **Requested from me**, **Reviewed by me**, **Changes requested**, **Approved** and **No reviews** filters.
-- Viewed marks, unlimited local bookmarks, three original icon styles and configurable code fonts/sizes.
+- Viewed marks, unlimited local bookmarks, [file-icons](https://github.com/file-icons/atom) file and folder icons (Color, Monochrome or Minimal) and configurable code fonts/sizes.
 - Left/right docking, pinning per browser window, hover opening and resizing.
 - Custom shortcuts, page-display rules, URL exclusions and folder-click preferences.
 - Multiple accounts, GitHub Enterprise Server and self-managed GitLab over HTTPS.
 
-See [Features](docs/FEATURES.md) for provider differences. This is an independent implementation with original code, interface and icons.
+See [Features](docs/FEATURES.md) for provider differences. This is an independent implementation with original code and interface. File and folder icons come from file-icons/atom; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Quick start
 
-1. Clone or download this repository and extract it if necessary.
+1. Download `codetree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases) and extract it into a folder.
 2. Open `chrome://extensions` and enable **Developer mode**.
-3. Select **Load unpacked** and choose the directory containing `manifest.json`.
+3. Select **Load unpacked** and choose the extracted folder containing `manifest.json`.
 4. Open or refresh a GitHub or GitLab repository page.
+
+To run the current source instead, bundle it first and load the generated `build/` folder:
 
 ```sh
 git clone https://github.com/ziqq/Codetree.git
+cd Codetree
+npm ci
+npm run build
 ```
 
-No dependency installation or build step is needed to load the extension. After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
+After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
 
 ## Getting started
 
@@ -108,23 +113,30 @@ Requests go directly to the selected repository API. Tokens stay bound to its AP
 ## Project structure
 
 ```text
-manifest.json      Chrome MV3 entry points and permissions
-core.js            Routes, URLs, tree logic, icons and patch validation
-syntax.js          Original bounded lexical syntax highlighting
-background.js      API broker, storage, GitHub adapter and bounded cache
-gitlab.js          GitLab repository, MR, commit and review adapter
-oauth*.js          Public client configuration and trusted OAuth flows
-sync.js            Opt-in browser Sync for preferences and bookmarks
-content.js         Sidebar, native View full buttons and full-file viewer
-sidebar.css        Isolated sidebar/viewer styles
-options.*          Settings and account management
-icons/             Original extension icons
-docs/              Feature details and verification record
+src/
+  manifest.json          Chrome MV3 entry points and permissions
+  shared/                Preferences, routes/URLs, tree model, diff validation and icons
+  background/            Service worker: message broker, storage, cache, API client, accounts
+    providers/           GitHub REST/GraphQL and GitLab REST adapters
+    oauth/               Public client configuration and trusted OAuth flows
+    sync.js              Opt-in browser Sync for preferences and bookmarks
+  content/               Content script: Shadow DOM sidebar
+    sidebar/             View, layout, file tree, branches, requests, bookmarks
+    viewer/              Full-file diff viewer and lexical syntax highlighting
+    native/              View full buttons in native diff headers
+  options/               Settings and account management
+  icons/                 Original extension icons
+vendor/file-icons/       Vendored file-icons/atom rules, styles and fonts
+scripts/                 Bundling, validation and deterministic packaging
+tests/                   Node.js regression suite
+docs/                    Feature details, releases and verification record
 ```
+
+esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP. See [Architecture](docs/ARCHITECTURE.md) for contexts, messages, storage and the build.
 
 ## Development
 
-Use the repository root as an unpacked extension. JavaScript uses two-space indentation, single quotes and explicit DOM construction. Node.js/npm are development tools only; Python 3 creates the distributable ZIP.
+Edit `src/`, run `npm run build` and load `build/` as an unpacked extension. JavaScript uses ES modules and explicit DOM construction; run `npm run format` (Prettier) before committing. Node.js/npm provide bundling and checks only; the extension has no runtime dependencies. Python 3 creates the distributable ZIP. `make help` lists the same commands.
 
 ```sh
 npm ci
@@ -137,12 +149,12 @@ Automated checks do not exercise Chrome's installed extension environment. Read 
 
 ## License
 
-Code Tree uses the **Code Tree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
+Codetree uses the **Codetree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
 
 - Free personal and workplace use is allowed, including private repositories and commercial development projects.
 - Internal modifications, free forks and pull requests are allowed under the license. Using the tool does not apply its license to your independent projects.
-- Monetization of Code Tree or covered derivatives is prohibited: sales, subscriptions, paid features, advertising, affiliate revenue, sponsorship, fork-related donations and commercial hosting/support/customization for third parties.
+- Monetization of Codetree or covered derivatives is prohibited: sales, subscriptions, paid features, advertising, affiliate revenue, sponsorship, fork-related donations and commercial hosting/support/customization for third parties.
 - Renaming a fork, adding features or incorporating covered material into a larger paid product does not remove the restrictions. There is no automatic conversion to a permissive license.
 - Salary for ordinary development work and internal deployment/modification for the organization using the tool are allowed. Preserve the license and required notices when sharing covered material.
 
-Separate written permission from the relevant rights holder is required for activities outside these terms. Third-party components retain their own licenses.
+Separate written permission from the relevant rights holder is required for activities outside these terms. Third-party components retain their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).

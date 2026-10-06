@@ -1,12 +1,12 @@
 # OAuth setup
 
-OAuth code is prepared; live sign-in is not verified. The maintainer chose to supply public client IDs later. `oauth-config.js` therefore contains empty IDs, and Settings keeps OAuth buttons disabled. PAT connections remain available. No application was registered, client secret generated or provider permission granted by this change.
+OAuth code is prepared; live sign-in is not verified. The maintainer chose to supply public client IDs later. `src/background/oauth/config.js` therefore contains empty IDs, and Settings keeps OAuth buttons disabled. PAT connections remain available. No application was registered, client secret generated or provider permission granted by this change.
 
 ## GitHub
 
-Register a Code Tree OAuth application and enable its device flow. Put its public client ID in `CodeTreeOAuthConfig.github`. The homepage can point to this repository; the device flow does not use a callback or client secret.
+Register a Codetree OAuth application and enable its device flow. Put its public client ID in `oauthConfig.github` in `src/background/oauth/config.js`. The homepage can point to this repository; the device flow does not use a callback or client secret.
 
-Settings offers public-only access (`read:user`) or private-repository access (`repo read:user`). GitHub's classic `repo` scope also grants write permissions; the UI explains this choice and retains the fine-grained read-only PAT option. Code Tree submits only explicit Viewed-file mutations, not source edits/reviews/comments.
+Settings offers public-only access (`read:user`) or private-repository access (`repo read:user`). GitHub's classic `repo` scope also grants write permissions; the UI explains this choice and retains the fine-grained read-only PAT option. Codetree submits only explicit Viewed-file mutations, not source edits/reviews/comments.
 
 The worker retains the temporary device code in trusted session storage. Settings shows the user code and GitHub verification link, polls at the server's interval, handles pending/slow-down/denied/expired responses and supports cancellation. Reopening Settings resumes an unexpired attempt; closing Settings stops polling. Tokens are verified through `/user` before saving an account.
 
@@ -14,7 +14,7 @@ Protocol reference: [GitHub OAuth/device flow](https://docs.github.com/en/apps/o
 
 ## GitLab
 
-Register a **non-confidential** Code Tree application on GitLab.com with `read_api`. Put the Application ID in `CodeTreeOAuthConfig.gitlab`. Register the exact redirect URI:
+Register a **non-confidential** Codetree application on GitLab.com with `read_api`. Put the Application ID in `oauthConfig.gitlab` in `src/background/oauth/config.js`. Register the exact redirect URI:
 
 ```text
 https://<installed-extension-id>.chromiumapp.org/gitlab
