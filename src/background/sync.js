@@ -1,7 +1,7 @@
 /* Optional browser-account sync. Only the trusted broker loads this module. */
 import * as C from '../shared/preferences.js';
 
-const snapshotKey = 'codeTreeSyncSnapshot';
+const snapshotKey = 'codetreeSyncSnapshot';
 const settingsKey = 'syncSettings';
 const preferenceKeys = Object.freeze(['dock', 'width', 'pinned', 'open', 'iconTheme', 'fontFamily', 'fontSize',
   'toggleShortcut', 'searchShortcut', 'pageScope', 'hidePatterns', 'folderClick']);
