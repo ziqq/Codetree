@@ -19,7 +19,7 @@ Functional browser checks remain necessary. The approved regressions cover Viewe
 
 ```sh
 npm run package
-python3 scripts/package.py --verify dist/code-tree-0.3.0.zip
+python3 scripts/package.py --verify dist/codetree-0.3.0.zip
 ```
 
 `npm run build` bundles `src/background/index.js`, `src/content/index.js` and `src/options/index.js` with esbuild into classic scripts (`background.js`, `content.js`, `options.js`) and copies the manifest, styles, Settings page, icons and file-icons fonts into `build/`. `scripts/file-icons.mjs` generates the icon table from `vendor/file-icons/` during bundling. The service worker, content script and Settings page load no other scripts at runtime. Bundles are not minified, so store reviewers can read them, and the output is byte-for-byte reproducible for a checkout.
@@ -58,7 +58,7 @@ Releases created with `GITHUB_TOKEN` do not trigger separate `release.published`
 
 ## Create a release
 
-1. Preserve the approved Code Tree Source-Available License 1.0 in `LICENSE` and in the package. Any change to those terms requires maintainer approval before publication.
+1. Preserve the approved Codetree Source-Available License 1.0 in `LICENSE` and in the package. Any change to those terms requires maintainer approval before publication.
 2. Update `src/manifest.json`, `package.json`, the Settings/README version labels and the newest `CHANGELOG.md` section together. Refresh the lockfile with `npm install --package-lock-only --ignore-scripts`.
 3. Run the local checks, inspect the package and verify affected browser interactions.
 4. Commit and push the release source; wait for the branch CI to succeed.

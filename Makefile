@@ -1,7 +1,7 @@
 SHELL   :=/bin/bash -e -o pipefail
 PWD     :=$(shell pwd)
 VERSION :=$(shell node -p "require('./src/manifest.json').version")
-ZIP     :=dist/code-tree-$(VERSION).zip
+ZIP     :=dist/codetree-$(VERSION).zip
 
 .DEFAULT_GOAL := all
 .PHONY: all

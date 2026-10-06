@@ -1,7 +1,7 @@
 /* file-icons/atom icon matching and rendering. The table is generated at build time from vendor/file-icons. */
 import {directories, files, fonts, glyphs} from 'virtual:file-icons';
 
-const family = index => `code-tree-file-icons-${index}`;
+const family = index => `codetree-file-icons-${index}`;
 const cache = {file: new Map(), directory: new Map()};
 
 // Same order as file-icons/atom: path-specific rules first, then every rule against the basename.

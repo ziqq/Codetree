@@ -1,6 +1,6 @@
 # Third-party notices
 
-Code Tree includes the following third-party components in its extension package. They remain under their own licenses; the Code Tree Source-Available License does not apply to them. File icons, their matching rules, colours and glyph metrics come from [file-icons](https://github.com/file-icons), vendored in `vendor/file-icons/`.
+Codetree includes the following third-party components in its extension package. They remain under their own licenses; the Codetree Source-Available License does not apply to them. File icons, their matching rules, colours and glyph metrics come from [file-icons](https://github.com/file-icons), vendored in `vendor/file-icons/`.
 
 ## file-icons/atom
 

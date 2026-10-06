@@ -30,7 +30,7 @@ async function asset(path, base = root) {
   requireValue((await stat(resolve(base, path)).catch(() => null))?.isFile() && (base !== root || files.includes(path)), `Missing asset: ${path}`);
 }
 // Manifest and Settings references are validated against a fresh bundle, as Chrome loads them.
-const built = await mkdtemp(join(tmpdir(), 'code-tree-check-'));
+const built = await mkdtemp(join(tmpdir(), 'codetree-check-'));
 await buildExtension(built);
 const extensionAsset = path => asset(path, built);
 

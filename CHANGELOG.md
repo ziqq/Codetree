@@ -12,14 +12,14 @@
 - **ADDED**: Chrome Web Store listing text and privacy-practice justifications
 - **ADDED**: file and folder icons from file-icons/atom (file-icons, Font Awesome 4.7, MFixx and DevOpicons fonts plus Octicons SVGs) with the original path/name matching rules and theme-specific colours; licenses are packaged in `THIRD_PARTY_NOTICES.md`
 - **ADDED**: VS Code workspace settings, recommended extensions, tasks and debug configurations, plus a Makefile for checks, builds and tags
-- **ADDED**: Code Tree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
+- **ADDED**: Codetree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
 - **ADDED**: configurable toggle/search shortcuts, page scopes, URL exclusions, folder click settings and pinning per browser window
 - **ADDED**: account/host/revision-scoped persistent tree cache with expiration, size limits and refresh/account invalidation
 - **ADDED**: original bounded lexical syntax highlighting for full-file review, with independent old/new revision state
 - **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
 - **ADDED**: opt-in browser Sync for preferences and bookmark metadata, with trusted storage, an explicit allowlist, bounded snapshots and visible quota errors
 - **CHANGED**: source moved to `src/` as ES modules (shared, service worker, content script, Settings) and bundled with esbuild into `build/`; the release ZIP is packaged from the reproducible bundle
-- **CHANGED**: product name from `GitHub Code Tree` to `Codetree`
+- **CHANGED**: product name from `GitHub Codetree` to `Codetree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip
 - **CHANGED**: icon styles are Color and Monochrome file-icons plus Minimal original icons; a saved Outline style becomes Monochrome

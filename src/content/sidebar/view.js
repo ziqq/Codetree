@@ -7,7 +7,7 @@ export function createView(app) {
   const {state, run} = app;
   let hoverTimer; let queryTimer; let resizeStart = null;
   const host = document.createElement('div');
-  host.id = 'code-tree-extension';
+  host.id = 'codetree-extension';
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;visibility:hidden;';
   const shadow = host.attachShadow({mode: 'closed'});
   const sheet = document.createElement('link'); sheet.rel = 'stylesheet'; sheet.href = chrome.runtime.getURL('sidebar.css');
@@ -16,8 +16,8 @@ export function createView(app) {
     sheet.addEventListener('error', () => reject(new Error('Codetree styles could not load. Refresh this page.')), {once: true});
   });
   shadow.append(sheet);
-  const pageStyle = document.createElement('style'); pageStyle.id = 'code-tree-page-style';
-  const iconFonts = document.createElement('style'); iconFonts.id = 'code-tree-icon-fonts'; iconFonts.textContent = fontFaces();
+  const pageStyle = document.createElement('style'); pageStyle.id = 'codetree-page-style';
+  const iconFonts = document.createElement('style'); iconFonts.id = 'codetree-icon-fonts'; iconFonts.textContent = fontFaces();
 
   const panel = el('aside', {class: 'panel', 'aria-label': 'Codetree', hidden: ''});
   const pinButton = button('pin', 'Pin sidebar in this window', run(async () => {

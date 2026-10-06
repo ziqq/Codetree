@@ -29,8 +29,8 @@ export function createLayout(app) {
     const fontStyle = available && (prefs.fontFamily !== 'default' || prefs.fontSize !== 12)
       ? `.blob-code,.blob-code-inner,.react-code-text,[data-testid="code-cell"],pre code,.rd-line-text,.line_content,.blob-content pre{font-family:${fontFamilies[prefs.fontFamily]}!important;font-size:${prefs.fontSize}px!important;}` : '';
     pageStyle.textContent = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
-      .code-tree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
-      .code-tree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.code-tree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.code-tree-view-full:disabled{opacity:.5;cursor:default}.code-tree-view-full .icon{height:15px;width:15px}`;
+      .codetree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
+      .codetree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.codetree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.codetree-view-full:disabled{opacity:.5;cursor:default}.codetree-view-full .icon{height:15px;width:15px}`;
     app.requestTreeRender();
   }
   function positionHandle() {

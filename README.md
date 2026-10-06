@@ -30,7 +30,7 @@ See [Features](docs/FEATURES.md) for provider differences. This is an independen
 
 ## Quick start
 
-1. Download `code-tree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases) and extract it into a folder.
+1. Download `codetree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases) and extract it into a folder.
 2. Open `chrome://extensions` and enable **Developer mode**.
 3. Select **Load unpacked** and choose the extracted folder containing `manifest.json`.
 4. Open or refresh a GitHub or GitLab repository page.
@@ -149,7 +149,7 @@ Automated checks do not exercise Chrome's installed extension environment. Read 
 
 ## License
 
-Codetree uses the **Code Tree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
+Codetree uses the **Codetree Source-Available License 1.0**. Read the full [LICENSE](LICENSE); it controls over this summary. This is a custom source-available license with commercial restrictions, not an OSI open-source license.
 
 - Free personal and workplace use is allowed, including private repositories and commercial development projects.
 - Internal modifications, free forks and pull requests are allowed under the license. Using the tool does not apply its license to your independent projects.

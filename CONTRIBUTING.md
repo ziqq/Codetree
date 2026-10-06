@@ -52,6 +52,6 @@ Keep private source, organization details and credentials out of public issues.
 
 ## License
 
-Codetree uses the custom [Code Tree Source-Available License 1.0](LICENSE). Workplace use, internal modifications, free forks and PRs are permitted; monetization of covered derivatives, including fork-related donations and paid services for third parties, is restricted. Read the full terms before contributing or distributing a fork.
+Codetree uses the custom [Codetree Source-Available License 1.0](LICENSE). Workplace use, internal modifications, free forks and PRs are permitted; monetization of covered derivatives, including fork-related donations and paid services for third parties, is restricted. Read the full terms before contributing or distributing a fork.
 
 Contribute only material you have the right to provide under compatible terms. Preserve licensing/copyright notices and identify modifications when sharing covered material. Third-party components keep their own licenses; do not import code whose terms conflict with this project's license. Any contributor-specific permissions must be agreed before merging.

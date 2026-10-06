@@ -15,7 +15,7 @@ const releaseTag = "${{ github.event_name == 'workflow_dispatch' && format('v{0}
 const storeConfigured = ['CWS_EXTENSION_ID', 'CWS_CLIENT_ID', 'CWS_CLIENT_SECRET', 'CWS_REFRESH_TOKEN'];
 
 function sandbox(t) {
-  const root = mkdtempSync(join(tmpdir(), 'code-tree-release-'));
+  const root = mkdtempSync(join(tmpdir(), 'codetree-release-'));
   t.after(() => rmSync(root, {recursive: true, force: true}));
   mkdirSync(join(root, 'bin'));
   return root;
@@ -41,7 +41,7 @@ test('releases run from stable tags or a manual version and verify the same tag'
   assert.equal(workflow.on.workflow_dispatch.inputs.version.required, true);
   assert.equal(workflow.env.RELEASE_TAG, releaseTag);
   assert.equal(workflow.jobs.verify.with.release_tag, releaseTag);
-  assert.equal(workflow.concurrency.group, `code-tree-release-${releaseTag}`);
+  assert.equal(workflow.concurrency.group, `codetree-release-${releaseTag}`);
   assert.equal(workflow.concurrency['cancel-in-progress'], false);
   assert.deepEqual(workflow.permissions, {contents: 'read'});
   assert.equal(workflow.jobs.publish.needs, 'verify');
@@ -67,7 +67,7 @@ test('manual releases tag the verified commit only from the default branch', t =
   const created = run(tagStep.run, root, {...env, GITHUB_REF: 'refs/heads/main'});
   assert.equal(created.status, 0, created.stderr);
   const [tag, ref] = calls(root).trim().split('\n');
-  assert.match(tag, /repos\/ziqq\/Codetree\/git\/tags -f tag=v1\.0\.0 -f message=Code Tree 1\.0\.0 -f object=a{40} -f type=commit/);
+  assert.match(tag, /repos\/ziqq\/Codetree\/git\/tags -f tag=v1\.0\.0 -f message=Codetree 1\.0\.0 -f object=a{40} -f type=commit/);
   assert.match(ref, /repos\/ziqq\/Codetree\/git\/refs -f ref=refs\/tags\/v1\.0\.0 -f sha=tag-object/);
   assert.match(step('publish', 'Publish GitHub Release').run, /--verify-tag/);
 });
@@ -79,8 +79,8 @@ test('release notes combine the changelog, commits since the previous tag, detai
   mkdirSync(join(root, 'dist')); mkdirSync(join(root, 'src'));
   writeFileSync(join(root, 'src/manifest.json'), JSON.stringify({manifest_version: 3, version: '1.0.0', description: 'Synthetic description.', minimum_chrome_version: '116'}));
   writeFileSync(join(root, 'CHANGELOG.md'), '# Changelog\n\n## 1.0.0\n\n- **ADDED**: current entry\n\n## 0.9.0\n\n- **ADDED**: previous entry\n');
-  writeFileSync(join(root, 'dist/code-tree-1.0.0.zip'), Buffer.alloc(2048));
-  writeFileSync(join(root, 'dist/code-tree-1.0.0.sha256'), `${'b'.repeat(64)}  code-tree-1.0.0.zip\n`);
+  writeFileSync(join(root, 'dist/codetree-1.0.0.zip'), Buffer.alloc(2048));
+  writeFileSync(join(root, 'dist/codetree-1.0.0.sha256'), `${'b'.repeat(64)}  codetree-1.0.0.zip\n`);
   git('init', '-q'); git('commit', '-q', '--allow-empty', '-m', 'old change'); git('tag', 'v0.9.0');
   git('commit', '-q', '--allow-empty', '-m', 'new change');
   const notes = step('publish', 'Write release notes');
@@ -90,13 +90,13 @@ test('release notes combine the changelog, commits since the previous tag, detai
   assert.equal(result.status, 0, result.stderr);
   const text = readFileSync(join(root, 'dist/release-notes.md'), 'utf8');
   assert.ok(text.startsWith('Synthetic description.\n\n## Install\n'));
-  assert.match(text, /Download \*\*code-tree-1\.0\.0\.zip\*\*/);
+  assert.match(text, /Download \*\*codetree-1\.0\.0\.zip\*\*/);
   assert.match(text, /## What's new\n\n- \*\*ADDED\*\*: current entry\n/);
   assert.doesNotMatch(text, /previous entry/);
   assert.match(text, /## Changes since v0\.9\.0\n\n- new change \([0-9a-f]+\)\n/);
   assert.doesNotMatch(text, /old change/);
   assert.match(text, /\| Version \| 1\.0\.0 \|\n\| Minimum Chrome \| 116 \|\n\| Manifest \| V3 \|\n\| Archive size \| 2\.0 KiB \|/);
-  assert.match(text, new RegExp(`\`\`\`\\n${'b'.repeat(64)}  code-tree-1\\.0\\.0\\.zip\\n\`\`\``));
+  assert.match(text, new RegExp(`\`\`\`\\n${'b'.repeat(64)}  codetree-1\\.0\\.0\\.zip\\n\`\`\``));
   assert.doesNotMatch(text, /Chrome Web Store/);
 
   const store = run(notes.run, root, {RELEASE_TAG: 'v1.0.0', STORE_EXTENSION_ID: 'store-item'});
@@ -148,8 +148,8 @@ test('Chrome Web Store submission requires a processed upload of the release ver
 
   const submitted = submit({});
   assert.equal(submitted.status, 0, submitted.stderr);
-  assert.match(submitted.calls, /python3 scripts\/package\.py --tag v1\.0\.0 --verify dist\/code-tree-1\.0\.0\.zip/);
-  assert.match(submitted.calls, /-T dist\/code-tree-1\.0\.0\.zip https:\/\/chromewebstore\.googleapis\.com\/upload\/v2\//);
+  assert.match(submitted.calls, /python3 scripts\/package\.py --tag v1\.0\.0 --verify dist\/codetree-1\.0\.0\.zip/);
+  assert.match(submitted.calls, /-T dist\/codetree-1\.0\.0\.zip https:\/\/chromewebstore\.googleapis\.com\/upload\/v2\//);
   assert.match(submitted.calls, /items\/item:fetchStatus/);
   assert.match(submitted.calls, /\{"publishType":"DEFAULT_PUBLISH"\} https:\/\/chromewebstore\.googleapis\.com\/v2\/publishers\/publisher\/items\/item:publish/);
   assert.match(submitted.stdout, /::add-mask::token/);

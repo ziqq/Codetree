@@ -108,7 +108,7 @@ def main():
         print(f'Verified {arguments.verify.name}: {len(files)} files, SHA-256 and build bytes.')
         return
     arguments.output.mkdir(parents=True, exist_ok=True)
-    path = arguments.output / f'code-tree-{version}.zip'
+    path = arguments.output / f'codetree-{version}.zip'
     with ZipFile(path, 'w') as archive:
         for name, source in files.items():
             entry = ZipInfo(name, TIMESTAMP)

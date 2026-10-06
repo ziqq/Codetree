@@ -10,7 +10,7 @@ export function createHeaderButtons(app) {
   let fullViewPaths = new Map(); let headerFrame = 0;
 
   function clearHeaderButtons() {
-    fullViewPaths.clear(); document.querySelectorAll('.code-tree-view-full').forEach(button => button.remove());
+    fullViewPaths.clear(); document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
   }
   async function prepareHeaderButtons(diff, epoch) {
     const paths = new Map();
@@ -25,7 +25,7 @@ export function createHeaderButtons(app) {
     }));
     if (epoch !== state.epoch || state.diff !== diff) return;
     fullViewPaths = paths;
-    document.querySelectorAll('.code-tree-view-full').forEach(button => button.remove());
+    document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
     injectHeaderButtons();
   }
   function injectHeaderButtons() {
@@ -50,14 +50,14 @@ export function createHeaderButtons(app) {
       if (!path) path = file?.filename;
       if (!path) continue;
       const header = card.querySelector('[class*="DiffFileHeader-module__diff-file-header"], .rd-diff-file-header, .file-header, .diffhead');
-      if (!header || header.querySelector('.code-tree-view-full')) continue;
+      if (!header || header.querySelector('.codetree-view-full')) continue;
       const actions = header.querySelector('.rd-diff-file-info, .file-actions') || (header.className.includes('DiffFileHeader-module__') ? header.lastElementChild : header);
       const filename = file?.filename || path;
       const binary = /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|ttf|otf|woff2?|pdf|zip|gz|7z|rar|mp[34]|mov|ogg|wav|wasm|exe|dll|so|dylib)$/i.test(filename);
-      const full = el('button', {type: 'button', class: 'code-tree-view-full', 'aria-label': `View full file: ${filename}`,
+      const full = el('button', {type: 'button', class: 'codetree-view-full', 'aria-label': `View full file: ${filename}`,
         title: binary ? 'Binary file: text preview unavailable' : 'See the whole file with its changes · Codetree', disabled: binary ? '' : null,
         onClick: event => { event.preventDefault(); event.stopPropagation(); if (epoch === state.epoch) run(() => showHeaderDiff(filename, card.id))(); }}, [icon('eye'), document.createTextNode('View full')]);
-      card.setAttribute('data-code-tree-file', filename);
+      card.setAttribute('data-codetree-file', filename);
       if (actions === header) header.insertBefore(full, header.querySelector('.view') || null);
       else actions.prepend(full);
     }

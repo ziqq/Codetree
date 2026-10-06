@@ -46,7 +46,7 @@ async function initialize(context, api) {
     account: api.account?.login || null,
   };
 }
-const viewedQuery = `query CodeTreeViewed($owner:String!,$repo:String!,$number:Int!,$after:String) {
+const viewedQuery = `query CodetreeViewed($owner:String!,$repo:String!,$number:Int!,$after:String) {
   repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
     files(first:100,after:$after) { nodes { path viewerViewedState } pageInfo { hasNextPage endCursor } }
   } }
@@ -105,7 +105,7 @@ async function getDiff(context, api, store, fresh) {
   if (viewedMode === 'local') viewed = store.localViewed?.[`${api.prefix}:${root}:${pullNumber}:${pull.head.sha}`] || {};
   return {...diff, viewed, viewedMode};
 }
-const pullsQuery = `query CodeTreePulls($owner:String!,$repo:String!,$login:String!,$after:String) {
+const pullsQuery = `query CodetreePulls($owner:String!,$repo:String!,$login:String!,$after:String) {
   viewer { login }
   repository(owner:$owner,name:$repo) { pullRequests(states:OPEN,first:100,after:$after,orderBy:{field:UPDATED_AT,direction:DESC}) {
     nodes { number title url isDraft updatedAt author { login } reviewDecision
@@ -210,7 +210,7 @@ export async function handle(message, context, api, store) {
       if (diff.viewedMode === 'github') {
         const mutation = message.viewed ? 'markFileAsViewed' : 'unmarkFileAsViewed';
         const type = message.viewed ? 'MarkFileAsViewedInput' : 'UnmarkFileAsViewedInput';
-        await api.graphql(`mutation CodeTreeViewed($input:${type}!) { ${mutation}(input:$input) { clientMutationId } }`, {input: {pullRequestId: diff.nodeId, path: message.path}});
+        await api.graphql(`mutation CodetreeViewed($input:${type}!) { ${mutation}(input:$input) { clientMutationId } }`, {input: {pullRequestId: diff.nodeId, path: message.path}});
       } else {
         await saveLocalViewed(`${api.prefix}:${root}:${context.number}:${headSha}`, message.path, state);
       }

@@ -116,7 +116,7 @@ export function createTree(app) {
     if (state.mode === 'changes') {
       const url = await diffURL(node);
       if (location.pathname === new URL(url).pathname) {
-        const hash = new URL(url).hash.slice(1); const target = document.getElementById(hash) || document.querySelector(`[data-code-tree-file="${CSS.escape(node.path)}"]`) || document.querySelector(`[data-path="${CSS.escape(node.path)}"]`);
+        const hash = new URL(url).hash.slice(1); const target = document.getElementById(hash) || document.querySelector(`[data-codetree-file="${CSS.escape(node.path)}"]`) || document.querySelector(`[data-path="${CSS.escape(node.path)}"]`);
         if (target) { target.scrollIntoView({block: 'start'}); history.replaceState(null, '', url); app.lastURL = location.href; state.selected = node.path; requestTreeRender(); return; }
       }
       location.assign(url);

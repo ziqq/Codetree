@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import {buildExtension} from '../scripts/build.mjs';
 
 // Run the shipped service-worker bundle, built exactly as the extension package builds it.
-const built = mkdtempSync(join(tmpdir(), 'code-tree-viewed-'));
+const built = mkdtempSync(join(tmpdir(), 'codetree-viewed-'));
 await buildExtension(built);
 const worker = readFileSync(join(built, 'background.js'), 'utf8');
 rmSync(built, {recursive: true, force: true});
