@@ -19,29 +19,40 @@ Functional browser checks remain necessary. The approved regressions cover Viewe
 
 ```sh
 npm run package
-python3 scripts/package.py --verify dist/code-tree-0.2.0.zip
+python3 scripts/package.py --verify dist/code-tree-1.0.0.zip
 ```
 
 The ZIP places `manifest.json` at its root, ready to extract into a folder and load as an unpacked extension. It contains only the explicit runtime allowlist, `PRIVACY.md` and the maintainer-approved [LICENSE](../LICENSE). CI tooling, dependencies, documentation screenshots, Git data, development fixtures and source-only documents are excluded. Development metadata points to `LICENSE`; CI checks that it exists, is nonempty and agrees with the lockfile's license metadata.
 
 The builder checks manifest and imported/HTML asset references against that allowlist. It uses sorted entries, fixed timestamps/permissions and stored ZIP entries so the archive bytes are reproducible across platforms without depending on a compression-library version. It verifies CRCs, every source byte, the entry list and the companion SHA-256 file after building. CI builds twice and compares the ZIP bytes.
 
-No extension signing key is used. The workflow publishes ZIP assets to GitHub Releases; extension-store upload/signing is a separate operation.
+No extension signing key is used; the Chrome Web Store signs submitted packages. The workflow publishes ZIP assets to GitHub Releases and submits the same ZIP to the Chrome Web Store when configured.
 
 ## GitHub Actions
 
 [Verify Code Tree](../.github/workflows/ci.yml) runs on branch pushes, pull requests and manual dispatch. It installs locked development tools, runs all source/workflow/audit checks and uploads the verified ZIP and checksum. Permissions are read-only.
 
-[Release Code Tree](../.github/workflows/release.yml) runs on pushed tags beginning with `v`. It calls the same verification workflow for that tagged checkout. Publication fails unless all checks pass and:
+[Release Code Tree](../.github/workflows/release.yml) runs on pushed tags beginning with `v`, or manually from the default branch with a `version` input. It calls the same verification workflow for that checkout. Publication fails unless all checks pass and:
 
 - The tag is exactly `vX.Y.Z`, with no prerelease suffix or leading-zero components.
 - The tag version equals `manifest.json`, development metadata and the newest changelog version.
 - A maintainer-approved `LICENSE` exists.
 - The downloaded CI ZIP still matches the tagged source and its checksum.
 
-Only the publication job receives `contents: write`. External actions are pinned to verified commit SHAs. The job creates a GitHub Release with the ZIP, SHA-256 and the matching changelog section. An existing release is not overwritten automatically.
+Only the publication job receives `contents: write`. External actions are pinned to verified commit SHAs. A manual run first creates the annotated tag on the verified commit through the API; an existing tag fails the run. The job then creates a GitHub Release with the ZIP and SHA-256. Its notes contain installation steps, the matching changelog section, commits since the previous tag, version/Chrome/archive details and the checksum. An existing release is not overwritten automatically.
 
-Releases created with `GITHUB_TOKEN` do not trigger separate `release.published` workflows. After publication, this workflow therefore invokes the repository's existing pinned labeler and notification actions directly. The labeler job receives `issues: write`, reads the confirmed published release from the API and supplies that event to the pinned action process. An empty waiting-for-release selection is allowed. The notification job has read-only repository permissions, uses the trusted default-branch template and the existing Discord/Telegram secrets, and reports required-provider failures. Manual release events retain their existing workflows. No additional personal access token is required.
+After the GitHub Release, the `chrome-web-store` job verifies the same ZIP again and submits it through the Chrome Web Store API v2: it uploads the package, waits for processing, checks the accepted version and requests publication with the default review flow. The job is skipped with a warning until the store is configured:
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `CWS_EXTENSION_ID` | Repository variable | Item ID from the Developer Dashboard |
+| `CWS_CLIENT_ID` | Secret | Google Cloud OAuth client ID with the Chrome Web Store API enabled |
+| `CWS_CLIENT_SECRET` | Secret | Matching OAuth client secret |
+| `CWS_REFRESH_TOKEN` | Secret | Refresh token for the `https://www.googleapis.com/auth/chromewebstore` scope |
+
+The publisher ID is fixed in the workflow. The first package must be uploaded manually because the API cannot create an item. A version that the store already holds cannot be uploaded again. Listing text is maintained separately in [Chrome Web Store listing](STORE_LISTING.md).
+
+Releases created with `GITHUB_TOKEN` do not trigger separate `release.published` workflows. After a successful publication, the workflow therefore runs the pinned labeler's `release-completed` operation with the default-branch configuration; an empty waiting-for-release selection is allowed. The notification job runs after every outcome, reports success, failure, cancellation or skipping, uses the trusted default-branch template and the existing Discord/Telegram secrets, and reports required-provider failures. Manual release events retain their existing workflows. No additional personal access token is required.
 
 ## Create a release
 
@@ -49,13 +60,13 @@ Releases created with `GITHUB_TOKEN` do not trigger separate `release.published`
 2. Update `manifest.json`, `package.json`, the Settings/README version labels and the newest `CHANGELOG.md` section together. Refresh the lockfile with `npm install --package-lock-only --ignore-scripts`.
 3. Run the local checks, inspect the package and verify affected browser interactions.
 4. Commit and push the release source; wait for the branch CI to succeed.
-5. Create and push the matching annotated tag when the maintainer requests publication:
+5. When the maintainer requests publication, either run **Release Code Tree** manually from the default branch with the version, or create and push the matching annotated tag:
 
 ```sh
-git tag -a v0.2.0 -m 'Code Tree 0.2.0'
-git push origin v0.2.0
+git tag -a v1.0.0 -m 'Code Tree 1.0.0'
+git push origin v1.0.0
 ```
 
-6. Verify the release workflow conclusion and download the ZIP/checksum from the release. Compare them to the expected tagged package. A queued workflow or a tag push alone is not release proof.
+6. Verify the release workflow conclusion and download the ZIP/checksum from the release. Compare them to the expected tagged package. Check the Chrome Web Store submission state in the Developer Dashboard. A queued workflow or a tag push alone is not release proof.
 
 The commands use the current version as an example. Configuration of the workflow does not create a tag or release by itself.

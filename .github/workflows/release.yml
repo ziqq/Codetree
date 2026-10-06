@@ -3,20 +3,29 @@ name: Release Code Tree
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version without the v prefix, e.g. 1.0.0
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+
 concurrency:
-  group: code-tree-release-${{ github.ref }}
+  group: code-tree-release-${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   verify:
-    name: Verify tagged source
+    name: Verify release source
     uses: ./.github/workflows/ci.yml
     with:
-      release_tag: ${{ github.ref_name }}
+      release_tag: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
 
   publish:
     name: Publish validated ZIP
@@ -28,9 +37,10 @@ jobs:
     outputs:
       release: ${{ steps.release.outputs.release }}
     steps:
-      - name: Checkout tagged source
+      - name: Checkout release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0 # tags and history for the release notes
           persist-credentials: false
 
       - name: Download validated extension
@@ -40,27 +50,86 @@ jobs:
           path: dist
 
       - name: Verify downloaded release bytes
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
         run: python3 scripts/package.py --tag "$RELEASE_TAG" --verify "dist/code-tree-${RELEASE_TAG#v}.zip"
+
+      - name: Write release notes
+        env:
+          STORE_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          tag = os.environ['RELEASE_TAG']
+          version = tag[1:]
+          name = f'code-tree-{version}.zip'
+          changelog = pathlib.Path('CHANGELOG.md').read_text(encoding='utf-8')
+          section = re.search(r'^## ' + re.escape(version) + r'\n(.*?)(?=^## |\Z)', changelog, re.MULTILINE | re.DOTALL)
+          if section is None:
+              raise SystemExit('Release changelog section is missing.')
+          manifest = json.loads(pathlib.Path('manifest.json').read_text(encoding='utf-8'))
+          tags = subprocess.run(['git', 'tag', '--list', 'v*', '--sort=-v:refname', '--merged', 'HEAD'],
+                                check=True, capture_output=True, text=True).stdout.split()
+          previous = next((item for item in tags if item != tag), None)
+          log = subprocess.run(['git', 'log', '--no-merges', '--max-count=100', '--pretty=- %s (%h)']
+                               + ([f'{previous}..HEAD'] if previous else []),
+                               check=True, capture_output=True, text=True).stdout.strip()
+          checksum = pathlib.Path(f'dist/code-tree-{version}.sha256').read_text(encoding='ascii').strip()
+          size = pathlib.Path('dist', name).stat().st_size / 1024
+          store = os.environ.get('STORE_EXTENSION_ID', '')
+          lines = [
+              manifest['description'], '',
+              '## Install', '',
+              f'1. Download **{name}** and extract it into a folder.',
+              '2. Open `chrome://extensions` and enable **Developer mode**.',
+              '3. Click **Load unpacked** and choose the extracted folder containing `manifest.json`.',
+              '4. Refresh open GitHub or GitLab repository tabs.', '',
+              'To update, replace the folder contents, click **Reload** on the extension card and refresh repository tabs.',
+          ]
+          if store:
+              lines += ['', f'The same package is submitted to the [Chrome Web Store](https://chromewebstore.google.com/detail/{store}) and appears there after review.']
+          lines += [
+              '', "## What's new", '', section.group(1).strip(), '',
+              f'## Changes since {previous}' if previous else '## First release', '',
+              log or '- No commits.', '',
+              '## Details', '',
+              '| | |', '| --- | --- |',
+              f'| Version | {version} |',
+              f'| Minimum Chrome | {manifest["minimum_chrome_version"]} |',
+              f'| Manifest | V{manifest["manifest_version"]} |',
+              f'| Archive size | {size:.1f} KiB |', '',
+              '## Checksum', '',
+              f'Verify with `sha256sum -c code-tree-{version}.sha256` next to the download.', '',
+              '```', checksum, '```',
+          ]
+          pathlib.Path('dist/release-notes.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          cat dist/release-notes.md
+
+      # A manual run has no tag yet: tag the verified commit so the release and
+      # its package cannot diverge. Tags created by GITHUB_TOKEN start no workflow.
+      - name: Create tag (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "::error::Manual releases run only from $DEFAULT_BRANCH."
+            exit 1
+          fi
+          object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags" \
+            -f tag="$RELEASE_TAG" -f message="Code Tree ${RELEASE_TAG#v}" \
+            -f object="$GITHUB_SHA" -f type=commit --jq .sha)"
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$object" --silent
 
       - name: Publish GitHub Release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import re
-          version = os.environ['RELEASE_TAG'][1:]
-          changelog = pathlib.Path('CHANGELOG.md').read_text(encoding='utf-8')
-          section = re.search(r'^## ' + re.escape(version) + r'\n(.*?)(?=^## |\Z)', changelog, re.MULTILINE | re.DOTALL)
-          if section is None:
-              raise SystemExit('Release changelog section is missing.')
-          pathlib.Path('dist/release-notes.md').write_text(section.group(1).strip() + '\n', encoding='utf-8')
-          PY
           gh release create "$RELEASE_TAG" \
             "dist/code-tree-${RELEASE_TAG#v}.zip" \
             "dist/code-tree-${RELEASE_TAG#v}.sha256" \
@@ -69,57 +138,133 @@ jobs:
             --notes-file dist/release-notes.md
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '"release=" + tojson' >> "$GITHUB_OUTPUT"
 
-  release-labels:
-    name: Update labels after publication
+  chrome-web-store:
+    name: Submit to Chrome Web Store
     needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      CWS_PUBLISHER_ID: f3cf73d3-37ce-4ab4-88a4-5cb1fce26075
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+    steps:
+      - name: Report missing store configuration
+        if: >-
+          env.CWS_EXTENSION_ID == '' ||
+          env.CWS_CLIENT_ID == '' ||
+          env.CWS_CLIENT_SECRET == '' ||
+          env.CWS_REFRESH_TOKEN == ''
+        run: >-
+          echo "::warning::Chrome Web Store submission skipped because CWS_EXTENSION_ID or a CWS_* secret is not configured."
+
+      - name: Checkout release source
+        if: >-
+          env.CWS_EXTENSION_ID != '' &&
+          env.CWS_CLIENT_ID != '' &&
+          env.CWS_CLIENT_SECRET != '' &&
+          env.CWS_REFRESH_TOKEN != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download validated extension
+        if: >-
+          env.CWS_EXTENSION_ID != '' &&
+          env.CWS_CLIENT_ID != '' &&
+          env.CWS_CLIENT_SECRET != '' &&
+          env.CWS_REFRESH_TOKEN != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: code-tree-${{ github.sha }}
+          path: dist
+
+      - name: Upload and submit for review
+        if: >-
+          env.CWS_EXTENSION_ID != '' &&
+          env.CWS_CLIENT_ID != '' &&
+          env.CWS_CLIENT_SECRET != '' &&
+          env.CWS_REFRESH_TOKEN != ''
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          zip="dist/code-tree-$version.zip"
+          python3 scripts/package.py --tag "$RELEASE_TAG" --verify "$zip"
+
+          token="$(curl -sS --fail-with-body --retry 3 --max-time 30 https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$CWS_CLIENT_ID" \
+            --data-urlencode "client_secret=$CWS_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$CWS_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token | jq -r '.access_token // empty')"
+          [ -n "$token" ] || { echo "::error::Chrome Web Store access token was not issued."; exit 1; }
+          echo "::add-mask::$token"
+
+          api=https://chromewebstore.googleapis.com
+          item="publishers/$CWS_PUBLISHER_ID/items/$CWS_EXTENSION_ID"
+          response="$(curl -sS --fail-with-body --max-time 120 -X POST \
+            -H "Authorization: Bearer $token" -T "$zip" "$api/upload/v2/$item:upload")"
+          echo "$response" | jq .
+          state="$(jq -r '.uploadState // empty' <<<"$response")"
+          for _ in $(seq 1 30); do
+            case "$state" in IN_PROGRESS|UPLOAD_IN_PROGRESS) ;; *) break ;; esac
+            sleep 10
+            response="$(curl -sS --fail-with-body --max-time 30 \
+              -H "Authorization: Bearer $token" "$api/v2/$item:fetchStatus")"
+            state="$(jq -r '.lastAsyncUploadState // empty' <<<"$response")"
+          done
+          if [ "$state" != SUCCEEDED ]; then
+            echo "$response" | jq .
+            echo "::error::Chrome Web Store upload ended with state '${state:-unknown}'."
+            exit 1
+          fi
+          uploaded="$(jq -r '.crxVersion // empty' <<<"$response")"
+          if [ -n "$uploaded" ] && [ "$uploaded" != "$version" ]; then
+            echo "::error::Chrome Web Store accepted version $uploaded instead of $version."
+            exit 1
+          fi
+
+          response="$(curl -sS --fail-with-body --max-time 30 -X POST \
+            -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            -d '{"publishType":"DEFAULT_PUBLISH"}' "$api/v2/$item:publish")"
+          echo "$response" | jq .
+          state="$(jq -r '.state // empty' <<<"$response")"
+          case "$state" in
+            PENDING_REVIEW|STAGED|PUBLISHED|PUBLISHED_TO_TESTERS) echo "Chrome Web Store state: $state" ;;
+            *) echo "::error::Chrome Web Store submission ended with state '${state:-unknown}'."; exit 1 ;;
+          esac
+
+  # GITHUB_TOKEN releases do not emit release.published to other workflows, so
+  # the labeler completes issues from this successful publication instead.
+  complete-issues:
+    name: Complete issues after publication
+    needs: publish
+    if: needs.publish.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       issues: write
+    concurrency:
+      group: labels-${{ github.repository }}
+      cancel-in-progress: false
     steps:
-      - name: Checkout pinned labeler
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Apply semantic release transition
+        uses: ziqq/actions/labeler@a991545704ba3fc43380d2b6024db3ca6935e4a7
         with:
-          repository: ziqq/actions
-          ref: ccd1a799683cd461a45d9303ac6fcb2792f8f5d2
-          path: release-actions
-          persist-credentials: false
+          operation: release-completed
+          github-token: ${{ github.token }}
+          config-source: api
+          allow-empty: 'true'
+          allow-pattern-removal: 'true'
+          max-targets: '100'
 
-      - name: Set up labeler runtime
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24.x'
-
-      # GITHUB_TOKEN releases do not emit release.published to other workflows.
-      # Run the pinned action with the API-confirmed release event explicitly.
-      - name: Apply published-release transition
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          node --input-type=module <<'JS'
-          import {execFileSync} from 'node:child_process';
-          import {readFileSync, writeFileSync} from 'node:fs';
-          import {join} from 'node:path';
-          const release = JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/releases/tags/${process.env.RELEASE_TAG}`], {encoding: 'utf8'}));
-          if (release.draft || !release.published_at || release.tag_name !== process.env.RELEASE_TAG) throw new Error('The expected release is not published.');
-          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-          const eventPath = join(process.env.RUNNER_TEMP, 'code-tree-release-event.json');
-          writeFileSync(eventPath, JSON.stringify({...event, action: 'published', release}));
-          execFileSync(process.execPath, ['release-actions/labeler/dist/index.js'], {
-            stdio: 'inherit',
-            env: {...process.env,
-              GITHUB_EVENT_NAME: 'release', GITHUB_EVENT_PATH: eventPath,
-              INPUT_OPERATION: 'release-published', 'INPUT_GITHUB-TOKEN': process.env.GH_TOKEN,
-              'INPUT_ALLOW-EMPTY': 'true', 'INPUT_ALLOW-PATTERN-REMOVAL': 'true',
-            },
-          });
-          JS
-
-  release-notifications:
-    name: Notify after publication
-    needs: publish
+  notify:
+    name: Notify release result
+    needs: [verify, publish, chrome-web-store]
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -131,16 +276,17 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      - name: Notify about published release
+      - name: Notify Discord and Telegram
         uses: ziqq/actions/notify@ccd1a799683cd461a45d9303ac6fcb2792f8f5d2
         with:
           providers: discord,telegram
           template-path: .github/notify/templates/release.md
           variables: |
             {
-              "release_tag": ${{ toJSON(fromJSON(needs.publish.outputs.release).tag_name) }},
-              "release_name": ${{ toJSON(fromJSON(needs.publish.outputs.release).name) }},
-              "release_url": ${{ toJSON(fromJSON(needs.publish.outputs.release).html_url) }}
+              "release_tag": ${{ toJSON(env.RELEASE_TAG) }},
+              "release_name": ${{ toJSON(needs.publish.outputs.release && fromJSON(needs.publish.outputs.release).name || '') }},
+              "release_url": ${{ toJSON(needs.publish.outputs.release && fromJSON(needs.publish.outputs.release).html_url || '') }},
+              "status_label": ${{ toJSON(contains(needs.*.result, 'failure') && 'failure' || contains(needs.*.result, 'cancelled') && 'cancelled' || contains(needs.*.result, 'skipped') && 'skipped' || 'success') }}
             }
           failure-policy: required
           timeout-ms: "10000"
