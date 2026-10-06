@@ -1,6 +1,6 @@
 # Code Tree
 
-Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Code Tree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks, and Python packages the unchanged runtime files.
+Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Code Tree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
 
 ## General rules
 
@@ -14,21 +14,21 @@ Code Tree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repositor
 
 ## Environment setup
 
-Load the repository root as an unpacked extension in Chrome/Chromium 116+. Reload the extension and refresh repository tabs after changes. Use Node.js 24, `npm ci` and Python 3 for the full development/packaging checks; these tools are not needed by users loading the extension.
+Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in Chrome/Chromium 116+. Rebuild, reload the extension and refresh repository tabs after changes. Use Node.js 24 and Python 3 for the full development/packaging checks; users loading a release ZIP need neither.
 
 ## Project structure
 
-- `core.js`: defaults/preferences, routes/URLs, original icons, tree logic and patch validation.
-- `syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
-- `background.js`: trusted service worker, host-bound broker, accounts/storage, bounded cache and GitHub REST/GraphQL adapter.
-- `sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
-- `gitlab.js`: GitLab adapter using the broker's client/cache.
-- `oauth*.js`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
-- `content.js`: Shadow DOM sidebar/viewer and native diff-header buttons.
-- `sidebar.css`: isolated UI styles; page styles are constructed in `content.js`.
-- `options.*`: appearance and account settings.
-- `manifest.json`, `icons/`: distribution metadata and original assets.
-- `scripts/`, `.github/workflows/`: validation, deterministic runtime packaging and releases by stable tag.
+- `src/shared/`: preferences/shortcuts, routes/URLs, tree model, patch validation and original icons; side-effect-free ES modules used by every context.
+- `src/background/`: trusted service worker. `index.js` routes messages; `storage`, `cache`, `http`, `client`, `hosts`, `accounts` and `validate` hold the host-bound broker, bounded caches and request validation.
+- `src/background/providers/`: GitHub REST/GraphQL and GitLab REST adapters, each with its own request handler.
+- `src/background/sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
+- `src/background/oauth/`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
+- `src/content/`: Shadow DOM sidebar. `app.js` composes feature factories (`createX(app)`) from `sidebar/`, `viewer/` and `native/`; factories receive shared state and functions through `app`, so they run in tests without a page.
+- `src/content/viewer/syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
+- `src/content/sidebar.css`: isolated UI styles; page styles are constructed in `sidebar/layout.js`.
+- `src/options/`: appearance and account settings.
+- `src/manifest.json`, `src/icons/`: distribution metadata and original assets.
+- `scripts/`, `.github/workflows/`: bundling, validation, deterministic runtime packaging and releases by stable tag.
 - `docs/`, `PRIVACY.md`: feature boundaries and validation/data records.
 
 ## Key commands
@@ -42,7 +42,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
-`npm test` runs approved regressions for Viewed revision checks, asynchronous tree loading, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
+`npm test` runs approved regressions for Viewed revision checks against the bundled service worker, asynchronous tree loading through the content factories, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
 
 ## Coding conventions
 

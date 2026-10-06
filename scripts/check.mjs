@@ -1,20 +1,22 @@
-import {readFile, readdir, stat} from 'node:fs/promises';
-import {resolve, dirname, relative} from 'node:path';
+import {mkdtemp, readFile, readdir, rm, stat} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {resolve, dirname, join, relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {parseDocument} from 'yaml';
+import {buildExtension} from './build.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const text = path => readFile(resolve(root, path), 'utf8');
 const requireValue = (condition, message) => { if (!condition) throw new Error(message); };
-const manifest = JSON.parse(await text('manifest.json'));
+const manifest = JSON.parse(await text('src/manifest.json'));
 const development = JSON.parse(await text('package.json'));
 const lock = JSON.parse(await text('package-lock.json'));
 const files = [];
 
 async function walk(directory = root) {
   for (const entry of await readdir(directory, {withFileTypes: true})) {
-    if (['.git', 'node_modules', 'dist'].includes(entry.name)) continue;
+    if (['.git', 'node_modules', 'build', 'dist'].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
     requireValue(!entry.isSymbolicLink(), `Symbolic link in project: ${relative(root, path)}`);
     if (entry.isDirectory()) await walk(path);
@@ -23,10 +25,14 @@ async function walk(directory = root) {
 }
 await walk();
 
-async function asset(path) {
+async function asset(path, base = root) {
   requireValue(typeof path === 'string' && !path.startsWith('/') && !path.split('/').some(part => !part || part === '.' || part === '..'), `Invalid asset path: ${path}`);
-  requireValue(files.includes(path) && (await stat(resolve(root, path))).isFile(), `Missing asset: ${path}`);
+  requireValue((await stat(resolve(base, path)).catch(() => null))?.isFile() && (base !== root || files.includes(path)), `Missing asset: ${path}`);
 }
+// Manifest and Settings references are validated against a fresh bundle, as Chrome loads them.
+const built = await mkdtemp(join(tmpdir(), 'code-tree-check-'));
+await buildExtension(built);
+const extensionAsset = path => asset(path, built);
 
 requireValue(manifest.manifest_version === 3 && manifest.name === 'Code Tree', 'Expected the Code Tree Manifest V3 extension.');
 requireValue(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(manifest.version) && manifest.version.split('.').some(part => Number(part) > 0) && manifest.version.split('.').every(part => Number(part) <= 65535), 'Invalid release version.');
@@ -37,7 +43,7 @@ if (development.license === 'SEE LICENSE IN LICENSE') {
   await asset('LICENSE');
   requireValue((await text('LICENSE')).trim(), 'LICENSE must contain the approved terms.');
 }
-requireValue((await text('options.html')).match(/class="version">v([\d.]+)</)?.[1] === manifest.version, 'The Settings version label differs from the manifest.');
+requireValue((await text('src/options/options.html')).match(/class="version">v([\d.]+)</)?.[1] === manifest.version, 'The Settings version label differs from the manifest.');
 requireValue((await text('README.md')).match(/\*\*Version ([\d.]+) /)?.[1] === manifest.version, 'The README version label differs from the manifest.');
 requireValue(JSON.stringify(lock.packages[''].devDependencies) === JSON.stringify(development.devDependencies), 'package-lock.json differs from package.json; run npm install.');
 requireValue(new Set(manifest.permissions).size === 3 && ['storage', 'scripting', 'activeTab'].every(value => manifest.permissions.includes(value)), 'Unexpected extension permissions.');
@@ -45,16 +51,16 @@ requireValue(JSON.stringify(manifest.optional_permissions) === '["identity"]' &&
 requireValue(manifest.host_permissions.every(value => ['https://github.com/*', 'https://api.github.com/*', 'https://gitlab.com/*'].includes(value)), 'Unexpected fixed host permission.');
 const policy = manifest.content_security_policy.extension_pages;
 requireValue(policy.includes("script-src 'self'") && policy.includes("object-src 'none'") && !/unsafe-|https?:|\*/.test(policy), 'Extension CSP must prohibit remote or unsafe executable code.');
-await asset(manifest.background.service_worker);
-await asset(manifest.options_page);
+await extensionAsset(manifest.background.service_worker);
+await extensionAsset(manifest.options_page);
 for (const script of manifest.content_scripts) {
   requireValue(script.matches.every(value => ['https://github.com/*', 'https://gitlab.com/*'].includes(value)), 'Unexpected fixed content-script host.');
-  for (const path of [...script.js, ...(script.css || [])]) await asset(path);
+  for (const path of [...script.js, ...(script.css || [])]) await extensionAsset(path);
 }
-for (const group of manifest.web_accessible_resources) for (const path of group.resources) await asset(path);
+for (const group of manifest.web_accessible_resources) for (const path of group.resources) await extensionAsset(path);
 for (const [size, path] of Object.entries(manifest.icons)) {
-  await asset(path);
-  const data = await readFile(resolve(root, path));
+  await extensionAsset(path);
+  const data = await readFile(resolve(built, path));
   requireValue(data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && data.readUInt32BE(16) === Number(size) && data.readUInt32BE(20) === Number(size), `Invalid PNG icon dimensions: ${path}`);
 }
 
@@ -83,7 +89,8 @@ for (const path of files) {
     if (path.endsWith('.html')) {
       requireValue(!/<[^>]+\bon\w+\s*=|javascript:/i.test(source), `Inline executable HTML in ${path}`);
       for (const match of source.matchAll(/<(script|link|img)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
-        await asset(relative(root, resolve(dirname(resolve(root, path)), match[2])).replaceAll('\\', '/'));
+        if (path.startsWith('src/')) await extensionAsset(match[2]);
+        else await asset(relative(root, resolve(dirname(resolve(root, path)), match[2])).replaceAll('\\', '/'));
       }
     }
     if (/\.ya?ml$/.test(path)) {
@@ -111,4 +118,5 @@ for (let index = 0; index < sections.length; index++) {
     previous = current;
   }
 }
-console.log(`Checked ${scripts} JavaScript files, manifest/CSP/assets, ${documents} documents, YAML, lockfile and changelog.`);
+await rm(built, {recursive: true, force: true});
+console.log(`Checked ${scripts} JavaScript files, manifest/CSP/bundled assets, ${documents} documents, YAML, lockfile and changelog.`);

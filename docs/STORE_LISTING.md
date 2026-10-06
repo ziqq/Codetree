@@ -1,6 +1,6 @@
 # Chrome Web Store listing
 
-Source text for the Chrome Web Store Developer Dashboard. The upload API does not change listing fields; paste these values manually and keep them consistent with `manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
+Source text for the Chrome Web Store Developer Dashboard. The upload API does not change listing fields; paste these values manually and keep them consistent with `src/manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
 
 ## Store listing
 
@@ -56,7 +56,7 @@ Code Tree is source-available: https://github.com/ziqq/Codetree
 
 | Asset | Size | Source |
 | --- | --- | --- |
-| Store icon | 128×128 PNG | `icons/icon128.png` |
+| Store icon | 128×128 PNG | `src/icons/icon128.png` |
 | Screenshots (1–5) | 1280×800 or 640×400 | Captures of the installed extension on live public repositories |
 | Small promo tile | 440×280 | Optional |
 

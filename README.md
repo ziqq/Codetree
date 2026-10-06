@@ -30,16 +30,21 @@ See [Features](docs/FEATURES.md) for provider differences. This is an independen
 
 ## Quick start
 
-1. Clone or download this repository and extract it if necessary.
+1. Download `code-tree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases) and extract it into a folder.
 2. Open `chrome://extensions` and enable **Developer mode**.
-3. Select **Load unpacked** and choose the directory containing `manifest.json`.
+3. Select **Load unpacked** and choose the extracted folder containing `manifest.json`.
 4. Open or refresh a GitHub or GitLab repository page.
+
+To run the current source instead, bundle it first and load the generated `build/` folder:
 
 ```sh
 git clone https://github.com/ziqq/Codetree.git
+cd Codetree
+npm ci
+npm run build
 ```
 
-No dependency installation or build step is needed to load the extension. After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
+After updating, click **Reload** on the extension card and refresh repository tabs. After disabling the extension, refresh tabs to remove the previously injected UI.
 
 ## Getting started
 
@@ -108,23 +113,29 @@ Requests go directly to the selected repository API. Tokens stay bound to its AP
 ## Project structure
 
 ```text
-manifest.json      Chrome MV3 entry points and permissions
-core.js            Routes, URLs, tree logic, icons and patch validation
-syntax.js          Original bounded lexical syntax highlighting
-background.js      API broker, storage, GitHub adapter and bounded cache
-gitlab.js          GitLab repository, MR, commit and review adapter
-oauth*.js          Public client configuration and trusted OAuth flows
-sync.js            Opt-in browser Sync for preferences and bookmarks
-content.js         Sidebar, native View full buttons and full-file viewer
-sidebar.css        Isolated sidebar/viewer styles
-options.*          Settings and account management
-icons/             Original extension icons
-docs/              Feature details and verification record
+src/
+  manifest.json          Chrome MV3 entry points and permissions
+  shared/                Preferences, routes/URLs, tree model, diff validation and icons
+  background/            Service worker: message broker, storage, cache, API client, accounts
+    providers/           GitHub REST/GraphQL and GitLab REST adapters
+    oauth/               Public client configuration and trusted OAuth flows
+    sync.js              Opt-in browser Sync for preferences and bookmarks
+  content/               Content script: Shadow DOM sidebar
+    sidebar/             View, layout, file tree, branches, requests, bookmarks
+    viewer/              Full-file diff viewer and lexical syntax highlighting
+    native/              View full buttons in native diff headers
+  options/               Settings and account management
+  icons/                 Original extension icons
+scripts/                 Bundling, validation and deterministic packaging
+tests/                   Node.js regression suite
+docs/                    Feature details, releases and verification record
 ```
+
+esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP.
 
 ## Development
 
-Use the repository root as an unpacked extension. JavaScript uses two-space indentation, single quotes and explicit DOM construction. Node.js/npm are development tools only; Python 3 creates the distributable ZIP.
+Edit `src/`, run `npm run build` and load `build/` as an unpacked extension. JavaScript uses ES modules, two-space indentation, single quotes and explicit DOM construction. Node.js/npm provide bundling and checks only; the extension has no runtime dependencies. Python 3 creates the distributable ZIP. `make help` lists the same commands.
 
 ```sh
 npm ci

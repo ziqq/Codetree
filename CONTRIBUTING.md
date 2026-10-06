@@ -13,9 +13,9 @@
 
 ## Environment setup
 
-Chrome/Chromium 116+ is the target. The extension has no runtime dependencies or bundler. Use Node.js 24, locked npm development tools and Python 3 for CI and packaging.
+Chrome/Chromium 116+ is the target. The extension has no runtime dependencies; esbuild bundles the ES modules in `src/` into `build/`. Use Node.js 24, locked npm development tools and Python 3 for CI and packaging.
 
-Load the repository root through **Load unpacked** in `chrome://extensions`. After edits, reload the extension and refresh the tab. Inspect its service worker through the Chrome extension card when debugging API/storage behavior.
+Run `npm run build` and load `build/` through **Load unpacked** in `chrome://extensions`. After edits, rebuild, reload the extension and refresh the tab. Inspect its service worker through the Chrome extension card when debugging API/storage behavior.
 
 ```sh
 npm ci

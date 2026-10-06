@@ -101,7 +101,7 @@ export function checkCSS(source, filename = 'stylesheet.css') {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  for (const file of ['sidebar.css', 'options.css']) {
+  for (const file of ['src/content/sidebar.css', 'src/options/options.css']) {
     const errors = checkCSS(readFileSync(file, 'utf8'), file);
     for (const error of errors) console.error(`${file}:${error.line}:${error.column} ${error.rule}: ${error.message}`);
     if (errors.length) process.exitCode = 1;

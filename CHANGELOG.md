@@ -10,12 +10,14 @@
 - **ADDED**: stable-tag GitHub Releases with version/license gates, reproducible ZIP, SHA-256 and verification of downloaded CI artifacts
 - **ADDED**: manual release runs that tag the verified commit, detailed release notes with installation steps, commits and checksum, and Chrome Web Store API v2 submission when the store is configured
 - **ADDED**: Chrome Web Store listing text and privacy-practice justifications
+- **ADDED**: VS Code workspace settings, recommended extensions, tasks and debug configurations, plus a Makefile for checks, builds and tags
 - **ADDED**: Code Tree Source-Available License 1.0 allowing workplace use and free forks while prohibiting monetization of covered derivatives, including fork-related donations and paid services
 - **ADDED**: configurable toggle/search shortcuts, page scopes, URL exclusions, folder click settings and pinning per browser window
 - **ADDED**: account/host/revision-scoped persistent tree cache with expiration, size limits and refresh/account invalidation
 - **ADDED**: original bounded lexical syntax highlighting for full-file review, with independent old/new revision state
 - **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
 - **ADDED**: opt-in browser Sync for preferences and bookmark metadata, with trusted storage, an explicit allowlist, bounded snapshots and visible quota errors
+- **CHANGED**: source moved to `src/` as ES modules (shared, service worker, content script, Settings) and bundled with esbuild into `build/`; the release ZIP is packaged from the reproducible bundle
 - **CHANGED**: product name from `GitHub Code Tree` to `Code Tree`
 - **CHANGED**: full-file previous/next navigation includes every changed file independently of sidebar search
 - **CHANGED**: collapsed edge tab includes the product name, opening chevron and grip

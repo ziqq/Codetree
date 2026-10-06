@@ -51,12 +51,15 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          npm run build
           if [ -n "$RELEASE_TAG" ]; then
             python3 scripts/package.py --tag "$RELEASE_TAG"
           else
             python3 scripts/package.py
           fi
-          python3 scripts/package.py --output "$RUNNER_TEMP/code-tree-rebuild"
+          # An independent bundle must produce the same ZIP bytes.
+          node scripts/build.mjs --outdir "$RUNNER_TEMP/code-tree-build"
+          python3 scripts/package.py --source "$RUNNER_TEMP/code-tree-build" --output "$RUNNER_TEMP/code-tree-rebuild"
           cmp dist/*.zip "$RUNNER_TEMP"/code-tree-rebuild/*.zip
 
       - name: Upload validated extension

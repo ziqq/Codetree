@@ -1,6 +1,6 @@
 # OAuth setup
 
-OAuth code is prepared; live sign-in is not verified. The maintainer chose to supply public client IDs later. `oauth-config.js` therefore contains empty IDs, and Settings keeps OAuth buttons disabled. PAT connections remain available. No application was registered, client secret generated or provider permission granted by this change.
+OAuth code is prepared; live sign-in is not verified. The maintainer chose to supply public client IDs later. `src/background/oauth/config.js` therefore contains empty IDs, and Settings keeps OAuth buttons disabled. PAT connections remain available. No application was registered, client secret generated or provider permission granted by this change.
 
 ## GitHub
 
