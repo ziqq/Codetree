@@ -148,10 +148,21 @@ export function createHeaderButtons(app) {
       await app.showDiff(diffNode(matched));
     } catch (error) {
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
-      shell.body.replaceChildren(empty('Full-file preview unavailable', error.message, 'account'));
-      shell.bottom.prepend(
-        el('button', {type: 'button', text: 'Connect account in Settings', onClick: run(() => app.rpc('OPTIONS'))}),
-        el('button', {type: 'button', text: 'Retry', onClick: run(() => showHeaderDiff(path, cardId))}),
+      shell.body.replaceChildren(
+        empty('Full-file preview unavailable', error.message, 'account', [
+          el('button', {
+            type: 'button',
+            class: 'small-button primary',
+            text: 'Open Settings',
+            onClick: run(() => app.rpc('OPTIONS')),
+          }),
+          el('button', {
+            type: 'button',
+            class: 'small-button',
+            text: 'Retry',
+            onClick: run(() => showHeaderDiff(path, cardId)),
+          }),
+        ]),
       );
     }
   }

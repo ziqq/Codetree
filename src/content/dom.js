@@ -51,9 +51,14 @@ export function button(name, label, callback, className = '') {
   );
 }
 
-/** Creates the empty, loading or error state of a view. */
-export function empty(title, text, name = 'search') {
-  return el('div', {class: 'empty'}, [icon(name), el('strong', {text: title}), el('span', {text})]);
+/** Creates the empty, loading or error state of a view, with optional action buttons below the text. */
+export function empty(title, text, name = 'search', actions = []) {
+  return el('div', {class: 'empty'}, [
+    icon(name),
+    el('strong', {text: title}),
+    el('span', {text}),
+    ...(actions.length ? [el('div', {class: 'empty-actions'}, actions)] : []),
+  ]);
 }
 
 /** Renders [label] with the first case-insensitive match of [query] marked. */
