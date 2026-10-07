@@ -57,16 +57,16 @@ export function providerFor(origin, store) {
 }
 
 /**
- * Whether a branch-and-path tail or a branch hint has no empty, `.` or `..`
- * segments. The page decodes `%2F`, so such segments could otherwise
- * reach API paths through the ref.
+ * Whether a branch-and-path tail or a branch hint is absent, or has no
+ * empty, `.` or `..` segments. Pages send `''` when there is no tail or
+ * hint. The page decodes `%2F`, so such segments could otherwise reach
+ * API paths through the ref.
  *
  * @param {*} value
- * @param {boolean} [optional=false] Accept a missing or empty value.
  * @returns {boolean}
  */
-function refPath(value, optional = false) {
-  if (optional && (value == null || value === '')) return true;
+function refPath(value) {
+  if (value == null || value === '') return true;
   return typeof value === 'string' && value.split('/').every(part => part && part !== '.' && part !== '..');
 }
 
@@ -95,8 +95,8 @@ export function validateContext(value, store) {
     value.repo === '.' ||
     value.repo === '..' ||
     (value.viewer != null && (typeof value.viewer !== 'string' || value.viewer.length > 255)) ||
-    !refPath(value.tail, true) ||
-    (value.refHint != null && !refPath(value.refHint))
+    !refPath(value.tail) ||
+    !refPath(value.refHint)
   ) {
     throw new Error('This repository host is not enabled.');
   }
