@@ -133,7 +133,14 @@ async function handle(message, sender) {
       const bookmarks = [...(current.bookmarks || [])];
       if (message.remove) return {bookmarks: bookmarks.filter(item => item.id !== message.remove)};
       const url = new URL(message.url);
-      if (!origins(current).has(url.origin) || url.username || url.password)
+      // A page may bookmark only its own host; long URLs would overflow storage and the Sync snapshot.
+      if (
+        !origins(current).has(url.origin) ||
+        (!isOptions && url.origin !== senderOrigin) ||
+        url.username ||
+        url.password ||
+        url.href.length > sync.maxBookmarkUrlLength
+      )
         throw new Error('Only enabled repository hosts can be bookmarked.');
       if (!bookmarks.some(item => item.url === url.href))
         bookmarks.unshift({

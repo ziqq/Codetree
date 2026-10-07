@@ -51,7 +51,7 @@ jobs:
 
       - name: Bundle release source
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm run build
 
       - name: Download validated extension
@@ -159,67 +159,54 @@ jobs:
     env:
       CWS_PUBLISHER_ID: f3cf73d3-37ce-4ab4-88a4-5cb1fce26075
       CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
     steps:
-      - name: Report missing store configuration
-        if: >-
-          env.CWS_EXTENSION_ID == '' ||
-          env.CWS_CLIENT_ID == '' ||
-          env.CWS_CLIENT_SECRET == '' ||
-          env.CWS_REFRESH_TOKEN == ''
-        run: >-
-          echo "::warning::Chrome Web Store submission skipped because CWS_EXTENSION_ID or a CWS_* secret is not configured."
+      # Secrets are exposed only to this check and the upload step, never to dependency installation or bundling.
+      - name: Check store configuration
+        id: store
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          if [ -n "$CWS_EXTENSION_ID" ] && [ -n "$CWS_CLIENT_ID" ] && [ -n "$CWS_CLIENT_SECRET" ] && [ -n "$CWS_REFRESH_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Chrome Web Store submission skipped because CWS_EXTENSION_ID or a CWS_* secret is not configured."
+          fi
 
       - name: Checkout release source
-        if: >-
-          env.CWS_EXTENSION_ID != '' &&
-          env.CWS_CLIENT_ID != '' &&
-          env.CWS_CLIENT_SECRET != '' &&
-          env.CWS_REFRESH_TOKEN != ''
+        if: steps.store.outputs.configured == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        if: >-
-          env.CWS_EXTENSION_ID != '' &&
-          env.CWS_CLIENT_ID != '' &&
-          env.CWS_CLIENT_SECRET != '' &&
-          env.CWS_REFRESH_TOKEN != ''
+        if: steps.store.outputs.configured == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.x'
           cache: npm
 
       - name: Bundle release source
-        if: >-
-          env.CWS_EXTENSION_ID != '' &&
-          env.CWS_CLIENT_ID != '' &&
-          env.CWS_CLIENT_SECRET != '' &&
-          env.CWS_REFRESH_TOKEN != ''
+        if: steps.store.outputs.configured == 'true'
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm run build
 
       - name: Download validated extension
-        if: >-
-          env.CWS_EXTENSION_ID != '' &&
-          env.CWS_CLIENT_ID != '' &&
-          env.CWS_CLIENT_SECRET != '' &&
-          env.CWS_REFRESH_TOKEN != ''
+        if: steps.store.outputs.configured == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: codetree-${{ github.sha }}
           path: dist
 
       - name: Upload and submit for review
-        if: >-
-          env.CWS_EXTENSION_ID != '' &&
-          env.CWS_CLIENT_ID != '' &&
-          env.CWS_CLIENT_SECRET != '' &&
-          env.CWS_REFRESH_TOKEN != ''
+        if: steps.store.outputs.configured == 'true'
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
