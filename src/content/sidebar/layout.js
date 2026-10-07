@@ -26,6 +26,7 @@ export function createLayout(app) {
     host.dataset.theme = isDark() ? 'dark' : 'light';
     host.dataset.icons = prefs.iconTheme;
     host.dataset.provider = state.context?.provider || 'github';
+    updateCodeColors();
     host.style.setProperty('--panel-width', `${prefs.width}px`);
     host.style.setProperty('--code-font', fontFamilies[prefs.fontFamily]);
     host.style.setProperty('--code-size', `${prefs.fontSize}px`);
@@ -52,6 +53,29 @@ export function createLayout(app) {
       .codetree-view-full{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;cursor:pointer;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:4px 9px;border:1px solid var(--borderColor-default,var(--gl-border-color-default,#8b949e55));border-radius:6px;background:var(--bgColor-muted,var(--gl-background-color-subtle,#6e768112));color:inherit;margin-inline:4px;line-height:18px}
       .codetree-view-full:hover{border-color:var(--fgColor-accent,var(--gl-text-color-link,#58a6ff))}.codetree-view-full:focus-visible{outline:2px solid var(--fgColor-accent,var(--gl-focus-ring-outer-color,#58a6ff));outline-offset:2px}.codetree-view-full:disabled{opacity:.5;cursor:default}.codetree-view-full .icon{height:15px;width:15px}`;
     app.requestTreeRender();
+  }
+
+  /** Reads GitLab's selected code theme without applying it to the sidebar chrome. */
+  function updateCodeColors() {
+    const source =
+      state.context?.provider === 'gitlab'
+        ? document.querySelector(
+            '.code-syntax-highlight-theme, .diff-file .code, .diff-table.code, .rd-diff-file .code',
+          )
+        : null;
+    const colors = source ? getComputedStyle(source) : null;
+    for (const name of [
+      'background',
+      'text-color',
+      'new-diff-background-color',
+      'old-diff-background-color',
+      'new-diff-line-number-background-color',
+      'old-diff-line-number-background-color',
+    ]) {
+      const value = colors?.getPropertyValue(`--code-${name}`).trim();
+      if (value) host.style.setProperty(`--native-code-${name}`, value);
+      else host.style.removeProperty(`--native-code-${name}`);
+    }
   }
 
   /** Moves the collapsed edge handle beside GitHub's left navigation drawer when it is open. */

@@ -129,6 +129,14 @@ A refreshed npm audit discovered [GHSA-rj75-hqrm-r3gf](https://github.com/adviso
 
 Local full verification passed: ESLint, CSS syntax/seven rule categories, the unchanged 31 regressions, static source/manifest/docs/lockfile checks and the 18-file runtime package. Final Chrome visual acceptance remains pending: the native control tool returned `noWindowsAvailable`, which is not evidence that the Mac is locked. The maintainer requested no further window control, so no further native actions were attempted. Installed source files are updated on disk; the revised candidate still needs extension Reload and a page refresh by the maintainer. No tag, release or store submission was made.
 
+## Provider colors, 2026-10-07
+
+GitHub's current page tokens and GitLab's current UI/code-theme styles were inspected read-only on public pages. Full-file previews now use separate provider syntax palettes, GitHub's diff background/number tokens and GitLab's selected native code background/text/diff values when present. Review-comment dialogs retain the UI background. No external scripts, styles or font assets were added.
+
+The current production bundle rendered full-file previews in local GitHub/GitLab fixtures in both light and dark themes with no captured browser errors. GitLab's dark code background was `#1d1f21`, independently of its UI background `#18171d`; its light code background was white. README now shows GitLab's light UI and GitHub's dark full-file view, both with sample data. This is fixture visual proof, not installed-extension or authenticated API verification. The closed Shadow DOM remains unchanged.
+
+`npm run verify` passed formatting, lint, the unchanged 36 regressions, source/manifest/document checks and runtime ZIP packaging. Tests were not edited.
+
 ## Pending environments
 
 - Installed-browser smoke for the current security/Sync changes and full browser restart.

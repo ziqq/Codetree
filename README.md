@@ -8,9 +8,9 @@ Browse files, switch branches, review PR/MR changes and open the whole changed f
 
 ## Preview
 
-![Codetree on a GitLab development fixture](.github/images/gitlab.jpg)
+![Codetree on a GitLab development fixture in the light theme](.github/images/gitlab.jpg)
 
-![Codetree whole-file preview with highlighted changes](.github/images/full-file.jpg)
+![Codetree whole-file preview on a GitHub development fixture in the dark theme](.github/images/full-file.jpg)
 
 These screenshots show Codetree 0.3.0, including the current file-icons theme, on a local development fixture with sample data and the actual extension scripts. They do not show an installed extension on a live repository.
 

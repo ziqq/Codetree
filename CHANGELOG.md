@@ -29,6 +29,7 @@
 - **CHANGED**: minimum Chrome version to 116 for OAuth authorization-window lifecycle support
 - **CHANGED**: web-accessible styles and fonts use per-session dynamic URLs (Chrome 130+), so websites cannot detect the extension by its ID
 - **CHANGED**: repository pages receive only bookmarks for enabled hosts; synced bookmarks for other hosts stay stored and appear once the host is connected
+- **FIXED**: full-file code colors use provider-specific syntax and diff palettes, GitHub diff tokens and GitLab selected code-theme backgrounds instead of shared red/green overlays
 - **FIXED**: GitLab discussions requiring authentication no longer block a public MR/commit diff; unavailable comments are reported separately
 - **FIXED**: unauthenticated API operations report that an account is required instead of saying a token was rejected
 - **FIXED**: invalid repository/source identifiers with dot segments are rejected before requesting an API endpoint
