@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- **ADDED**: Chrome Web Store listing fields, privacy answers, screenshots and promo images in `docs/STORE_LISTING.md` and `docs/store/`
+- **CHANGED**: new Codetree extension icon matching the store icon
+
 ## 0.3.0
 
 - **ADDED**: GitLab and self-managed GitLab support, including nested namespaces, branches, folder loading, MR/commit changes, discussions, local Viewed marks and review filters
