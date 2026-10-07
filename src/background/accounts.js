@@ -16,9 +16,9 @@ import * as sync from './sync.js';
  * Returns the state a page or Settings may see.
  *
  * Accounts are reduced to their ID, host, username, label and provider;
- * tokens are never included. Pinning reflects the sender's window, pages
- * receive only bookmarks for enabled hosts, and only Settings receives
- * the Sync status.
+ * tokens are never included. Pages receive only the accounts and account
+ * selection of their own host and bookmarks for enabled hosts. Pinning
+ * reflects the sender's window, and only Settings receives the Sync status.
  *
  * @param {Object} store The stored data.
  * @param {chrome.runtime.MessageSender} sender The requesting page or Settings.
@@ -27,6 +27,7 @@ import * as sync from './sync.js';
 export async function publicState(store, sender) {
   const value = preferences(store.preferences);
   const isOptions = sender?.url === chrome.runtime.getURL('options.html');
+  const visible = origin => isOptions || origin === new URL(sender?.url || 'about:blank').origin;
   if (Number.isInteger(sender?.tab?.windowId)) {
     const {windowPins = {}} = await chrome.storage.session.get('windowPins');
     if (typeof windowPins[sender.tab.windowId] === 'boolean') value.pinned = windowPins[sender.tab.windowId];
@@ -34,15 +35,13 @@ export async function publicState(store, sender) {
   }
   return {
     preferences: value,
-    accounts: (store.accounts || []).map(({id, origin, login, label}) => ({
-      id,
-      origin,
-      login,
-      label,
-      provider: providerFor(origin, store),
-    })),
+    accounts: (store.accounts || [])
+      .filter(account => visible(account.origin))
+      .map(({id, origin, login, label}) => ({id, origin, login, label, provider: providerFor(origin, store)})),
     hosts: [...origins(store)].map(origin => ({origin, provider: providerFor(origin, store)})),
-    selectedAccounts: store.selectedAccounts || {},
+    selectedAccounts: Object.fromEntries(
+      Object.entries(store.selectedAccounts || {}).filter(([origin]) => visible(origin)),
+    ),
     bookmarks: isOptions ? store.bookmarks || [] : enabledBookmarks(store.bookmarks, store),
     ...(isOptions ? {sync: sync.status()} : {}),
   };

@@ -38,6 +38,9 @@ const preferenceKeys = Object.freeze([
 
 /** Snapshot size limit, below Chrome's per-item quota. */
 const maxItemBytes = 8192;
+
+/** Longest bookmark URL that is stored or synced; longer URLs would crowd out the snapshot. */
+export const maxBookmarkUrlLength = 2048;
 // Store accessors supplied by the broker, the initialization promise, the
 // serialized task queue, whether the remote snapshot was read, the newest
 // known snapshot time and the last applied/published snapshot.
@@ -98,7 +101,7 @@ function bookmark(value) {
   if (!value || typeof value !== 'object' || typeof value.url !== 'string' || typeof value.title !== 'string')
     throw new Error('The synced bookmarks are invalid.');
   const url = new URL(value.url);
-  if (url.protocol !== 'https:' || url.username || url.password)
+  if (url.protocol !== 'https:' || url.username || url.password || url.href.length > maxBookmarkUrlLength)
     throw new Error('Only HTTPS bookmark URLs without credentials can be synced.');
   const createdAt = value.createdAt ?? value.created;
   if (!Number.isSafeInteger(createdAt) || createdAt < 0) throw new Error('The synced bookmark date is invalid.');

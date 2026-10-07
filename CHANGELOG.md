@@ -4,6 +4,11 @@
 
 - **ADDED**: Chrome Web Store listing fields, privacy answers, screenshots and promo images in `docs/STORE_LISTING.md` and `docs/store/`
 - **CHANGED**: new Codetree extension icon matching the store icon
+- **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
+- **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
+- **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
+- **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot
+- **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
 - **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
 - **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
 

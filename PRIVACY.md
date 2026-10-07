@@ -35,7 +35,6 @@ The repository service processes API requests under its own policies. Opening a 
 | --- | --- |
 | `storage` | Preferences, credentials, bookmarks, Viewed marks, trees and session state |
 | `scripting` | Register content scripts for user-configured servers |
-| `activeTab` | Toggle the sidebar from the extension toolbar |
 | GitHub/GitLab host access | Fetch repository data and insert the UI |
 | Optional HTTPS host access | Connect a specific custom origin submitted in Settings |
 | Optional `identity` | GitLab OAuth authorization window; requested only when signing in with GitLab |
