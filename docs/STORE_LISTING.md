@@ -153,4 +153,4 @@ No account is needed. Open a public repository such as https://github.com/octoca
 
 ## Publishing
 
-The first package must be uploaded manually in the Developer Dashboard; the API cannot create an item. Then set the `CWS_EXTENSION_ID` repository variable and the `CWS_*` secrets described in [Checks and releases](RELEASING.md) so later releases are submitted automatically.
+The first package must be uploaded manually in the Developer Dashboard; the API cannot create an item. Then set the `CWS_*` secrets described in [Checks and releases](RELEASING.md) so later releases are submitted automatically.

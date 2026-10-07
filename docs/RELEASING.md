@@ -47,7 +47,7 @@ After the GitHub Release, the `chrome-web-store` job verifies the same ZIP again
 
 | Name | Kind | Value |
 | --- | --- | --- |
-| `CWS_EXTENSION_ID` | Repository variable | Item ID from the Developer Dashboard |
+| `CWS_EXTENSION_ID` | Secret | Item ID from the Developer Dashboard |
 | `CWS_CLIENT_ID` | Secret | Google Cloud OAuth client ID with the Chrome Web Store API enabled |
 | `CWS_CLIENT_SECRET` | Secret | Matching OAuth client secret |
 | `CWS_REFRESH_TOKEN` | Secret | Refresh token for the `https://www.googleapis.com/auth/chromewebstore` scope |

@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 5
     env:
       CWS_PUBLISHER_ID: f3cf73d3-37ce-4ab4-88a4-5cb1fce26075
-      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
       CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
@@ -32,7 +32,7 @@ jobs:
             [ -n "${!name}" ] || missing+=("$name")
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::Not configured: ${missing[*]}. Set CWS_EXTENSION_ID as a repository variable and the others as repository secrets."
+            echo "::error::Not configured: ${missing[*]}. Set them as repository secrets."
             exit 1
           fi
           echo "Item: $CWS_EXTENSION_ID"
