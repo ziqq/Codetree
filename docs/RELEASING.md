@@ -52,7 +52,9 @@ After the GitHub Release, the `chrome-web-store` job verifies the same ZIP again
 | `CWS_CLIENT_SECRET` | Secret | Matching OAuth client secret |
 | `CWS_REFRESH_TOKEN` | Secret | Refresh token for the `https://www.googleapis.com/auth/chromewebstore` scope |
 
-The publisher ID is fixed in the workflow. The first package must be uploaded manually because the API cannot create an item. A version that the store already holds cannot be uploaded again. Listing text is maintained separately in [Chrome Web Store listing](STORE_LISTING.md).
+The publisher ID is fixed in the workflow. The first package must be uploaded manually because the API cannot create an item. A version that the store already holds cannot be uploaded again.
+
+To check this configuration without a release, run **Actions → Check Chrome Web Store access** (`.github/workflows/store-check.yml`). It exchanges the refresh token for an access token and reads the item status; it uploads and submits nothing, so it is safe while a version is in review. Its log names the failing part: a missing variable or secret, `invalid_client` (client ID/secret), `invalid_grant` (refresh token; the OAuth app must be In production) or an HTTP 403/404 from the store API. Listing text is maintained separately in [Chrome Web Store listing](STORE_LISTING.md).
 
 Releases created with `GITHUB_TOKEN` do not trigger separate `release.published` workflows. After a successful publication, the workflow therefore runs the pinned labeler's `release-completed` operation with the default-branch configuration; an empty waiting-for-release selection is allowed. The notification job runs after every outcome, reports success, failure, cancellation or skipping, uses the trusted default-branch template and the existing Discord/Telegram secrets, and reports required-provider failures. Manual release events retain their existing workflows. No additional personal access token is required.
 
