@@ -78,25 +78,64 @@ Screenshots and promo images are 24-bit PNGs without transparency. Screenshots m
 
 ## Privacy
 
-**Single purpose:** Navigate and review GitHub and GitLab repositories from a code tree sidebar.
+Paste these values into the **Privacy** tab. Upload the current package first: the dashboard asks for a justification of every permission in the uploaded manifest.
 
-| Permission | Justification |
-| --- | --- |
-| `storage` | Saves preferences, connected accounts and tokens, bookmarks, Viewed marks and a bounded repository tree cache. |
-| `scripting` | Registers the sidebar for a GitHub Enterprise or GitLab server the user adds in Settings. |
-| `identity` (optional) | Opens the provider's OAuth sign-in window when the user chooses to sign in. |
-| Host permissions (github.com, api.github.com, gitlab.com) | Reads repository data from the provider API and shows the sidebar on its pages. |
-| Optional host permission (`https://*/*`) | Requested only for a specific custom server origin the user submits in Settings. |
-| Remote code | No, I am not using remote code. All executable code is packaged with the extension. |
+### Single purpose
 
-**Data usage:** select
+```text
+Codetree adds a code tree sidebar to GitHub and GitLab pages so users can navigate repository files and review pull/merge request changes, including full-file diffs, without leaving the page.
+```
 
-- **Authentication information**: access tokens, stored locally and sent only to the selected repository host.
-- **Website content**: repository files, trees and comments, fetched from the selected host and kept in bounded local memory/cache.
+### Permission justification
+
+`storage`:
+
+```text
+Stores the user's preferences, connected accounts and their access tokens, bookmarks, Viewed marks and a size-limited cache of repository file trees in local extension storage. Optional browser Sync stores only preferences and bookmark metadata.
+```
+
+`scripting`:
+
+```text
+Registers the content script for a GitHub Enterprise Server or self-managed GitLab origin that the user explicitly adds in Settings, so the sidebar can appear on that server's pages. No code is injected into other sites.
+```
+
+Host permission:
+
+```text
+github.com and gitlab.com: show the sidebar and View full buttons on repository pages. api.github.com and the GitLab API: read repository trees, branches, pull/merge request changes and file contents for the page the user is viewing. The optional https://*/* permission is requested at runtime only for the single custom server origin the user enters in Settings.
+```
+
+`identity` (optional, if the dashboard asks):
+
+```text
+Opens the provider's OAuth sign-in window when the user chooses to sign in to GitHub or GitLab from Settings.
+```
+
+### Remote code
+
+Select **No, I am not using remote code**. If a justification is requested:
+
+```text
+All JavaScript is bundled in the package. The extension does not load or evaluate code from any server.
+```
+
+### Data usage
+
+Select only:
+
+- **Authentication information** (Данные для аутентификации): GitHub/GitLab access tokens the user enters in Settings, stored locally and sent only to the selected repository host.
+- **Website content** (Содержимое сайтов): repository files, trees, diffs and comments fetched from the selected host and kept in bounded local memory/cache.
+
+Leave the other types unchecked. The page URL is read only locally to recognize the repository and is never sent or stored except in bookmarks the user creates, so neither **Web history** nor **User activity** applies.
 
 Check all three certifications: data is not sold or transferred to third parties outside the approved use cases, not used for purposes unrelated to the single purpose, and not used to determine creditworthiness or for lending.
 
-**Privacy policy URL:** https://github.com/ziqq/Codetree/blob/main/PRIVACY.md
+### Privacy policy URL
+
+```text
+https://github.com/ziqq/Codetree/blob/main/PRIVACY.md
+```
 
 ## Distribution
 
