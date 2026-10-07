@@ -1,20 +1,18 @@
 # Chrome Web Store listing
 
-Source text for the Chrome Web Store Developer Dashboard. The upload API does not change listing fields; paste these values manually and keep them consistent with `src/manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
+Values for the Chrome Web Store Developer Dashboard, tab by tab. The upload API does not change listing fields; paste these values manually and keep them consistent with `src/manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
+
+## Package
+
+Upload `codetree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases). The first upload creates the item; later releases are submitted by the release workflow (see [Publishing](#publishing)).
 
 ## Store listing
 
 | Field | Value |
 | --- | --- |
-| Name | Codetree |
-| Summary | Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks. |
+| Description (summary, from the manifest) | Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks. |
 | Category | Developer Tools |
 | Language | English |
-| Homepage | https://github.com/ziqq/Codetree |
-| Support | https://github.com/ziqq/Codetree/issues |
-| Privacy policy | https://github.com/ziqq/Codetree/blob/main/PRIVACY.md |
-
-The summary must stay within 132 characters and match the manifest description.
 
 ### Description
 
@@ -35,7 +33,7 @@ CODE REVIEW
 
 PERSONALIZATION
 • Left or right docking, pinning per window, hover opening and resizing
-• File and folder icons from file-icons, configurable code font and size
+• File and folder icons from file-icons in color or monochrome, configurable code font and size
 • Custom shortcuts (default Shift+D to toggle, Shift+S to search), page rules and URL exclusions
 
 ACCOUNTS AND SERVERS
@@ -54,15 +52,31 @@ Codetree is source-available: https://github.com/ziqq/Codetree
 
 ### Graphics
 
-| Asset | Size | Source |
+All files are in `docs/store/`. Screenshots are captures of the built extension on public GitLab pages (no account, no private data).
+
+| Field | File | Size |
 | --- | --- | --- |
-| Store icon | 128×128 PNG | `src/icons/icon128.png` |
-| Screenshots (1–5) | 1280×800 or 640×400 | Captures of the installed extension on live public repositories |
-| Small promo tile | 440×280 | Optional |
+| Store icon | `store-icon-128.png` (source `icon.svg`) | 128×128, 96×96 artwork with 16 px transparent padding |
+| Screenshot 1 | `screenshot-1-tree.png`: repository tree with file-icons | 1280×800 |
+| Screenshot 2 | `screenshot-2-changes.png`: merge request changes tree | 1280×800 |
+| Screenshot 3 | `screenshot-3-full-file.png`: full-file diff from **View full** | 1280×800 |
+| Screenshot 4 | `screenshot-4-requests.png`: merge request list | 1280×800 |
+| Screenshot 5 | `screenshot-5-settings.png`: Settings | 1280×800 |
+| Small promo tile | `promo-small-440x280.png` | 440×280 |
+| Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
 
-The README images show a development fixture; replace them with captures from an installed build before submission. Screenshots must not show private repositories, tokens or other extensions.
+Screenshots and promo images are 24-bit PNGs without transparency. GitHub screenshots can be added from an installed build; they must not show private repositories, tokens or other extensions.
 
-## Privacy practices
+### Additional fields
+
+| Field | Value |
+| --- | --- |
+| Official URL | None (requires a verified domain) |
+| Homepage URL | https://github.com/ziqq/Codetree |
+| Support URL | https://github.com/ziqq/Codetree/issues |
+| Mature content | No |
+
+## Privacy
 
 **Single purpose:** Navigate and review GitHub and GitLab repositories from a code tree sidebar.
 
@@ -72,15 +86,32 @@ The README images show a development fixture; replace them with captures from an
 | `scripting` | Registers the sidebar for a GitHub Enterprise or GitLab server the user adds in Settings. |
 | `activeTab` | Opens or closes the sidebar from the toolbar button on the current tab. |
 | `identity` (optional) | Opens the provider's OAuth sign-in window when the user chooses to sign in. |
-| GitHub/GitLab host access | Reads repository data from the provider API and shows the sidebar on its pages. |
-| Optional HTTPS host access | Requested only for a specific custom server origin the user submits in Settings. |
-| Remote code | No. All executable code is packaged with the extension. |
+| Host permissions (github.com, api.github.com, gitlab.com) | Reads repository data from the provider API and shows the sidebar on its pages. |
+| Optional host permission (`https://*/*`) | Requested only for a specific custom server origin the user submits in Settings. |
+| Remote code | No, I am not using remote code. All executable code is packaged with the extension. |
 
-Data usage disclosures:
+**Data usage:** select
 
-- **Authentication information:** access tokens, stored locally and sent only to the selected repository host.
-- **Website content:** repository files, trees and comments, fetched from the selected host and kept in bounded local memory/cache.
-- Data is not sold, not used for purposes unrelated to the single purpose and not used to determine creditworthiness.
+- **Authentication information**: access tokens, stored locally and sent only to the selected repository host.
+- **Website content**: repository files, trees and comments, fetched from the selected host and kept in bounded local memory/cache.
+
+Check all three certifications: data is not sold or transferred to third parties outside the approved use cases, not used for purposes unrelated to the single purpose, and not used to determine creditworthiness or for lending.
+
+**Privacy policy URL:** https://github.com/ziqq/Codetree/blob/main/PRIVACY.md
+
+## Distribution
+
+| Field | Value |
+| --- | --- |
+| Payments | Free |
+| Visibility | Public |
+| Regions | All regions |
+
+## Test instructions
+
+```text
+No account is needed. Open a public repository such as https://github.com/octocat/Hello-World or https://gitlab.com/gitlab-org/cli; the sidebar appears on the left (toggle with Shift+D). On a pull/merge request "Changes" page, the sidebar lists changed files and each native file header gets a "View full" button that opens the whole file with its changes. Private repositories require a personal access token in Settings.
+```
 
 ## Publishing
 
