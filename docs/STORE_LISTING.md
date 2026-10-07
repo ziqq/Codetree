@@ -84,7 +84,6 @@ Screenshots and promo images are 24-bit PNGs without transparency. GitHub screen
 | --- | --- |
 | `storage` | Saves preferences, connected accounts and tokens, bookmarks, Viewed marks and a bounded repository tree cache. |
 | `scripting` | Registers the sidebar for a GitHub Enterprise or GitLab server the user adds in Settings. |
-| `activeTab` | Opens or closes the sidebar from the toolbar button on the current tab. |
 | `identity` (optional) | Opens the provider's OAuth sign-in window when the user chooses to sign in. |
 | Host permissions (github.com, api.github.com, gitlab.com) | Reads repository data from the provider API and shows the sidebar on its pages. |
 | Optional host permission (`https://*/*`) | Requested only for a specific custom server origin the user submits in Settings. |

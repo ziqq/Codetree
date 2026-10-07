@@ -57,6 +57,20 @@ export function providerFor(origin, store) {
 }
 
 /**
+ * Whether a branch-and-path tail or a branch hint has no empty, `.` or `..`
+ * segments. The page decodes `%2F`, so such segments could otherwise
+ * reach API paths through the ref.
+ *
+ * @param {*} value
+ * @param {boolean} [optional=false] Accept a missing or empty value.
+ * @returns {boolean}
+ */
+function refPath(value, optional = false) {
+  if (optional && (value == null || value === '')) return true;
+  return typeof value === 'string' && value.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+/**
  * Validates a repository context sent by a page.
  *
  * The origin must be enabled, owner and repository names must be safe
@@ -80,7 +94,9 @@ export function validateContext(value, store) {
     value.owner.split('/').some(part => part === '.' || part === '..') ||
     value.repo === '.' ||
     value.repo === '..' ||
-    (value.viewer != null && (typeof value.viewer !== 'string' || value.viewer.length > 255))
+    (value.viewer != null && (typeof value.viewer !== 'string' || value.viewer.length > 255)) ||
+    !refPath(value.tail, true) ||
+    (value.refHint != null && !refPath(value.refHint))
   ) {
     throw new Error('This repository host is not enabled.');
   }

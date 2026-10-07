@@ -98,8 +98,8 @@ requireValue(
   'package-lock.json differs from package.json; run npm install.',
 );
 requireValue(
-  new Set(manifest.permissions).size === 3 &&
-    ['storage', 'scripting', 'activeTab'].every(value => manifest.permissions.includes(value)),
+  new Set(manifest.permissions).size === 2 &&
+    ['storage', 'scripting'].every(value => manifest.permissions.includes(value)),
   'Unexpected extension permissions.',
 );
 requireValue(
