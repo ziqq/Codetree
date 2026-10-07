@@ -2,7 +2,7 @@
 
 A browser extension for exploring and reviewing **GitHub and GitLab** repositories from a code tree.
 
-**Version 0.3.0 · Chrome / Chromium 116+ · Manifest V3**
+**Version 0.3.1 · Chrome / Chromium 116+ · Manifest V3**
 
 Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Codetree runs locally and talks directly to your repository host. No Codetree account, subscription or backend is required.
 
