@@ -123,7 +123,7 @@ test('release notes combine the changelog, commits since the previous tag, detai
   git('tag', 'v0.9.0');
   git('commit', '-q', '--allow-empty', '-m', 'new change');
   const notes = step('publish', 'Write release notes');
-  assert.equal(notes.env.STORE_EXTENSION_ID, '${{ vars.CWS_EXTENSION_ID }}');
+  assert.equal(notes.env.STORE_EXTENSION_ID, '${{ secrets.CWS_EXTENSION_ID }}');
 
   const result = run(notes.run, root, {RELEASE_TAG: 'v1.0.0', STORE_EXTENSION_ID: ''});
   assert.equal(result.status, 0, result.stderr);
@@ -158,8 +158,8 @@ test('Chrome Web Store submission is read-only and skipped until configured', t 
   assert.equal(job.needs, 'publish');
   assert.deepEqual(job.permissions, {contents: 'read'});
   assert.equal(job.env.CWS_PUBLISHER_ID, 'f3cf73d3-37ce-4ab4-88a4-5cb1fce26075');
-  assert.equal(job.env.CWS_EXTENSION_ID, '${{ vars.CWS_EXTENSION_ID }}');
-  // Secrets reach only the configuration check and the upload, never dependency installation or bundling.
+  assert.equal(job.env.CWS_EXTENSION_ID, '${{ secrets.CWS_EXTENSION_ID }}');
+  // OAuth secrets reach only the configuration check and the upload, never dependency installation or bundling.
   const secrets = storeConfigured.slice(1);
   for (const name of secrets) assert.equal(job.env[name], undefined);
   const [check, ...steps] = job.steps;
