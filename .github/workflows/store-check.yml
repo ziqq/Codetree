@@ -1,0 +1,64 @@
+name: Check Chrome Web Store access
+
+# Read-only check of the release workflow's store configuration: exchanges the
+# refresh token for an access token and reads the item status. Nothing is
+# uploaded or submitted, so it is safe while a version is in review.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: codetree-store-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check store credentials and item
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CWS_PUBLISHER_ID: f3cf73d3-37ce-4ab4-88a4-5cb1fce26075
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+    steps:
+      - name: Check store configuration
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in CWS_EXTENSION_ID CWS_CLIENT_ID CWS_CLIENT_SECRET CWS_REFRESH_TOKEN; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Not configured: ${missing[*]}. Set CWS_EXTENSION_ID as a repository variable and the others as repository secrets."
+            exit 1
+          fi
+          echo "Item: $CWS_EXTENSION_ID"
+
+          # Google's error replies (for example invalid_client or invalid_grant) contain no credentials.
+          reply="$(curl -sS --retry 3 --max-time 30 https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$CWS_CLIENT_ID" \
+            --data-urlencode "client_secret=$CWS_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$CWS_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)"
+          token="$(jq -r '.access_token // empty' <<<"$reply")"
+          if [ -z "$token" ]; then
+            jq '{error, error_description}' <<<"$reply" || true
+            echo "::error::Google did not issue an access token. invalid_client: check CWS_CLIENT_ID/CWS_CLIENT_SECRET; invalid_grant: create a new CWS_REFRESH_TOKEN (the OAuth app must be In production)."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "Access token issued; scope: $(jq -r '.scope // "unknown"' <<<"$reply")"
+
+          status="$(curl -sS --max-time 30 -w '\n%{http_code}' -H "Authorization: Bearer $token" \
+            "https://chromewebstore.googleapis.com/v2/publishers/$CWS_PUBLISHER_ID/items/$CWS_EXTENSION_ID:fetchStatus")"
+          code="${status##*$'\n'}"
+          body="${status%$'\n'*}"
+          jq . <<<"$body" || echo "$body"
+          if [ "$code" != 200 ]; then
+            echo "::error::Chrome Web Store API returned HTTP $code. 403: the token's account cannot manage this item; 404: check CWS_EXTENSION_ID."
+            exit 1
+          fi
+          echo "::notice::Chrome Web Store access works for item $CWS_EXTENSION_ID."
