@@ -52,19 +52,20 @@ Codetree is source-available: https://github.com/ziqq/Codetree
 
 ### Graphics
 
-All files are in `docs/store/`. Screenshots are captures of the built extension on public GitHub and GitLab pages (no account, no private data); two use the light theme and two the dark theme.
+All files are in `docs/store/`. Screenshots are captures of the built extension on public pages (the Codetree repository on GitHub and `gitlab-org/cli` on GitLab), without an account or private data. Every scene exists in `screenshots/light/` and `screenshots/dark/` with the same page, window size and actions; upload one theme set (the store accepts up to five screenshots).
 
 | Field | File | Size |
 | --- | --- | --- |
 | Store icon | `store-icon-128.png` (source `icon.svg`) | 128×128, 96×96 artwork with 16 px transparent padding |
-| Screenshot 1 | `screenshot-github-2-changes.png`: GitHub pull request changes tree (light) | 1280×800 |
-| Screenshot 2 | `screenshot-github-3-full-file.png`: GitHub full-file diff from **View full** (dark) | 1280×800 |
-| Screenshot 3 | `screenshot-1-tree.png`: GitLab repository tree with file-icons (light) | 1280×800 |
-| Screenshot 4 | `screenshot-5-settings.png`: Settings (dark) | 1280×800 |
+| Screenshot 1 | `screenshots/<theme>/1-github-tree.png`: GitHub repository tree with file-icons | 1280×800 |
+| Screenshot 2 | `screenshots/<theme>/2-github-changes.png`: GitHub pull request changes tree | 1280×800 |
+| Screenshot 3 | `screenshots/<theme>/3-github-full-file.png`: GitHub full-file diff from **View full** | 1280×800 |
+| Screenshot 4 | `screenshots/<theme>/4-gitlab-changes.png`: GitLab merge request changes tree | 1280×800 |
+| Screenshot 5 | `screenshots/<theme>/5-settings.png`: Settings | 1280×800 |
 | Small promo tile | `promo-small-440x280.png` | 440×280 |
 | Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
 
-Screenshots and promo images are 24-bit PNGs without transparency. `screenshot-github-1-tree.png`, `screenshot-2-changes.png`, `screenshot-3-full-file.png` and `screenshot-4-requests.png` are spare captures that are not uploaded. Screenshots must not show private repositories, tokens or other extensions.
+Screenshots and promo images are 24-bit PNGs without transparency. Screenshots must not show private repositories, tokens or other extensions.
 
 ### Additional fields
 
