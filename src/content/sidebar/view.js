@@ -129,7 +129,14 @@ export function createView(app) {
       hidden: '',
       onClick: run(() => app.setPreferences({open: true})),
     },
-    [icon('chevron'), el('span', {text: 'Codetree'}), el('span', {class: 'handle-grip', 'aria-hidden': 'true'})],
+    [
+      icon('chevron'),
+      el('span', {class: 'handle-brand', 'aria-hidden': 'true'}, [
+        el('span', {class: 'handle-initial', text: 'C'}),
+        document.createTextNode('odetree'),
+      ]),
+      el('span', {class: 'handle-grip', 'aria-hidden': 'true'}),
+    ],
   );
   const resize = el('div', {
     class: 'resize',

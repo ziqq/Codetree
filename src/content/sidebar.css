@@ -762,29 +762,43 @@ button:disabled {
   position: fixed;
   top: 35%;
   pointer-events: auto;
-  writing-mode: vertical-rl;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 11px 7px;
+  gap: 13px;
+  width: 34px;
+  padding: 12px 6px;
   background: var(--muted-bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 0;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1;
   box-shadow: 1px 1px 8px #0001;
 }
 .handle[data-dock='left'] {
   left: var(--handle-offset, 0px);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 9px 9px 0;
 }
 .handle[data-dock='right'] {
   right: 0;
-  border-radius: 6px 0 0 6px;
+  border-radius: 9px 0 0 9px;
 }
 .handle .icon {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.handle-brand {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.handle-initial {
+  color: var(--accent);
+}
+.handle:hover {
+  background: var(--hover);
 }
 .handle[hidden] {
   display: none;
@@ -1010,8 +1024,16 @@ button:disabled {
   transform: rotate(180deg);
 }
 .handle-grip {
-  width: 13px;
-  height: 4px;
-  border-block: 1px solid currentColor;
-  opacity: 0.55;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 14px;
+  color: var(--muted);
+}
+.handle-grip::before,
+.handle-grip::after {
+  content: '';
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
 }
