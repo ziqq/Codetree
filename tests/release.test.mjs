@@ -153,18 +153,41 @@ test('release notes combine the changelog, commits since the previous tag, detai
   assert.match(missing.stderr, /Release changelog section is missing/);
 });
 
-test('Chrome Web Store submission is read-only and skipped until configured', () => {
+test('Chrome Web Store submission is read-only and skipped until configured', t => {
   const job = workflow.jobs['chrome-web-store'];
   assert.equal(job.needs, 'publish');
   assert.deepEqual(job.permissions, {contents: 'read'});
   assert.equal(job.env.CWS_PUBLISHER_ID, 'f3cf73d3-37ce-4ab4-88a4-5cb1fce26075');
   assert.equal(job.env.CWS_EXTENSION_ID, '${{ vars.CWS_EXTENSION_ID }}');
-  for (const name of storeConfigured.slice(1)) assert.equal(job.env[name], `\${{ secrets.${name} }}`);
-  const [report, ...steps] = job.steps;
-  for (const name of storeConfigured) assert.match(report.if, new RegExp(`env\\.${name} == ''`));
-  assert.match(report.run, /::warning::/);
+  // Secrets reach only the configuration check and the upload, never dependency installation or bundling.
+  const secrets = storeConfigured.slice(1);
+  for (const name of secrets) assert.equal(job.env[name], undefined);
+  const [check, ...steps] = job.steps;
+  assert.equal(check.id, 'store');
+  for (const item of [check, step('chrome-web-store', 'Upload and submit for review')])
+    for (const name of secrets) assert.equal(item.env[name], `\${{ secrets.${name} }}`, item.name);
   for (const item of steps) {
-    for (const name of storeConfigured) assert.match(item.if, new RegExp(`env\\.${name} != ''`), item.name);
+    assert.equal(item.if, "steps.store.outputs.configured == 'true'", item.name);
+    if (item.name !== 'Upload and submit for review') assert.equal(item.env, undefined, item.name);
+  }
+  assert.match(step('chrome-web-store', 'Bundle release source').run, /npm ci --ignore-scripts/);
+
+  const configured = env => {
+    const root = sandbox(t);
+    const output = join(root, 'output');
+    const result = run(check.run, root, {GITHUB_OUTPUT: output, ...env});
+    return {...result, output: readFileSync(output, 'utf8')};
+  };
+  const all = Object.fromEntries(storeConfigured.map(name => [name, 'value']));
+  const ready = configured(all);
+  assert.equal(ready.status, 0, ready.stderr);
+  assert.equal(ready.output, 'configured=true\n');
+  assert.doesNotMatch(ready.stdout, /::warning::/);
+  for (const name of storeConfigured) {
+    const missing = configured({...all, [name]: ''});
+    assert.equal(missing.status, 0, missing.stderr);
+    assert.equal(missing.output, 'configured=false\n', name);
+    assert.match(missing.stdout, /::warning::Chrome Web Store submission skipped/);
   }
 });
 
