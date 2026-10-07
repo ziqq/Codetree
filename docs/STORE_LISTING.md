@@ -52,18 +52,18 @@ Codetree is source-available: https://github.com/ziqq/Codetree
 
 ### Graphics
 
-All files are in `docs/store/`. Screenshots are captures of the built extension on public pages (the Codetree repository on GitHub and `gitlab-org/cli` on GitLab), without an account or private data. Every scene exists in `screenshots/light/` and `screenshots/dark/` with the same page, window size and actions; upload one theme set (the store accepts up to five screenshots).
+All files are in `docs/store/`. Screenshots are captures of the built extension on public pages (the Codetree repository on GitHub and `gitlab-org/cli` on GitLab), without an account or private data. Every scene is captured in `screenshots/light/` and `screenshots/dark/` with the same page, window size and actions. The uploaded `screenshots/split/` frames join each pair along a slanted seam (light above, dark below), so the store's five screenshots show both themes.
 
 | Field | File | Size |
 | --- | --- | --- |
 | Store icon | `store-icon-128.png` (source `icon.svg`) | 128×128, 96×96 artwork with 16 px transparent padding |
-| Screenshot 1 | `screenshots/<theme>/1-github-tree.png`: GitHub repository tree with file-icons | 1280×800 |
-| Screenshot 2 | `screenshots/<theme>/2-github-changes.png`: GitHub pull request changes tree | 1280×800 |
-| Screenshot 3 | `screenshots/<theme>/3-github-full-file.png`: GitHub full-file diff from **View full** | 1280×800 |
-| Screenshot 4 | `screenshots/<theme>/4-gitlab-changes.png`: GitLab merge request changes tree | 1280×800 |
-| Screenshot 5 | `screenshots/<theme>/5-settings.png`: Settings | 1280×800 |
-| Small promo tile | `promo-small-440x280.png` | 440×280 |
-| Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
+| Screenshot 1 | `screenshots/split/1-github-tree.png`: GitHub repository tree with file-icons | 1280×800 |
+| Screenshot 2 | `screenshots/split/2-github-changes.png`: GitHub pull request changes tree | 1280×800 |
+| Screenshot 3 | `screenshots/split/3-github-full-file.png`: GitHub full-file diff from **View full** | 1280×800 |
+| Screenshot 4 | `screenshots/split/4-gitlab-changes.png`: GitLab merge request changes tree | 1280×800 |
+| Screenshot 5 | `screenshots/split/5-settings.png`: Settings | 1280×800 |
+| Small promo tile | `promo-small-440x280.png`: light and dark sidebars | 440×280 |
+| Marquee promo tile | `promo-marquee-1400x560.png`: light pull request changes with the dark **View full** dialog | 1400×560 |
 
 Screenshots and promo images are 24-bit PNGs without transparency. Screenshots must not show private repositories, tokens or other extensions.
 
