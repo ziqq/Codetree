@@ -52,20 +52,19 @@ Codetree is source-available: https://github.com/ziqq/Codetree
 
 ### Graphics
 
-All files are in `docs/store/`. Screenshots are captures of the built extension on public GitLab pages (no account, no private data).
+All files are in `docs/store/`. Screenshots are captures of the built extension on public GitHub and GitLab pages (no account, no private data); two use the light theme and two the dark theme.
 
 | Field | File | Size |
 | --- | --- | --- |
 | Store icon | `store-icon-128.png` (source `icon.svg`) | 128×128, 96×96 artwork with 16 px transparent padding |
-| Screenshot 1 | `screenshot-1-tree.png`: repository tree with file-icons | 1280×800 |
-| Screenshot 2 | `screenshot-2-changes.png`: merge request changes tree | 1280×800 |
-| Screenshot 3 | `screenshot-3-full-file.png`: full-file diff from **View full** | 1280×800 |
-| Screenshot 4 | `screenshot-4-requests.png`: merge request list | 1280×800 |
-| Screenshot 5 | `screenshot-5-settings.png`: Settings | 1280×800 |
+| Screenshot 1 | `screenshot-github-2-changes.png`: GitHub pull request changes tree (light) | 1280×800 |
+| Screenshot 2 | `screenshot-github-3-full-file.png`: GitHub full-file diff from **View full** (dark) | 1280×800 |
+| Screenshot 3 | `screenshot-1-tree.png`: GitLab repository tree with file-icons (light) | 1280×800 |
+| Screenshot 4 | `screenshot-5-settings.png`: Settings (dark) | 1280×800 |
 | Small promo tile | `promo-small-440x280.png` | 440×280 |
 | Marquee promo tile | `promo-marquee-1400x560.png` | 1400×560 |
 
-Screenshots and promo images are 24-bit PNGs without transparency. GitHub screenshots can be added from an installed build; they must not show private repositories, tokens or other extensions.
+Screenshots and promo images are 24-bit PNGs without transparency. `screenshot-github-1-tree.png`, `screenshot-2-changes.png`, `screenshot-3-full-file.png` and `screenshot-4-requests.png` are spare captures that are not uploaded. Screenshots must not show private repositories, tokens or other extensions.
 
 ### Additional fields
 
