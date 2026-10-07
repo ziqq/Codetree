@@ -25,7 +25,8 @@
         "fonts/mfixx.woff2",
         "fonts/devopicons.woff2"
       ],
-      "matches": ["https://*/*"]
+      "matches": ["https://*/*"],
+      "use_dynamic_url": true
     }
   ],
   "action": {"default_title": "Open Codetree"},

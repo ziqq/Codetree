@@ -25,9 +25,13 @@
 - **CHANGED**: icon styles are Color and Monochrome file-icons plus Minimal original icons; a saved Outline style becomes Monochrome
 - **CHANGED**: original file icons distinguish JSON, Markdown, licenses, ignore files and source documents; folders show their expanded state, and branch/PR controls use circular nodes
 - **CHANGED**: minimum Chrome version to 116 for OAuth authorization-window lifecycle support
+- **CHANGED**: web-accessible styles and fonts use per-session dynamic URLs (Chrome 130+), so websites cannot detect the extension by its ID
+- **CHANGED**: repository pages receive only bookmarks for enabled hosts; synced bookmarks for other hosts stay stored and appear once the host is connected
 - **FIXED**: GitLab discussions requiring authentication no longer block a public MR/commit diff; unavailable comments are reported separately
 - **FIXED**: unauthenticated API operations report that an account is required instead of saying a token was rejected
 - **FIXED**: invalid repository/source identifiers with dot segments are rejected before requesting an API endpoint
+- **FIXED**: error messages redact every GitLab token prefix and the stored credentials of each account, including custom-server tokens
+- **FIXED**: a non-string signed-in username in a repository context is rejected instead of failing during account selection
 - **FIXED**: sidebar and full-file viewer follow the current GitHub/GitLab color tokens instead of a fixed GitHub palette; native preview controls inherit provider border/focus colors
 - **FIXED**: Viewed marks validate the displayed head revision against fresh PR/MR metadata before writing
 - **FIXED**: stale lazy-folder replies and overlapping tree loads cannot mutate a refreshed tree or a different file mode
