@@ -8,7 +8,7 @@ import {preferences} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {clearCache} from './cache.js';
 import {client} from './client.js';
-import {origins, providerFor} from './hosts.js';
+import {enabledBookmarks, origins, providerFor} from './hosts.js';
 import {readStore, windowPin, writeStore} from './storage.js';
 import * as sync from './sync.js';
 
@@ -16,8 +16,9 @@ import * as sync from './sync.js';
  * Returns the state a page or Settings may see.
  *
  * Accounts are reduced to their ID, host, username, label and provider;
- * tokens are never included. Pinning reflects the sender's window, and
- * only Settings receives the Sync status.
+ * tokens are never included. Pinning reflects the sender's window, pages
+ * receive only bookmarks for enabled hosts, and only Settings receives
+ * the Sync status.
  *
  * @param {Object} store The stored data.
  * @param {chrome.runtime.MessageSender} sender The requesting page or Settings.
@@ -25,6 +26,7 @@ import * as sync from './sync.js';
  */
 export async function publicState(store, sender) {
   const value = preferences(store.preferences);
+  const isOptions = sender?.url === chrome.runtime.getURL('options.html');
   if (Number.isInteger(sender?.tab?.windowId)) {
     const {windowPins = {}} = await chrome.storage.session.get('windowPins');
     if (typeof windowPins[sender.tab.windowId] === 'boolean') value.pinned = windowPins[sender.tab.windowId];
@@ -41,8 +43,8 @@ export async function publicState(store, sender) {
     })),
     hosts: [...origins(store)].map(origin => ({origin, provider: providerFor(origin, store)})),
     selectedAccounts: store.selectedAccounts || {},
-    bookmarks: store.bookmarks || [],
-    ...(sender?.url === chrome.runtime.getURL('options.html') ? {sync: sync.status()} : {}),
+    bookmarks: isOptions ? store.bookmarks || [] : enabledBookmarks(store.bookmarks, store),
+    ...(isOptions ? {sync: sync.status()} : {}),
   };
 }
 

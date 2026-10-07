@@ -4,7 +4,7 @@ Codetree has no backend, analytics, advertising, paid account or telemetry. Repo
 
 ## Local data
 
-`chrome.storage.local` contains preferences, connected accounts and PAT/OAuth credentials, selected account IDs, bookmarks, local Viewed marks and bounded cached repository trees. These belong to the browser profile. Credentials, accounts, selected account IDs, Viewed marks and caches are never included in browser Sync. OAuth refresh tokens remain with their account credentials. Trusted session storage contains window pin states and temporary GitHub device authorization data; it clears on extension/browser restart.
+`chrome.storage.local` contains preferences, connected accounts and PAT/OAuth credentials, selected account IDs, bookmarks, local Viewed marks and bounded cached repository trees. These belong to the browser profile and are not encrypted by the extension; protect the profile and device accordingly. Credentials, accounts, selected account IDs, Viewed marks and caches are never included in browser Sync. OAuth refresh tokens remain with their account credentials. Trusted session storage contains window pin states and temporary GitHub device authorization data; it clears on extension/browser restart.
 
 Local storage access is set to `TRUSTED_CONTEXTS`; session storage is trusted-only by default. Content scripts receive account IDs, labels and usernames, plus preferences/bookmarks; they never receive access/refresh tokens or device codes. Removing an account deletes its local credentials and clears cached trees. It does not revoke provider-side OAuth grants; use the provider's authorized-app settings for that. Uninstalling removes Chrome extension data.
 

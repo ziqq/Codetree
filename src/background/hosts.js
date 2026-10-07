@@ -22,6 +22,28 @@ export function origins(store) {
 }
 
 /**
+ * Returns the bookmarks a repository page may see.
+ *
+ * Local bookmarks are limited to enabled hosts when created, but Sync may
+ * deliver bookmarks for hosts not connected on this device. They stay
+ * stored and synced, and are shown once their host is enabled.
+ *
+ * @param {Array<Object>} bookmarks The stored bookmarks.
+ * @param {Object} store The stored data.
+ * @returns {Array<Object>}
+ */
+export function enabledBookmarks(bookmarks, store) {
+  const enabled = origins(store);
+  return (bookmarks || []).filter(item => {
+    try {
+      return enabled.has(new URL(item.url).origin);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * Returns the provider of an origin; unknown origins are treated as GitHub.
  *
  * @param {string} origin A website origin.
@@ -38,8 +60,9 @@ export function providerFor(origin, store) {
  * Validates a repository context sent by a page.
  *
  * The origin must be enabled, owner and repository names must be safe
- * path segments, nested namespaces are GitLab-only, and the provider must
- * match the configured host.
+ * path segments, nested namespaces are GitLab-only, the optional signed-in
+ * `viewer` must be a short string, and the provider must match the
+ * configured host.
  *
  * @param {Object} value The context from the page.
  * @param {Object} store The stored data.
@@ -56,7 +79,8 @@ export function validateContext(value, store) {
     !/^[\w.-]+$/.test(value.repo) ||
     value.owner.split('/').some(part => part === '.' || part === '..') ||
     value.repo === '.' ||
-    value.repo === '..'
+    value.repo === '..' ||
+    (value.viewer != null && (typeof value.viewer !== 'string' || value.viewer.length > 255))
   ) {
     throw new Error('This repository host is not enabled.');
   }

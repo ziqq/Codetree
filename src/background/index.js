@@ -18,7 +18,7 @@ import {normalizeOrigin} from '../shared/routes.js';
 import {publicState, registerEnterpriseScripts, removeAccount, saveAccount} from './accounts.js';
 import {clearCache} from './cache.js';
 import {client} from './client.js';
-import {origins, validateContext} from './hosts.js';
+import {enabledBookmarks, origins, validateContext} from './hosts.js';
 import {oauthConfig} from './oauth/config.js';
 import * as oauth from './oauth/flow.js';
 import * as github from './providers/github.js';
@@ -144,24 +144,40 @@ async function handle(message, sender) {
         });
       return {bookmarks};
     });
-    return update.bookmarks;
+    return isOptions ? update.bookmarks : enabledBookmarks(update.bookmarks, await readStore());
   }
   const context = validateContext(message.context, store);
   if (context.origin !== senderOrigin) throw new Error('A page can only request its own repository host.');
   const api = client(context, store);
   return (context.provider === 'gitlab' ? gitlab : github).handle(message, context, api, store);
 }
+/**
+ * Removes credentials from an error message before it leaves the worker.
+ *
+ * Known GitHub/GitLab token formats are matched by prefix; stored access
+ * and refresh tokens are also removed literally, which covers custom
+ * servers and formats without a prefix.
+ *
+ * @param {string} text The error message.
+ * @returns {Promise<string>}
+ */
+async function redact(text) {
+  let result = text.replace(/(?:github_pat_|gh[pousr]_|gl[a-z]{2,8}-)[A-Za-z0-9_-]{20,}/g, '[redacted]');
+  try {
+    const {accounts = []} = await readStore();
+    for (const account of accounts)
+      for (const secret of [account.token, account.refreshToken])
+        if (typeof secret === 'string' && secret.length >= 8) result = result.replaceAll(secret, '[redacted]');
+  } catch {
+    /* The prefix patterns above still apply. */
+  }
+  return result;
+}
 // Replies asynchronously; tokens that slip into error messages are redacted.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handle(message, sender).then(
     value => sendResponse({ok: true, value}),
-    error => {
-      const text = String(error?.message || 'Request failed.').replace(
-        /(?:github_pat_|gh[pousr]_|glpat-)[A-Za-z0-9_-]+/g,
-        '[redacted]',
-      );
-      sendResponse({ok: false, error: text});
-    },
+    async error => sendResponse({ok: false, error: await redact(String(error?.message || 'Request failed.'))}),
   );
   return true;
 });
