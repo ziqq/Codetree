@@ -42,6 +42,7 @@
     "postcss": "8.5.28",
     "postcss-selector-parser": "7.1.6",
     "prettier": "3.9.9",
+    "sass": "1.105.1",
     "yaml": "2.9.1"
   },
   "keywords": [

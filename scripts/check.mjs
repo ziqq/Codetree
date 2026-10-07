@@ -147,7 +147,7 @@ for (const path of files) {
     requireValue(result.status === 0, `JavaScript syntax failed: ${path}\n${result.stderr}`);
     scripts++;
   }
-  if (/\.(?:js|mjs|json|css|html|md|yml|yaml|py)$/.test(path)) {
+  if (/\.(?:js|mjs|json|css|scss|html|md|yml|yaml|py)$/.test(path)) {
     const source = await text(path);
     requireValue(source.endsWith('\n') && !source.includes('\r'), `Expected LF and a final newline: ${path}`);
     requireValue(

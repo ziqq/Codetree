@@ -1,0 +1,107 @@
+// Provider palettes. Keep CSS variables so live site themes can override the fallbacks.
+
+@mixin github-light {
+  --bg: var(--bgColor-default, var(--color-canvas-default, #fff));
+  --muted-bg: var(--bgColor-muted, var(--color-canvas-subtle, #f6f8fa));
+  --border: var(--borderColor-default, var(--color-border-default, #d1d9e0));
+  --text: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  --muted: var(--fgColor-muted, var(--color-fg-muted, #59636e));
+  --accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  --hover: var(--bgColor-neutral-muted, var(--color-neutral-muted, #eff2f5));
+  --selected: var(--bgColor-accent-muted, var(--color-accent-subtle, #ddf4ff));
+  --green: var(--fgColor-success, var(--color-success-fg, #1a7f37));
+  --red: var(--fgColor-danger, var(--color-danger-fg, #cf222e));
+  --purple: var(--fgColor-done, var(--color-done-fg, #8250df));
+  --code-bg: var(--bg);
+  --code-text: var(--text);
+  --diff-add-bg: var(--diffBlob-additionLine-bgColor, #dafbe1);
+  --diff-delete-bg: var(--diffBlob-deletionLine-bgColor, #ffebe9);
+  --diff-add-number-bg: var(--diffBlob-additionNum-bgColor, #aceebb);
+  --diff-delete-number-bg: var(--diffBlob-deletionNum-bgColor, #ffcecb);
+  --syntax-comment: var(--color-prettylights-syntax-comment, #6e7781);
+  --syntax-keyword: var(--color-prettylights-syntax-keyword, #cf222e);
+  --syntax-string: var(--color-prettylights-syntax-string, #0a3069);
+  --syntax-number: var(--color-prettylights-syntax-constant, #0550ae);
+  --syntax-function: var(--color-prettylights-syntax-entity, #8250df);
+  --syntax-property: var(--color-prettylights-syntax-variable, #953800);
+  --syntax-tag: var(--color-prettylights-syntax-entity-tag, #116329);
+}
+
+@mixin github-dark {
+  --bg: var(--bgColor-default, var(--color-canvas-default, #0d1117));
+  --muted-bg: var(--bgColor-muted, var(--color-canvas-subtle, #151b23));
+  --border: var(--borderColor-default, var(--color-border-default, #3d444d));
+  --text: var(--fgColor-default, var(--color-fg-default, #f0f6fc));
+  --muted: var(--fgColor-muted, var(--color-fg-muted, #9198a1));
+  --accent: var(--fgColor-accent, var(--color-accent-fg, #4493f8));
+  --hover: var(--bgColor-neutral-muted, var(--color-neutral-muted, #656c7633));
+  --selected: var(--bgColor-accent-muted, var(--color-accent-subtle, #388bfd1a));
+  --green: var(--fgColor-success, var(--color-success-fg, #3fb950));
+  --red: var(--fgColor-danger, var(--color-danger-fg, #f85149));
+  --purple: var(--fgColor-done, var(--color-done-fg, #ab7df8));
+  --diff-add-bg: var(--diffBlob-additionLine-bgColor, #2ea04326);
+  --diff-delete-bg: var(--diffBlob-deletionLine-bgColor, #f851491a);
+  --diff-add-number-bg: var(--diffBlob-additionNum-bgColor, #3fb9504d);
+  --diff-delete-number-bg: var(--diffBlob-deletionNum-bgColor, #f851494d);
+  --syntax-comment: var(--color-prettylights-syntax-comment, #9198a1);
+  --syntax-keyword: var(--color-prettylights-syntax-keyword, #ff7b72);
+  --syntax-string: var(--color-prettylights-syntax-string, #a5d6ff);
+  --syntax-number: var(--color-prettylights-syntax-constant, #79c0ff);
+  --syntax-function: var(--color-prettylights-syntax-entity, #d2a8ff);
+  --syntax-property: var(--color-prettylights-syntax-variable, #ffa657);
+  --syntax-tag: var(--color-prettylights-syntax-entity-tag, #7ee787);
+}
+
+@mixin gitlab-light {
+  --bg: var(--gl-background-color-default, #fff);
+  --muted-bg: var(--gl-background-color-subtle, #fbfafd);
+  --border: var(--gl-border-color-default, #dcdcde);
+  --text: var(--gl-text-color-default, #3a383f);
+  --muted: var(--gl-text-color-subtle, #626168);
+  --accent: var(--gl-text-color-link, #27599f);
+  --hover: var(--gl-action-neutral-background-color-hover, #0505060f);
+  --selected: var(--gl-nav-item-selected-background-color-default, #dcdcde);
+  --green: var(--gl-text-color-success, #0c7265);
+  --red: var(--gl-text-color-danger, #c52042);
+  --purple: var(--gl-color-purple-600, #6a54c0);
+  --code-bg: var(--native-code-background, #fff);
+  --code-text: var(--native-code-text-color, #3a383d);
+  --diff-add-bg: var(--native-code-new-diff-background-color, #ecfdf0);
+  --diff-delete-bg: var(--native-code-old-diff-background-color, #fbe9eb);
+  --diff-add-number-bg: var(--native-code-new-diff-line-number-background-color, #ddfbe6);
+  --diff-delete-number-bg: var(--native-code-old-diff-line-number-background-color, #f9d7dc);
+  --syntax-comment: #998;
+  --syntax-keyword: var(--code-text);
+  --syntax-string: #d14;
+  --syntax-number: #099;
+  --syntax-function: #900;
+  --syntax-property: #008080;
+  --syntax-tag: #000080;
+}
+
+@mixin gitlab-dark {
+  --bg: var(--gl-background-color-default, #18171d);
+  --muted-bg: var(--gl-background-color-subtle, #1f1e26);
+  --border: var(--gl-border-color-default, #434248);
+  --text: var(--gl-text-color-default, #ececef);
+  --muted: var(--gl-text-color-subtle, #a4a3a8);
+  --accent: var(--gl-text-color-link, #9dc8f2);
+  --hover: var(--gl-action-neutral-background-color-hover, #ffffff0f);
+  --selected: var(--gl-nav-item-selected-background-color-default, #434248);
+  --green: var(--gl-text-color-success, #84d4b6);
+  --red: var(--gl-text-color-danger, #ffafb8);
+  --purple: var(--gl-color-purple-300, #a997e1);
+  --code-bg: var(--native-code-background, #1d1f21);
+  --code-text: var(--native-code-text-color, #c5c8c6);
+  --diff-add-bg: var(--native-code-new-diff-background-color, #233726);
+  --diff-delete-bg: var(--native-code-old-diff-background-color, #4b2526);
+  --diff-add-number-bg: var(--native-code-new-diff-line-number-background-color, #233726);
+  --diff-delete-number-bg: var(--native-code-old-diff-line-number-background-color, #4b2526);
+  --syntax-comment: #969896;
+  --syntax-keyword: #b294bb;
+  --syntax-string: #b5bd68;
+  --syntax-number: #de935f;
+  --syntax-function: #81a2be;
+  --syntax-property: #81a2be;
+  --syntax-tag: #8abeb7;
+}

@@ -137,6 +137,14 @@ The current production bundle rendered full-file previews in local GitHub/GitLab
 
 `npm run verify` passed formatting, lint, the unchanged 36 regressions, source/manifest/document checks and runtime ZIP packaging. Tests were not edited.
 
+## SCSS build and theme follow-up, 2026-10-07
+
+Sidebar, native View full controls and Settings styles now compile from SCSS with Sass. The build and CSS validator share one compilation helper; all seven existing CSS rule categories still run on the compiled styles. A temporary migration probe compared selectors, media conditions and winning declarations with the previous sidebar/Settings CSS after canonical Sass serialization: both matched. The approved tests were not changed.
+
+The production bundle rendered GitHub and GitLab light/dark full-file views in local fixtures. Changing each fixture's native theme while View full remained open updated the sidebar and viewer in both directions without navigation or reload; captured browser error logs were empty. The closed Shadow DOM was preserved. Settings retains its light defaults and `prefers-color-scheme: dark` rules; actual OS theme switching was not exercised. These are local fixture checks, not installed-extension or authenticated API proof.
+
+A clean `npm ci`, full `npm run verify` (36 unchanged regressions), strict npm audit and archive inspection passed. Two separate SCSS/bundle builds were byte-for-byte identical. The 17-file ZIP contains compiled CSS and JavaScript, with no SCSS sources, Sass dependencies, source maps or local machine paths. Existing CI and tag builds invoke this same pipeline. No release tag or store submission was created.
+
 ## Pending environments
 
 - Installed-browser smoke for the current security/Sync changes and full browser restart.

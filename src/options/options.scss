@@ -1,14 +1,35 @@
+// Settings follows the browser/system light or dark preference.
+@mixin settings-colors($dark: false) {
+  @if $dark {
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #9198a1;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --subtle: #0d1117;
+    --green: #3fb950;
+    --red: #f85149;
+  } @else {
+    --bg: #f6f8fa;
+    --card: #fff;
+    --text: #1f2328;
+    --muted: #59636e;
+    --border: #d1d9e0;
+    --accent: #0969da;
+    --subtle: #f6f8fa;
+    --green: #1a7f37;
+    --red: #cf222e;
+  }
+}
+
+// One native-select chevron with theme-specific contrast.
+@mixin select-arrow($stroke) {
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23#{$stroke}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+}
+
 :root {
   color-scheme: light dark;
-  --bg: #f6f8fa;
-  --card: #fff;
-  --text: #1f2328;
-  --muted: #59636e;
-  --border: #d1d9e0;
-  --accent: #0969da;
-  --subtle: #f6f8fa;
-  --green: #1a7f37;
-  --red: #cf222e;
   font:
     14px -apple-system,
     BlinkMacSystemFont,
@@ -16,14 +37,8 @@
     sans-serif;
   color: var(--text);
   background: var(--bg);
-}
-:root {
-  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231f2328' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23e6edf3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
-  }
+  @include settings-colors;
+  @include select-arrow('1f2328');
 }
 textarea {
   font:
@@ -87,15 +102,8 @@ textarea:focus {
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0d1117;
-    --card: #161b22;
-    --text: #e6edf3;
-    --muted: #9198a1;
-    --border: #30363d;
-    --accent: #58a6ff;
-    --subtle: #0d1117;
-    --green: #3fb950;
-    --red: #f85149;
+    @include settings-colors(true);
+    @include select-arrow('e6edf3');
   }
 }
 * {

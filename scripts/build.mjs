@@ -2,17 +2,19 @@
  * Bundles `src/` into an unpacked Manifest V3 extension in `build/`.
  *
  * esbuild bundles each entry point into one classic script (no runtime
- * module loading), unminified so reviewers can read it. Static assets,
+ * module loading), unminified so reviewers can read it. Sass compiles SCSS
+ * to CSS without source maps or a runtime compiler. Static assets,
  * the vendored file-icons fonts and the manifest are copied unchanged.
  * The output is byte-for-byte reproducible for a checkout.
  *
  * Usage: `node scripts/build.mjs [--outdir <directory>]`.
  */
-import {copyFile, mkdir, rm} from 'node:fs/promises';
+import {copyFile, mkdir, rm, writeFile} from 'node:fs/promises';
 import {dirname, relative, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {fileIconsModule, fonts, vendor} from './file-icons.mjs';
+import {compileStyles} from './styles.mjs';
 
 /** Repository root. */
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,9 +29,7 @@ const entries = {
 /** Copied files: output path → source path. */
 const assets = {
   'manifest.json': 'src/manifest.json',
-  'sidebar.css': 'src/content/sidebar.css',
   'options.html': 'src/options/options.html',
-  'options.css': 'src/options/options.css',
   'icons/icon16.png': 'src/icons/icon16.png',
   'icons/icon48.png': 'src/icons/icon48.png',
   'icons/icon128.png': 'src/icons/icon128.png',
@@ -56,6 +56,7 @@ const fileIcons = {
  * @returns {Promise<string>} The output directory.
  */
 export async function buildExtension(outdir = resolve(root, 'build')) {
+  const styles = compileStyles();
   await rm(outdir, {recursive: true, force: true});
   await build({
     absWorkingDir: root,
@@ -69,8 +70,22 @@ export async function buildExtension(outdir = resolve(root, 'build')) {
     legalComments: 'none',
     banner: {js: "'use strict';"},
     logLevel: 'warning',
-    plugins: [fileIcons],
+    plugins: [
+      fileIcons,
+      {
+        name: 'page-styles',
+        /** Embeds the compiled native-page controls without a stylesheet fetch or runtime compiler. */
+        setup(builder) {
+          builder.onResolve({filter: /^virtual:page-styles$/}, () => ({path: 'page-styles', namespace: 'page-styles'}));
+          builder.onLoad({filter: /.*/, namespace: 'page-styles'}, () => ({
+            contents: `export default ${JSON.stringify(styles['page.css'].css)};`,
+            loader: 'js',
+          }));
+        },
+      },
+    ],
   });
+  for (const name of ['sidebar.css', 'options.css']) await writeFile(resolve(outdir, name), styles[name].css);
   const fontFiles = Object.values(fonts).map(file => [`fonts/${file}`, relative(root, resolve(vendor, 'fonts', file))]);
   for (const [name, source] of [...Object.entries(assets), ...fontFiles]) {
     await mkdir(dirname(resolve(outdir, name)), {recursive: true});

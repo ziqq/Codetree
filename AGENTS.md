@@ -1,6 +1,6 @@
 # Codetree
 
-Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Codetree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
+Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository navigation and file review. It has no runtime dependencies or Codetree backend. Opt-in browser Sync stores only preferences and bookmark metadata. A private npm package provides development checks, Sass compilation and esbuild bundling of `src/` into `build/`; Python packages the bundled runtime files.
 
 ## General rules
 
@@ -25,7 +25,7 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 - `src/background/oauth/`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
 - `src/content/`: Shadow DOM sidebar. `app.js` composes feature factories (`createX(app)`) from `sidebar/`, `viewer/` and `native/`; factories receive shared state and functions through `app`, so they run in tests without a page.
 - `src/content/viewer/syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
-- `src/content/sidebar.css`: isolated UI styles; page styles are constructed in `sidebar/layout.js`.
+- `src/content/sidebar.scss`, `styles/_themes.scss`: isolated UI styles and GitHub/GitLab light/dark palettes. `page.scss` styles native controls; `sidebar/layout.js` adds runtime preference values.
 - `src/options/`: appearance and account settings.
 - `src/manifest.json`, `src/icons/`: distribution metadata and original assets.
 - `vendor/file-icons/`, `scripts/file-icons.mjs`: maintainer-approved file-icons/atom rules, styles and fonts, compiled into the content script at build time. Keep the files unmodified, record the source commit and keep `THIRD_PARTY_NOTICES.md` packaged.

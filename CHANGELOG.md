@@ -18,6 +18,7 @@
 - **ADDED**: original bounded lexical syntax highlighting for full-file review, with independent old/new revision state
 - **ADDED**: prepared GitHub device-flow and GitLab PKCE sign-in with automatic refresh; activation awaits registered public client IDs
 - **ADDED**: opt-in browser Sync for preferences and bookmark metadata, with trusted storage, an explicit allowlist, bounded snapshots and visible quota errors
+- **CHANGED**: sidebar, native controls and Settings styles use SCSS compiled by Sass in the existing build/CI pipeline; GitHub/GitLab light and dark palettes remain live, and CSS validation checks the compiled output
 - **CHANGED**: collapsed Codetree tab uses a bottom-to-top wordmark, accented initial, rounded corners and a horizontal two-line grip
 - **CHANGED**: README screenshots refreshed for Codetree 0.3.0 with the current product name and file-icons theme
 - **CHANGED**: source moved to `src/` as ES modules (shared, service worker, content script, Settings) and bundled with esbuild into `build/`; the release ZIP is packaged from the reproducible bundle

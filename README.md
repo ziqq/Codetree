@@ -132,9 +132,11 @@ tests/                   Node.js regression suite
 docs/                    Feature details, releases and verification record
 ```
 
-esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP. See [Architecture](docs/ARCHITECTURE.md) for contexts, messages, storage and the build.
+Sass compiles the sidebar, native controls and Settings SCSS; esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP. See [Architecture](docs/ARCHITECTURE.md) for contexts, messages, storage and the build.
 
 ## Development
+
+Edit styles in `src/content/sidebar.scss`, `src/content/styles/_themes.scss`, `src/content/page.scss` and `src/options/options.scss`. `npm run build` compiles them with Sass; `npm run lint:css` validates the compiled CSS. The sidebar and full-file viewer follow GitHub/GitLab light or dark themes, including live theme changes. Settings follows the browser/system preference. Sass is a build dependency and is excluded from the extension.
 
 Edit `src/`, run `npm run build` and load `build/` as an unpacked extension. JavaScript uses ES modules and explicit DOM construction; run `npm run format` (Prettier) before committing. Node.js/npm provide bundling and checks only; the extension has no runtime dependencies. Python 3 creates the distributable ZIP. `make help` lists the same commands.
 

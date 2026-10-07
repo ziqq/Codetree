@@ -8,13 +8,13 @@
  *
  * Usage: `node scripts/check-css.mjs`.
  */
-import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 import {ident, lexer, tokenize, tokenTypes} from 'css-tree';
 import mdn from 'mdn-data';
+import {compileStyles} from './styles.mjs';
 
 const require = createRequire(import.meta.url);
 const compatibility = require('./css-compatibility.json');
@@ -165,10 +165,11 @@ export function checkCSS(source, filename = 'stylesheet.css') {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  for (const file of ['src/content/sidebar.css', 'src/options/options.css']) {
-    const errors = checkCSS(readFileSync(file, 'utf8'), file);
-    for (const error of errors) console.error(`${file}:${error.line}:${error.column} ${error.rule}: ${error.message}`);
+  for (const [file, {css, source}] of Object.entries(compileStyles())) {
+    const errors = checkCSS(css, file);
+    for (const error of errors)
+      console.error(`${source} → ${file}:${error.line}:${error.column} ${error.rule}: ${error.message}`);
     if (errors.length) process.exitCode = 1;
   }
-  if (!process.exitCode) console.log('Checked CSS syntax and seven stylesheet rules.');
+  if (!process.exitCode) console.log('Compiled SCSS and checked CSS syntax and seven stylesheet rules.');
 }

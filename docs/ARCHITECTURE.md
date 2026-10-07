@@ -82,7 +82,7 @@ Every asynchronous reply is applied only if the generations captured at its star
 
 ## Build and package
 
-1. `npm run build` runs `scripts/build.mjs`: esbuild bundles the three entry points (`format: iife`, `target: chrome116`, unminified) and copies the manifest, styles, Settings page, icons and file-icons fonts into `build/`.
+1. `npm run build` runs `scripts/build.mjs`: esbuild bundles the three entry points (`format: iife`, `target: chrome116`, unminified) and copies the manifest, Settings page, icons and file-icons fonts into `build/`. `scripts/styles.mjs` compiles SCSS with Sass: sidebar and Settings CSS are written to `build/`, while native-control CSS is embedded in the content bundle. Provider palettes keep runtime CSS variables for live site theme changes.
 2. During bundling, `scripts/file-icons.mjs` generates `virtual:file-icons` from `vendor/file-icons/`: rules, glyph metrics and theme colours evaluated from Atom's Less sources.
 3. `scripts/package.py` packages `build/` with `PRIVACY.md`, `THIRD_PARTY_NOTICES.md` and `LICENSE` into a reproducible `dist/codetree-<version>.zip`.
 4. `scripts/check.mjs` validates the manifest and assets against a fresh bundle, plus repository consistency.
