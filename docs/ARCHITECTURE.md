@@ -94,6 +94,7 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 `npm test` runs Node.js regressions without a browser:
 
 - `core.test.mjs`: full-file diff validation.
+- `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
 - `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order.
 - `release.test.mjs`: release and store workflow behavior.
