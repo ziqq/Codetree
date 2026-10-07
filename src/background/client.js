@@ -149,9 +149,12 @@ export function client(context, store, override) {
           `${label} API rate limit reached.${reset ? ` Resets at ${new Date(reset * 1000).toLocaleTimeString()}.` : ''} Add an account or retry later.`,
         );
       }
+      // Without a token, providers answer 404 for private repositories instead of 401.
       if (response.status === 404)
         fail(
-          'Repository, branch, API endpoint or file not found. For a private repository, check the token permissions and organization SSO.',
+          account
+            ? `${label} did not find this repository, branch or file with account ${account.login}. Check that the token can read this repository and, for an organization with SSO, that the token is authorized for it.`
+            : `${label} did not find this repository, branch or file without an account. If the repository is private, connect a ${label} account with read access to it in Settings.`,
         );
       fail(`${label} API ${response.status}${message ? `: ${String(message).slice(0, 250)}` : ''}`);
     }

@@ -9,6 +9,8 @@
 - **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
 - **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot
 - **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
+- **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
+- **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
 
 ## 0.3.0
 
