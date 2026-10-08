@@ -13,7 +13,7 @@
 - **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
 - **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
 - **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
-- **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, and the toast stays within the docked sidebar
+- **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, , the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
 
 ## 0.3.0
 
