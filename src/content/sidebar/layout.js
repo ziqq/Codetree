@@ -10,7 +10,7 @@ import {isDark} from '../page.js';
 /** Creates the layout feature: `layout`, `positionHandle` and `setPreferences`. */
 export function createLayout(app) {
   const {state} = app;
-  const {host, pageStyle, panel, handle, resize, pinButton, closeButton, searchHint} = app.view;
+  const {host, pageStyle, panel, handle, resize, toastBox, pinButton, closeButton, searchHint} = app.view;
   let nativeSidebar = null;
   const nativeSidebarObserver = new ResizeObserver(positionHandle);
 
@@ -35,6 +35,7 @@ export function createLayout(app) {
     panel.dataset.dock = prefs.dock;
     handle.dataset.dock = prefs.dock;
     resize.dataset.dock = prefs.dock;
+    toastBox.dataset.dock = prefs.dock;
     panel.hidden = !available || !prefs.open;
     handle.hidden = !available || prefs.open;
     resize.hidden = !available || !prefs.open;

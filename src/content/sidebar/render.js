@@ -122,12 +122,12 @@ export function createRender(app) {
       return;
     }
     if (state.error) {
-      const node = empty('Could not load this view', state.error, 'file');
-      node.append(
-        el('button', {class: 'small-button', text: 'Retry', onClick: run(() => app.refresh())}),
-        el('button', {class: 'small-button', text: 'Open settings', onClick: run(() => app.rpc('OPTIONS'))}),
+      body.replaceChildren(
+        empty('Could not load this view', state.error, 'file', [
+          el('button', {class: 'small-button primary', text: 'Retry', onClick: run(() => app.refresh())}),
+          el('button', {class: 'small-button', text: 'Open settings', onClick: run(() => app.rpc('OPTIONS'))}),
+        ]),
       );
-      body.replaceChildren(node);
       return;
     }
     if (state.tab === 'files') {
