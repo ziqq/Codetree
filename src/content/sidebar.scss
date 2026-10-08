@@ -609,6 +609,14 @@ button:disabled {
 .empty button {
   margin-top: 10px;
 }
+.body > .empty:only-child {
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 .empty-actions {
   display: flex;
   flex-wrap: wrap;
@@ -812,8 +820,8 @@ button:disabled {
 .toast {
   position: fixed;
   bottom: 55px;
-  left: 16px;
-  right: 16px;
+  width: calc(var(--panel-width, 304px) - 24px);
+  box-sizing: border-box;
   background: var(--text);
   color: var(--bg);
   padding: 10px 12px;
@@ -822,6 +830,12 @@ button:disabled {
   box-shadow: 0 3px 12px #0003;
   z-index: 8;
   line-height: 1.5;
+}
+.toast[data-dock='left'] {
+  left: 12px;
+}
+.toast[data-dock='right'] {
+  right: 12px;
 }
 .toast[hidden] {
   display: none;

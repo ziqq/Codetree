@@ -183,23 +183,34 @@ export function createNavigation(app) {
       viewGeneration === state.viewGeneration &&
       tab === state.tab &&
       mode === state.mode;
-    await app.rpc('REFRESH');
-    if (!current()) return;
-    state.branches = null;
-    state.branchGeneration = (state.branchGeneration || 0) + 1;
-    app.closeBranches();
-    if (tab === 'pulls') await app.loadPulls();
-    else if (tab === 'bookmarks') {
-      const publicData = await app.rpc('STATE');
+    try {
+      await app.rpc('REFRESH');
       if (!current()) return;
-      state.public = publicData;
+      state.branches = null;
+      state.branchGeneration = (state.branchGeneration || 0) + 1;
+      app.closeBranches();
+      if (tab === 'pulls') await app.loadPulls();
+      else if (tab === 'bookmarks') {
+        const publicData = await app.rpc('STATE');
+        if (!current()) return;
+        state.public = publicData;
+        app.render();
+      } else {
+        const info = await app.rpc('INIT');
+        if (!current()) return;
+        state.info = info;
+        app.updateHeader();
+        await app.loadFiles(epoch);
+      }
+    } catch (error) {
+      if (!current()) return;
+      if (tab === 'files') {
+        state.filesLoading = false;
+        state.filesError = error.message;
+      }
+      state.loading = false;
+      state.error = error.message;
       app.render();
-    } else {
-      const info = await app.rpc('INIT');
-      if (!current()) return;
-      state.info = info;
-      app.updateHeader();
-      await app.loadFiles(epoch);
     }
   }
   return {loadPage, updateHeader, selectTab, refresh};
