@@ -27,9 +27,9 @@ import {createMemo, createSetSignal, createSignal} from '../shared/reactive.js';
 import {flatten, makeTree} from '../shared/tree.js';
 
 /**
- * Fields that render effects depend on. Generations, `entries`, `branches`,
- * `totalPulls` and `focus` stay plain: they are read only by handlers or by
- * the virtualized row renderer.
+ * Fields that render effects depend on. Generations, `entries`, `branches`
+ * and `focus` stay plain: they are read only by handlers or by the
+ * virtualized row renderer.
  */
 const viewFields = [
   'filesLoading',
@@ -96,7 +96,6 @@ export function createState() {
     diff: null,
     branches: null,
     pulls: [],
-    totalPulls: 0,
     loadingAll: false,
     selected: '',
     focus: 0,

@@ -45,7 +45,6 @@ export function createPulls(app) {
       if (!current()) return;
       batch(() => {
         state.pulls = result.pulls;
-        state.totalPulls = result.total;
         state.loading = false;
       });
     } catch (error) {

@@ -35,9 +35,8 @@ function sidebar(rpc) {
     loading: false,
     error: '',
     pulls: [],
-    totalPulls: 0,
   };
-  const calls = {headers: 0, files: [], branches: 0, branchMessage: ''};
+  const calls = {files: [], branches: 0, branchMessage: ''};
   const view = {
     branchPopover: {hidden: true},
     branchSearch: {value: '', focus() {}},
@@ -57,9 +56,6 @@ function sidebar(rpc) {
     render() {},
     renderBranches() {
       calls.branches++;
-    },
-    updateHeader() {
-      calls.headers++;
     },
     async loadFiles(epoch = state.epoch) {
       calls.files.push(epoch);
@@ -131,7 +127,6 @@ test('refresh cannot install old metadata or reload files after navigation', asy
   old.resolve({ref: 'previous'});
   await pending;
   assert.equal(ui.state.info, current);
-  assert.equal(ui.calls.headers, 0);
   assert.equal(ui.calls.files.length, 0);
 });
 
@@ -154,7 +149,6 @@ test('refresh applies current metadata and reloads the current files', async () 
   const ui = sidebar(type => Promise.resolve(type === 'INIT' ? info : true));
   await ui.refresh();
   assert.equal(ui.state.info, info);
-  assert.equal(ui.calls.headers, 1);
   assert.deepEqual(Array.from(ui.calls.files), [1]);
 });
 
@@ -192,7 +186,6 @@ test('a failed old review filter cannot hide successful results for the current 
   assert.equal(ui.state.error, '');
   assert.equal(ui.state.loading, false);
   assert.equal(ui.state.pulls[0].number, 42);
-  assert.equal(ui.state.totalPulls, 1);
 });
 
 test('an error for the current review filter remains visible', async () => {

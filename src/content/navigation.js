@@ -229,8 +229,8 @@ export function createNavigation(app) {
       } else {
         const info = await app.rpc('INIT');
         if (!current()) return;
+        // The header effect follows `info`.
         state.info = info;
-        app.updateHeader();
         await app.loadFiles(epoch);
       }
     } catch (error) {
