@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Open pull/merge request list with review-state filters.
  *
@@ -7,6 +13,13 @@ import {icon} from '../../shared/icons.js';
 import {pullURL} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {requestName} from '../page.js';
+import {batch} from '../reactive.js';
+
+/** Returns requests matching their number, title or author, ignoring search case. */
+export function matchingPulls(pulls, query) {
+  const search = query.toLowerCase();
+  return pulls.filter(pull => `${pull.number} ${pull.title} ${pull.user?.login || ''}`.toLowerCase().includes(search));
+}
 
 /** Creates the requests feature: `loadPulls` and `renderPulls`. */
 export function createPulls(app) {
@@ -23,35 +36,38 @@ export function createPulls(app) {
     const filter = state.filter;
     const tab = state.tab;
     const generation = (state.viewGeneration = (state.viewGeneration || 0) + 1);
+    const alive = app.pageAlive || (() => true);
     const current = () =>
-      epoch === state.epoch && generation === state.viewGeneration && filter === state.filter && state.tab === tab;
-    state.loading = true;
-    state.error = '';
-    app.render();
+      alive() &&
+      epoch === state.epoch &&
+      generation === state.viewGeneration &&
+      filter === state.filter &&
+      state.tab === tab;
+    batch(() => {
+      state.loading = true;
+      state.error = '';
+    });
     try {
       const result = await app.rpc('PULLS', {filter});
       if (!current()) return;
-      state.pulls = result.pulls;
-      state.totalPulls = result.total;
-      state.loading = false;
-      app.render();
+      batch(() => {
+        state.pulls = result.pulls;
+        state.loading = false;
+      });
     } catch (error) {
       if (current()) {
-        state.loading = false;
-        state.error = error.message;
-        app.render();
+        batch(() => {
+          state.loading = false;
+          state.error = error.message;
+        });
       }
     }
   }
 
   /** Renders the requests matching the search. */
-  function renderPulls() {
+  function renderPulls(pulls = matchingPulls(state.pulls, state.query)) {
     const {body} = app.view;
     const name = requestName(state.context);
-    const query = state.query.toLowerCase();
-    const pulls = state.pulls.filter(pull =>
-      `${pull.number} ${pull.title} ${pull.user?.login || ''}`.toLowerCase().includes(query),
-    );
     if (!pulls.length) {
       body.replaceChildren(
         empty(

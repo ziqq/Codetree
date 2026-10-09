@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Viewed marks through the bundled service worker (`build/background.js`) with
  * mocked GitHub/GitLab APIs: a mark is written only for the head revision that

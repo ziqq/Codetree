@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * User preferences, keyboard shortcuts and page-display rules.
  *

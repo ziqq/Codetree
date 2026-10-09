@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * The sidebar DOM inside a closed Shadow DOM.
  *
@@ -11,6 +17,7 @@
 import {icon} from '../../shared/icons.js';
 import {button, el} from '../dom.js';
 import {fontFaces} from './file-icons.js';
+import {onCleanup, withOwner} from '../reactive.js';
 
 /**
  * Creates the sidebar elements.
@@ -21,7 +28,6 @@ import {fontFaces} from './file-icons.js';
 export function createView(app) {
   const {state, run} = app;
   let hoverTimer;
-  let queryTimer;
   let resizeStart = null;
   const host = document.createElement('div');
   host.id = 'codetree-extension';
@@ -48,7 +54,8 @@ export function createView(app) {
     'pin',
     'Pin sidebar in this window',
     run(async () => {
-      state.preferences.pinned = await app.rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
+      const pinned = await app.rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
+      if (state.preferences.pinned !== pinned) state.preferences = {...state.preferences, pinned};
       await app.setPreferences({open: true});
     }),
   );
@@ -159,36 +166,40 @@ export function createView(app) {
     if (!branchbar.contains(event.target)) app.closeBranches();
   });
   search.addEventListener('input', () => {
-    clearTimeout(queryTimer);
-    queryTimer = setTimeout(() => {
-      state.query = search.value;
-      state.focus = 0;
-      body.scrollTop = 0;
-      app.render();
-    }, 100);
+    state.focus = 0;
+    body.scrollTop = 0;
+    state.searchText = search.value;
   });
   accountSelect.addEventListener(
     'change',
     run(async () => {
-      await app.rpc('SELECT_ACCOUNT', {origin: state.context.origin, id: accountSelect.value});
-      await app.loadPage(true);
+      const epoch = state.epoch;
+      const context = state.context;
+      try {
+        await app.rpc('SELECT_ACCOUNT', {origin: context.origin, id: accountSelect.value});
+        if (epoch === state.epoch) await app.loadPage(true);
+      } catch (error) {
+        if (epoch === state.epoch) accountSelect.value = state.public?.selectedAccounts[context.origin] || 'auto';
+        throw error;
+      }
     }),
   );
   handle.addEventListener('mouseenter', () => {
     if (!state.preferences.pinned) {
-      state.preferences.open = true;
-      app.layout();
+      if (!state.preferences.open) state.preferences = {...state.preferences, open: true};
     }
   });
   panel.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
   panel.addEventListener('mouseleave', () => {
     if (!state.preferences.pinned && !viewer.open && branchPopover.hidden)
-      hoverTimer = setTimeout(() => {
-        if (!panel.contains(shadow.activeElement)) {
-          state.preferences.open = false;
-          app.layout();
-        }
-      }, 250);
+      hoverTimer = setTimeout(
+        withOwner(() => {
+          if (!panel.contains(shadow.activeElement)) {
+            state.preferences = {...state.preferences, open: false};
+          }
+        }),
+        250,
+      );
   });
   resize.addEventListener('pointerdown', event => {
     resizeStart = {x: event.clientX, width: state.preferences.width};
@@ -198,8 +209,7 @@ export function createView(app) {
   resize.addEventListener('pointermove', event => {
     if (!resizeStart) return;
     const delta = (event.clientX - resizeStart.x) * (state.preferences.dock === 'left' ? 1 : -1);
-    state.preferences.width = Math.max(240, Math.min(600, resizeStart.width + delta));
-    app.layout();
+    state.preferences = {...state.preferences, width: Math.max(240, Math.min(600, resizeStart.width + delta))};
   });
   resize.addEventListener(
     'pointerup',
@@ -226,6 +236,7 @@ export function createView(app) {
     }),
   );
   body.addEventListener('scroll', () => app.requestTreeRender(), {passive: true});
+  onCleanup(() => clearTimeout(hoverTimer));
 
   return {
     host,

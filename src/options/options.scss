@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 // Settings follows the browser/system light or dark preference.
 @mixin settings-colors($dark: false) {
   @if $dark {

@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Branch switcher popover. Selecting a branch opens its repository root.
  *
@@ -35,13 +41,14 @@ export function createBranches(app) {
     branchSearch.focus();
     const epoch = state.epoch;
     const generation = state.branchGeneration;
+    const alive = app.pageAlive || (() => true);
     try {
       const branches = state.branches || (await app.rpc('BRANCHES'));
-      if (epoch !== state.epoch || generation !== state.branchGeneration) return;
+      if (!alive() || epoch !== state.epoch || generation !== state.branchGeneration) return;
       state.branches = branches;
       app.renderBranches();
     } catch (error) {
-      if (epoch === state.epoch && generation === state.branchGeneration)
+      if (alive() && epoch === state.epoch && generation === state.branchGeneration)
         branchList.replaceChildren(el('div', {class: 'empty', text: error.message}));
     }
   }

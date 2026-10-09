@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Branch, Refresh and review-filter races in the content navigation, branch and
  * request factories: replies for a previous page, filter or refresh are ignored.
@@ -7,7 +13,11 @@ import test from 'node:test';
 import {createNavigation} from '../src/content/navigation.js';
 import {createBranches} from '../src/content/sidebar/branches.js';
 import {createPulls} from '../src/content/sidebar/pulls.js';
+import {createState} from '../src/content/state.js';
+import {createRoot} from '../src/content/reactive.js';
+import {dom, install} from './helpers/dom.mjs';
 
+/** A controllable broker reply. */
 function deferred() {
   let resolve;
   let reject;
@@ -17,23 +27,30 @@ function deferred() {
   });
   return {promise, resolve, reject};
 }
-// Detached elements are enough for the branch popover messages checked here.
-globalThis.document ??= {createElement: () => ({setAttribute() {}, addEventListener() {}, append() {}})};
-
-function sidebar(rpc) {
-  const state = {
+/** Runs the production navigation binding with reactive state and observable header elements. */
+function sidebar(t, rpc) {
+  const {document} = dom();
+  install(t, {document, location: new URL('https://github.com/sample/repo')});
+  const state = createRoot(dispose => {
+    t.after(dispose);
+    return createState();
+  });
+  Object.assign(state, {
     epoch: 1,
     tab: 'files',
     filter: 'approved',
     branches: null,
-    info: {ref: 'main'},
-    public: {},
+    context: {origin: 'https://github.com', provider: 'github', owner: 'sample', repo: 'repo'},
+    info: {ref: 'main', repository: {}},
+    public: {accounts: [], selectedAccounts: {}, bookmarks: []},
     loading: false,
     error: '',
     pulls: [],
-    totalPulls: 0,
-  };
-  const calls = {headers: 0, files: [], branches: 0, branchMessage: ''};
+  });
+  const calls = {files: [], branches: 0, branchMessage: ''};
+  const element = () => document.createElement('div');
+  const pulls = element();
+  pulls.append(document.createElement('span'));
   const view = {
     branchPopover: {hidden: true},
     branchSearch: {value: '', focus() {}},
@@ -42,7 +59,12 @@ function sidebar(rpc) {
         calls.branchMessage = node.textContent;
       },
     },
-    branchButton: {setAttribute() {}},
+    branchButton: element(),
+    branchLabel: element(),
+    repository: element(),
+    tabButtons: {pulls},
+    accountSelect: element(),
+    bookmarkButton: element(),
   };
   const app = {
     state,
@@ -54,9 +76,6 @@ function sidebar(rpc) {
     renderBranches() {
       calls.branches++;
     },
-    updateHeader() {
-      calls.headers++;
-    },
     async loadFiles(epoch = state.epoch) {
       calls.files.push(epoch);
     },
@@ -64,7 +83,10 @@ function sidebar(rpc) {
   // Execute the production handlers, controlling RPC completion rather than copying their logic.
   const {toggleBranches} = createBranches(app);
   const {loadPulls} = createPulls(app);
-  const {refresh} = createNavigation(app);
+  const {refresh} = createRoot(dispose => {
+    t.after(dispose);
+    return createNavigation(app);
+  });
   return Object.assign(app, {
     state,
     branchPopover: view.branchPopover,
@@ -77,10 +99,10 @@ function sidebar(rpc) {
   });
 }
 
-test('branches from the previous repository do not enter the current branch cache', async () => {
+test('branches from the previous repository do not enter the current branch cache', async t => {
   const old = deferred();
   let requests = 0;
-  const ui = sidebar(() => (++requests === 1 ? old.promise : Promise.resolve([{name: 'current'}])));
+  const ui = sidebar(t, () => (++requests === 1 ? old.promise : Promise.resolve([{name: 'current'}])));
   const pending = ui.openBranches();
   ui.state.epoch++;
   ui.state.branches = null;
@@ -95,9 +117,9 @@ test('branches from the previous repository do not enter the current branch cach
   assert.equal(ui.calls.branches, 1);
 });
 
-test('an old branch error cannot replace the new repository branch list', async () => {
+test('an old branch error cannot replace the new repository branch list', async t => {
   const old = deferred();
-  const ui = sidebar(() => old.promise);
+  const ui = sidebar(t, () => old.promise);
   const pending = ui.openBranches();
   ui.state.epoch++;
   ui.calls.branchMessage = 'Current branches';
@@ -106,11 +128,11 @@ test('an old branch error cannot replace the new repository branch list', async 
   assert.equal(ui.calls.branchMessage, 'Current branches');
 });
 
-test('refresh cannot install old metadata or reload files after navigation', async () => {
+test('refresh cannot install old metadata or reload files after navigation', async t => {
   const old = deferred();
   const started = deferred();
   const requests = [];
-  const ui = sidebar(type => {
+  const ui = sidebar(t, type => {
     requests.push(type);
     if (type === 'INIT') {
       started.resolve();
@@ -122,19 +144,19 @@ test('refresh cannot install old metadata or reload files after navigation', asy
   await started.promise;
   assert.deepEqual(requests, ['REFRESH', 'INIT']);
   ui.state.epoch++;
-  const current = {ref: 'current'};
+  const current = {ref: 'current', repository: {}};
   ui.state.info = current;
   old.resolve({ref: 'previous'});
   await pending;
   assert.equal(ui.state.info, current);
-  assert.equal(ui.calls.headers, 0);
+  assert.equal(ui.view.branchLabel.textContent, 'current');
   assert.equal(ui.calls.files.length, 0);
 });
 
-test('navigation during cache clearing stops refresh before another repository request', async () => {
+test('navigation during cache clearing stops refresh before another repository request', async t => {
   const old = deferred();
   const requests = [];
-  const ui = sidebar(type => {
+  const ui = sidebar(t, type => {
     requests.push(type);
     return old.promise;
   });
@@ -145,19 +167,20 @@ test('navigation during cache clearing stops refresh before another repository r
   assert.deepEqual(requests, ['REFRESH']);
 });
 
-test('refresh applies current metadata and reloads the current files', async () => {
-  const info = {ref: 'current'};
-  const ui = sidebar(type => Promise.resolve(type === 'INIT' ? info : true));
+test('refresh applies current metadata and reloads the current files', async t => {
+  const info = {ref: 'current', repository: {}};
+  const ui = sidebar(t, type => Promise.resolve(type === 'INIT' ? info : true));
   await ui.refresh();
   assert.equal(ui.state.info, info);
-  assert.equal(ui.calls.headers, 1);
+  assert.equal(ui.view.branchLabel.textContent, 'current');
+  assert.equal(ui.view.branchButton.disabled, false);
   assert.deepEqual(Array.from(ui.calls.files), [1]);
 });
 
-test('a late bookmark refresh does not replace state after navigation', async () => {
+test('a late bookmark refresh does not replace state after navigation', async t => {
   const old = deferred();
   const started = deferred();
-  const ui = sidebar(type => {
+  const ui = sidebar(t, type => {
     if (type === 'STATE') {
       started.resolve();
       return old.promise;
@@ -168,16 +191,16 @@ test('a late bookmark refresh does not replace state after navigation', async ()
   const pending = ui.refresh();
   await started.promise;
   ui.state.epoch++;
-  const current = {bookmarks: ['current']};
+  const current = {bookmarks: ['current'], selectedAccounts: {}};
   ui.state.public = current;
   old.resolve({bookmarks: ['previous']});
   await pending;
   assert.equal(ui.state.public, current);
 });
 
-test('a failed old review filter cannot hide successful results for the current filter', async () => {
+test('a failed old review filter cannot hide successful results for the current filter', async t => {
   const old = deferred();
-  const ui = sidebar((type, value) =>
+  const ui = sidebar(t, (type, value) =>
     value.filter === 'approved' ? old.promise : Promise.resolve({pulls: [{number: 42}], total: 1}),
   );
   const pending = ui.loadPulls();
@@ -188,11 +211,11 @@ test('a failed old review filter cannot hide successful results for the current 
   assert.equal(ui.state.error, '');
   assert.equal(ui.state.loading, false);
   assert.equal(ui.state.pulls[0].number, 42);
-  assert.equal(ui.state.totalPulls, 1);
+  assert.equal(ui.state.pulls.length, 1);
 });
 
-test('an error for the current review filter remains visible', async () => {
-  const ui = sidebar(() => Promise.reject(new Error('Current filter unavailable')));
+test('an error for the current review filter remains visible', async t => {
+  const ui = sidebar(t, () => Promise.reject(new Error('Current filter unavailable')));
   await ui.loadPulls();
   assert.equal(ui.state.error, 'Current filter unavailable');
   assert.equal(ui.state.loading, false);

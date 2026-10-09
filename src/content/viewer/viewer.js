@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Full-file diff and review-comment viewer in a modal dialog.
  *
@@ -10,6 +16,8 @@ import {lines, fullDiff} from '../../shared/diff.js';
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {tokenize} from './syntax.js';
+import {createAlive, createRoot, getOwner, onCleanup, runWithOwner} from '../reactive.js';
+import {listen, requestFrame} from '../reactive-dom.js';
 
 /** Converts a diff file to a tree node shape used by the viewer. */
 export function diffNode(file) {
@@ -21,19 +29,25 @@ export function createViewer(app) {
   const {state, run} = app;
   const {viewer} = app.view;
   let generation = 0;
-  viewer.addEventListener('close', () => {
+  let disposeViewer;
+  listen(viewer, 'close', () => {
     generation++;
+    disposeViewer?.();
+    disposeViewer = null;
   });
+  onCleanup(closeViewer);
 
   /** Closes the dialog and invalidates its pending work. */
   function closeViewer() {
     generation++;
+    disposeViewer?.();
+    disposeViewer = null;
     if (viewer.open) viewer.close();
   }
 
   /** Whether [shell] is still the open view. */
   function isCurrent(shell) {
-    return shell.generation === generation;
+    return shell.alive() && shell.generation === generation;
   }
 
   /**
@@ -42,17 +56,30 @@ export function createViewer(app) {
    * @returns {{actions: Element, body: Element, bottom: Element, generation: number}}
    */
   function viewerShell(title, subtitle, label = 'Full-file diff') {
-    generation++;
-    viewer.setAttribute('aria-label', label);
-    const heading = el('div', {class: 'viewer-heading'}, [el('strong', {text: title}), el('small', {text: subtitle})]);
-    const actions = el('div', {class: 'viewer-actions'}, [button('close', 'Close viewer', () => viewer.close())]);
-    const viewerBody = el('div', {class: 'viewer-body'});
-    const bottom = el('div', {class: 'viewer-bottom'});
-    viewer.replaceChildren(
-      el('div', {class: 'viewer-inner'}, [el('div', {class: 'viewer-header'}, [heading, actions]), viewerBody, bottom]),
+    disposeViewer?.();
+    return runWithOwner(app.pageOwner || app.owner, () =>
+      createRoot(dispose => {
+        disposeViewer = dispose;
+        generation++;
+        viewer.setAttribute('aria-label', label);
+        const heading = el('div', {class: 'viewer-heading'}, [
+          el('strong', {text: title}),
+          el('small', {text: subtitle}),
+        ]);
+        const actions = el('div', {class: 'viewer-actions'}, [button('close', 'Close viewer', () => viewer.close())]);
+        const viewerBody = el('div', {class: 'viewer-body'});
+        const bottom = el('div', {class: 'viewer-bottom'});
+        viewer.replaceChildren(
+          el('div', {class: 'viewer-inner'}, [
+            el('div', {class: 'viewer-header'}, [heading, actions]),
+            viewerBody,
+            bottom,
+          ]),
+        );
+        if (!viewer.open) viewer.showModal();
+        return {actions, body: viewerBody, bottom, generation, owner: getOwner(), alive: createAlive()};
+      }),
     );
-    if (!viewer.open) viewer.showModal();
-    return {actions, body: viewerBody, bottom, generation};
   }
 
   /**
@@ -65,6 +92,7 @@ export function createViewer(app) {
   async function showDiff(node) {
     const diff = state.diff;
     if (!diff) return;
+    app.updateCodeColors?.();
     const shell = viewerShell(
       node.path,
       `${diff.base.sha?.slice(0, 7) || 'empty'} → ${diff.head.sha.slice(0, 7)} · full-file context`,
@@ -73,6 +101,7 @@ export function createViewer(app) {
       empty('Loading file revisions', `Fetching the complete text from ${providerName(state.context)}…`, 'refresh'),
     );
     const originalURL = await app.diffURL(node);
+    if (!isCurrent(shell)) return;
     shell.actions.prepend(
       el('a', {
         href: originalURL,
@@ -133,6 +162,7 @@ export function createViewer(app) {
       let frame = 0;
       const draw = () => {
         frame = 0;
+        if (!isCurrent(shell)) return;
         const start = Math.max(0, Math.floor(shell.body.scrollTop / rowHeight) - 6);
         const end = Math.min(rows.length, start + Math.ceil(shell.body.clientHeight / rowHeight) + 14);
         const fragment = document.createDocumentFragment();
@@ -161,12 +191,15 @@ export function createViewer(app) {
         code.replaceChildren(fragment);
       };
       shell.body.replaceChildren(code);
-      shell.body.addEventListener(
-        'scroll',
-        () => {
-          if (!frame) frame = requestAnimationFrame(draw);
-        },
-        {passive: true},
+      runWithOwner(shell.owner, () =>
+        listen(
+          shell.body,
+          'scroll',
+          () => {
+            if (!frame) frame = requestFrame(draw);
+          },
+          {passive: true},
+        ),
       );
       shell.bottom.prepend(
         el('span', {class: 'adds', text: `+${node.adds}`}),

@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Virtualized tree rows, keyboard navigation, Viewed marks and navigation
  * to files and native diffs.
@@ -12,6 +18,8 @@ import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
+import {createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
+import {requestFrame} from '../reactive-dom.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
 const rowHeight = 29;
@@ -20,7 +28,8 @@ const rowHeight = 29;
 export function createTree(app) {
   const {state, run} = app;
   const {host, shadow, body, spacer} = app.view;
-  let renderFrame = 0;
+  let renderFrame;
+  const [treeVersion, setTreeVersion] = createSignal(0);
 
   /**
    * Returns the icon of a row: a file-icons glyph for Color and Monochrome,
@@ -40,21 +49,18 @@ export function createTree(app) {
   }
 
   /** Recomputes the visible rows after expansion, search or data changes. */
-  function updateTree(shouldRender = true) {
-    state.flat = flatten(state.tree, state.expanded, state.query);
-    state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
-    spacer.style.height = `${state.flat.length * rowHeight}px`;
-    if (shouldRender) app.render();
+  function updateTree() {
+    setTreeVersion(value => value + 1);
   }
 
   /** Renders the visible rows on the next animation frame, at most once per frame. */
-  function requestTreeRender() {
+  const requestTreeRender = withOwner(() => {
     if (!renderFrame)
-      renderFrame = requestAnimationFrame(() => {
-        renderFrame = 0;
+      renderFrame = requestFrame(() => {
+        renderFrame = null;
         renderTreeRows();
       });
-  }
+  });
 
   /** Renders the rows in the viewport, keeping keyboard focus on the same path. */
   function renderTreeRows() {
@@ -150,6 +156,7 @@ export function createTree(app) {
             const headSha = state.diff.head.sha;
             const epoch = state.epoch;
             const generation = state.filesGeneration;
+            const alive = app.pageAlive || (() => true);
             const checkbox = el('input', {
               type: 'checkbox',
               class: 'viewed-checkbox',
@@ -165,7 +172,12 @@ export function createTree(app) {
                 checkbox.disabled = true;
                 try {
                   const result = await app.rpc('VIEWED', {context, headSha, path: node.path, viewed});
-                  if (epoch !== state.epoch || generation !== state.filesGeneration || state.diff?.head.sha !== headSha)
+                  if (
+                    !alive() ||
+                    epoch !== state.epoch ||
+                    generation !== state.filesGeneration ||
+                    state.diff?.head.sha !== headSha
+                  )
                     return;
                   node.viewed = result.state === 'VIEWED';
                   const entry = state.entries.find(entry => entry.path === node.path);
@@ -189,7 +201,10 @@ export function createTree(app) {
           state.focus = index;
           if (folder) {
             if (state.preferences.folderClick) await app.toggleFolder(node);
-            else row.focus();
+            else {
+              for (const visible of spacer.querySelectorAll('.tree-row')) visible.tabIndex = visible === row ? 0 : -1;
+              row.focus();
+            }
           } else await openFile(node);
         }),
       );
@@ -248,15 +263,14 @@ export function createTree(app) {
    * SHA-1 of the path; commits link to the commit page.
    */
   async function diffURL(node) {
-    const gitlab = state.context.provider === 'gitlab';
-    if (state.context.kind === 'commit')
-      return `${repoURL(state.context)}${gitlab ? '/-' : ''}/commit/${state.context.sha}`;
+    const context = state.context;
+    const gitlab = context.provider === 'gitlab';
+    if (context.kind === 'commit') return `${repoURL(context)}${gitlab ? '/-' : ''}/commit/${context.sha}`;
     const hash = await crypto.subtle.digest(gitlab ? 'SHA-1' : 'SHA-256', new TextEncoder().encode(node.path));
     const digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
-    if (gitlab)
-      return `${pullURL(state.context, state.context.number)}/diffs?file_path=${encodeURIComponent(node.path)}#${digest}`;
+    if (gitlab) return `${pullURL(context, context.number)}/diffs?file_path=${encodeURIComponent(node.path)}#${digest}`;
     const view = location.pathname.match(/\/pull\/\d+\/(files|changes)(?:\/|$)/)?.[1] || 'changes';
-    return `${pullURL(state.context, state.context.number)}/${view}#diff-${digest}`;
+    return `${pullURL(context, context.number)}/${view}#diff-${digest}`;
   }
 
   /**
@@ -265,7 +279,11 @@ export function createTree(app) {
    */
   async function openFile(node) {
     if (state.mode === 'changes') {
+      const epoch = state.epoch;
+      const generation = state.filesGeneration;
+      const alive = app.pageAlive || (() => true);
       const url = await diffURL(node);
+      if (!alive() || epoch !== state.epoch || generation !== state.filesGeneration) return;
       if (location.pathname === new URL(url).pathname) {
         const hash = new URL(url).hash.slice(1);
         const target =
@@ -277,12 +295,35 @@ export function createTree(app) {
           history.replaceState(null, '', url);
           app.lastURL = location.href;
           state.selected = node.path;
-          requestTreeRender();
           return;
         }
       }
       location.assign(url);
     } else location.assign(blobURL(state.context, state.info.ref, node.path, node.type === 'commit' ? 'tree' : 'blob'));
   }
+  createRenderEffect(
+    on([treeVersion, () => state.expanded, () => state.query], () => {
+      state.flat = flatten(state.tree, state.expanded, state.query);
+      state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
+      spacer.style.height = `${state.flat.length * rowHeight}px`;
+    }),
+    undefined,
+    {name: 'visible tree rows'},
+  );
+  createRenderEffect(
+    on(
+      () =>
+        state.tab === 'files' && !state.loading && !state.error
+          ? [state.flat, state.selected, state.mode, state.diff, state.preferences.iconTheme]
+          : null,
+      rows => {
+        if (rows) requestTreeRender();
+      },
+    ),
+    undefined,
+    {name: 'tree viewport'},
+  );
+  onCleanup(() => renderFrame?.());
+
   return {updateTree, requestTreeRender, renderTreeRows, diffURL, openFile};
 }

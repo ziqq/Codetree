@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 @use 'styles/themes';
 
 :host {
@@ -105,33 +111,14 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.syntax-comment {
-  color: var(--syntax-comment);
-  font-style: italic;
-}
-.syntax-keyword,
-.syntax-heading {
-  color: var(--syntax-keyword);
-}
-.syntax-tag {
-  color: var(--syntax-tag);
-}
-.syntax-string {
-  color: var(--syntax-string);
-}
-.syntax-number,
-.syntax-constant {
-  color: var(--syntax-number);
-}
-.syntax-function {
-  color: var(--syntax-function);
-}
-.syntax-property {
-  color: var(--syntax-property);
-}
-.syntax-operator,
-.syntax-punctuation {
-  color: var(--code-text);
+@each $token in comment, keyword, heading, tag, string, number, constant, type, function, property, builtin, annotation,
+  operator, punctuation
+{
+  .syntax-#{$token} {
+    color: var(--syntax-#{$token}, var(--code-text));
+    font-style: var(--syntax-#{$token}-font-style, normal);
+    font-weight: var(--syntax-#{$token}-font-weight, normal);
+  }
 }
 .syntax-heading {
   font-weight: 600;
