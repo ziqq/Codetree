@@ -143,7 +143,7 @@ for (const [provider, native] of [
       const reads = api.metadataReads;
       api.advance();
       if (expired) api.expire();
-      const result = await api.send('VIEWED', {path: file, headSha: headA, viewed: true});
+      const result = await api.send('VIEWED', {path: file, headSHA: headA, viewed: true});
       assert.equal(result.ok, false);
       assert.match(result.error, /changed.*Refresh/);
       assert.equal(api.mutations, 0);
@@ -153,10 +153,10 @@ for (const [provider, native] of [
   }
   test(`${name} accepts matching revisions and supports unmarking`, async () => {
     const api = broker(provider, native);
-    const marked = await api.send('VIEWED', {path: file, headSha: headA, viewed: true});
+    const marked = await api.send('VIEWED', {path: file, headSHA: headA, viewed: true});
     assert.equal(marked.ok, true);
     assert.equal(marked.value.state, 'VIEWED');
-    const unmarked = await api.send('VIEWED', {path: file, headSha: headA, viewed: false});
+    const unmarked = await api.send('VIEWED', {path: file, headSHA: headA, viewed: false});
     assert.equal(unmarked.ok, true);
     assert.equal(unmarked.value.state, 'UNVIEWED');
     if (native) assert.equal(api.mutations, 2);
@@ -169,7 +169,7 @@ for (const [provider, native] of [
   test(`${name} rejects missing revisions and paths outside the request`, async () => {
     const api = broker(provider, native);
     assert.equal((await api.send('VIEWED', {path: file, viewed: true})).ok, false);
-    assert.equal((await api.send('VIEWED', {path: 'unrelated.js', headSha: headA, viewed: true})).ok, false);
+    assert.equal((await api.send('VIEWED', {path: 'unrelated.js', headSHA: headA, viewed: true})).ok, false);
     assert.equal(api.mutations, 0);
     assert.equal(api.store.localViewed, undefined);
   });

@@ -26,7 +26,7 @@ function repoPath(context) {
  * longest matching branch or tag wins; a 40-character SHA is used as is.
  * Empty repositories return no commit or tree.
  *
- * @returns {Promise<{repository: Object, ref: string, commitSha: ?string, treeSha: ?string, path: string, account: ?string}>}
+ * @returns {Promise<{repository: Object, ref: string, commitSHA: ?string, treeSHA: ?string, path: string, account: ?string}>}
  */
 async function initialize(context, api) {
   const root = repoPath(context);
@@ -71,8 +71,8 @@ async function initialize(context, api) {
           empty: true,
         },
         ref,
-        commitSha: null,
-        treeSha: null,
+        commitSHA: null,
+        treeSHA: null,
         path: '',
         account: api.account?.login || null,
       };
@@ -87,8 +87,8 @@ async function initialize(context, api) {
       empty: repository.size === 0,
     },
     ref,
-    commitSha: commit.sha,
-    treeSha: commit.commit.tree.sha,
+    commitSHA: commit.sha,
+    treeSHA: commit.commit.tree.sha,
     path: context.tail ? context.tail.slice(ref.length).replace(/^\//, '') : '',
     account: api.account?.login || null,
   };
@@ -189,7 +189,7 @@ async function getDiff(context, api, store, fresh) {
         comments,
         title: pull.title,
         number: pullNumber,
-        nodeId: pull.node_id,
+        nodeID: pull.node_id,
         base: {owner: baseRepo.owner.login, repo: baseRepo.name, sha: comparison.merge_base_commit.sha},
         head: {owner: headRepo.owner.login, repo: headRepo.name, sha: pull.head.sha},
         warnings,
@@ -390,14 +390,14 @@ export async function handle(message, context, api, store) {
       if (context.kind !== 'pull') throw new Error('Viewed marks are available on pull requests.');
       number(context.number);
       filePath(message.path);
-      const headSha = sha(message.headSha);
+      const headSHA = sha(message.headSHA);
       const diff = await getDiff(context, api, store, false);
-      if (diff.head.sha !== headSha)
+      if (diff.head.sha !== headSHA)
         throw new Error('The pull request changed. Refresh the file list before marking a file as viewed.');
       if (!diff.files.some(file => file.filename === message.path))
         throw new Error('This file is not part of the pull request.');
       const request = await api.json(`${root}/pulls/${context.number}`, 15000, true);
-      if (request.head?.sha !== headSha)
+      if (request.head?.sha !== headSHA)
         throw new Error('The pull request changed. Refresh the file list before marking a file as viewed.');
       const state = message.viewed ? 'VIEWED' : 'UNVIEWED';
       if (diff.viewedMode === 'github') {
@@ -405,10 +405,10 @@ export async function handle(message, context, api, store) {
         const type = message.viewed ? 'MarkFileAsViewedInput' : 'UnmarkFileAsViewedInput';
         await api.graphql(
           `mutation CodetreeViewed($input:${type}!) { ${mutation}(input:$input) { clientMutationId } }`,
-          {input: {pullRequestId: diff.nodeId, path: message.path}},
+          {input: {pullRequestId: diff.nodeID, path: message.path}},
         );
       } else {
-        await saveLocalViewed(`${api.prefix}:${root}:${context.number}:${headSha}`, message.path, state);
+        await saveLocalViewed(`${api.prefix}:${root}:${context.number}:${headSHA}`, message.path, state);
       }
       return {state, mode: diff.viewedMode};
     }

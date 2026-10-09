@@ -150,7 +150,7 @@ export function createTree(app) {
           row.append(full);
           if (state.diff?.viewedMode !== 'none') {
             const context = state.context;
-            const headSha = state.diff.head.sha;
+            const headSHA = state.diff.head.sha;
             const epoch = state.epoch;
             const generation = state.filesGeneration;
             const alive = app.pageAlive || (() => true);
@@ -168,12 +168,12 @@ export function createTree(app) {
                 const viewed = checkbox.checked;
                 checkbox.disabled = true;
                 try {
-                  const result = await app.rpc('VIEWED', {context, headSha, path: node.path, viewed});
+                  const result = await app.rpc('VIEWED', {context, headSHA, path: node.path, viewed});
                   if (
                     !alive() ||
                     epoch !== state.epoch ||
                     generation !== state.filesGeneration ||
-                    state.diff?.head.sha !== headSha
+                    state.diff?.head.sha !== headSHA
                   )
                     return;
                   node.viewed = result.state === 'VIEWED';

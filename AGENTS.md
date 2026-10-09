@@ -32,6 +32,8 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 - `scripts/`, `.github/workflows/`: bundling, validation, deterministic runtime packaging and releases by stable tag.
 - `docs/`, `PRIVACY.md`: architecture, feature boundaries and validation/data records. Read [Architecture](docs/ARCHITECTURE.md) before changing messages, storage or the content factories.
 - Document every module and function with JSDoc (Python: docstrings); explain non-obvious invariants such as request generations, limits and security checks.
+- Every source file starts with the license header (repository URL, `Copyright (C) 2026 Anton Ustinoff`, license URL); the module description goes inside that header, after an empty line.
+- Abbreviations in our names are upper case (`clientID`, `treeSHA`, `redirectURI`, `maxBookmarkURLLength`). Names defined by provider and browser APIs keep their spelling (`pullRequestId`, `clientMutationId`, `windowId`, `getElementById`, `client_id`).
 
 ## Key commands
 

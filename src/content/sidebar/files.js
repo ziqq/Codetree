@@ -60,8 +60,8 @@ export function createFiles(app) {
         entries = diffEntries(diff);
         lazy = false;
       } else {
-        const result = state.info.treeSha
-          ? await app.rpc('TREE', {sha: state.info.treeSha})
+        const result = state.info.treeSHA
+          ? await app.rpc('TREE', {sha: state.info.treeSHA})
           : {entries: [], lazy: false};
         if (!current()) return;
         entries = result.entries;
@@ -141,7 +141,7 @@ export function createFiles(app) {
     const alive = app.pageAlive || (() => true);
     const promise = app
       .rpc('TREE', {
-        sha: state.context.provider === 'gitlab' ? state.info.commitSha : node.sha,
+        sha: state.context.provider === 'gitlab' ? state.info.commitSHA : node.sha,
         path: node.path,
         recursive: false,
         lazyChildren: true,

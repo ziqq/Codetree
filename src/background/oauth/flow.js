@@ -22,7 +22,7 @@ let pollPending = null;
  *
  * @throws {Error} When OAuth is not configured in this build.
  */
-function clientId(provider) {
+function clientID(provider) {
   const value = config[provider];
   if (typeof value !== 'string' || !/^[\w.-]{8,256}$/.test(value))
     throw new Error('OAuth is not configured in this build. Connect a personal access token instead.');
@@ -112,7 +112,7 @@ export async function status() {
  * @returns {Promise<Object>} The user code and verification URL to show.
  */
 export async function start(access, label) {
-  const id = clientId('github');
+  const id = clientID('github');
   const data = await post('https://github.com', '/login/device/code', {
     client_id: id,
     scope: access === 'private' ? 'repo read:user' : 'read:user',
@@ -132,7 +132,7 @@ export async function start(access, label) {
   const interval = Math.max(5, Math.min(60, data.interval));
   const flow = {
     id: crypto.randomUUID(),
-    clientId: id,
+    clientID: id,
     deviceCode: data.device_code,
     userCode: data.user_code,
     label: String(label || '').slice(0, 60),
@@ -174,7 +174,7 @@ export async function poll(id) {
     let data;
     try {
       data = await post('https://github.com', '/login/oauth/access_token', {
-        client_id: flow.clientId,
+        client_id: flow.clientID,
         device_code: flow.deviceCode,
         grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
       });
@@ -198,7 +198,7 @@ export async function poll(id) {
         origin: 'https://github.com',
         provider: 'github',
         auth: 'oauth',
-        clientId: flow.clientId,
+        clientID: flow.clientID,
         label: flow.label,
         ...credentials(data),
       },
@@ -230,14 +230,14 @@ function base64(bytes) {
  * @returns {Promise<Object>} The new account with its credentials.
  */
 export async function gitlab(label) {
-  const id = clientId('gitlab');
-  const redirectUri = chrome.identity.getRedirectURL('gitlab');
+  const id = clientID('gitlab');
+  const redirectURI = chrome.identity.getRedirectURL('gitlab');
   const state = base64(crypto.getRandomValues(new Uint8Array(32)));
   const verifier = base64(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = base64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   const parameters = new URLSearchParams({
     client_id: id,
-    redirect_uri: redirectUri,
+    redirect_uri: redirectURI,
     response_type: 'code',
     state,
     scope: 'read_api',
@@ -250,7 +250,7 @@ export async function gitlab(label) {
   });
   if (!result) throw new Error('GitLab sign-in was cancelled.');
   const callback = new URL(result);
-  const expected = new URL(redirectUri);
+  const expected = new URL(redirectURI);
   if (
     callback.origin !== expected.origin ||
     callback.pathname !== expected.pathname ||
@@ -263,15 +263,15 @@ export async function gitlab(label) {
     client_id: id,
     code: callback.searchParams.get('code'),
     grant_type: 'authorization_code',
-    redirect_uri: redirectUri,
+    redirect_uri: redirectURI,
     code_verifier: verifier,
   });
   return {
     origin: 'https://gitlab.com',
     provider: 'gitlab',
     auth: 'oauth',
-    clientId: id,
-    redirectUri,
+    clientID: id,
+    redirectURI,
     label: String(label || '').slice(0, 60),
     ...credentials(data),
   };
@@ -287,8 +287,8 @@ export async function refresh(account) {
   if (!account.refreshToken) throw new Error('OAuth access expired. Reconnect the account in Settings.');
   if (!['https://github.com', 'https://gitlab.com'].includes(account.origin))
     throw new Error('Invalid OAuth account host.');
-  const parameters = {client_id: account.clientId, refresh_token: account.refreshToken, grant_type: 'refresh_token'};
-  if (account.provider === 'gitlab') parameters.redirect_uri = account.redirectUri;
+  const parameters = {client_id: account.clientID, refresh_token: account.refreshToken, grant_type: 'refresh_token'};
+  if (account.provider === 'gitlab') parameters.redirect_uri = account.redirectURI;
   return credentials(
     await post(
       account.origin,

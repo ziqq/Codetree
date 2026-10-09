@@ -8,6 +8,7 @@
 - **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
 - **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
 - **CHANGED**: sidebar and Settings use dependency-free signals, lazy memos and owned effects; search is debounced, counts respect search in every tab and tree rows remain virtualized
+- **CHANGED**: every source file's license header contains its module description, and abbreviations in Codetree's own names are upper case (`clientID`, `treeSHA`, `headSHA`, `redirectURI`)
 - **FIXED**: sidebar filters retain keyboard focus, background tree loads preserve other tabs, folder groups rebuild the tree once, and navigation/Refresh update the repository header consistently
 - **FIXED**: native full-file loads update diff rows and Viewed marks together, failed account selection restores the current account, and folder clicks keep the correct keyboard tab stop
 - **FIXED**: Settings follows stored preference changes and displays normalized saved navigation values, preventing stale appearance fields from overwriting sidebar or Sync changes
@@ -19,6 +20,8 @@
 - **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
 - **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
 - **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, , the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
+- **FIXED**: unpinning in Settings is kept after reloading Settings and applies to windows without their own pin after a refresh; only the sidebar's pin button sets a per-window pin
+- **FIXED**: a preference saved in the sidebar, by Sync or in the other Settings form no longer discards unsaved edits of other Settings fields
 
 ## 0.3.0
 

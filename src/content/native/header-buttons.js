@@ -135,8 +135,8 @@ export function createHeaderButtons(app) {
    * Works with a closed sidebar: the diff is loaded on demand, and errors
    * offer account connection and retry.
    */
-  async function showHeaderDiff(path, cardId) {
-    const file = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+  async function showHeaderDiff(path, cardID) {
+    const file = fullViewPaths.get(path) || fullViewPaths.get(cardID);
     if (file && state.diff) {
       await app.showDiff(diffNode(file));
       return;
@@ -152,7 +152,7 @@ export function createHeaderButtons(app) {
       app.applyDiff(diff);
       await prepareHeaderButtons(diff, epoch);
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
-      const matched = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+      const matched = fullViewPaths.get(path) || fullViewPaths.get(cardID);
       if (!matched) throw new Error('This file is not in the current review. Refresh the page and try again.');
       await app.showDiff(diffNode(matched));
     } catch (error) {
@@ -169,7 +169,7 @@ export function createHeaderButtons(app) {
             type: 'button',
             class: 'small-button',
             text: 'Retry',
-            onClick: run(() => showHeaderDiff(path, cardId)),
+            onClick: run(() => showHeaderDiff(path, cardID)),
           }),
         ]),
       );

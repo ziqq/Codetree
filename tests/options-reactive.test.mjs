@@ -86,15 +86,15 @@ async function settings(t) {
   const listeners = new Set();
   const requests = [];
   const timers = new Map();
-  let timerId = 0;
+  let timerID = 0;
   let syncError;
   const context = vm.createContext({
     document,
     window,
     URL,
     setTimeout(callback, delay) {
-      timers.set(++timerId, {callback, delay});
-      return timerId;
+      timers.set(++timerID, {callback, delay});
+      return timerID;
     },
     clearTimeout(id) {
       timers.delete(id);

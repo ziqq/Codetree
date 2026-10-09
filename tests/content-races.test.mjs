@@ -30,7 +30,7 @@ function sidebar(rpc) {
     selected: '',
     expanded: new Set(),
     context: {origin: 'https://github.com', provider: 'github', owner: 'sample', repo: 'repo'},
-    info: {ref: 'main', treeSha: 'b'.repeat(40)},
+    info: {ref: 'main', treeSHA: 'b'.repeat(40)},
   };
   state.tree = makeTree(state.entries);
   // Run the production loader with controlled RPC completion order.
