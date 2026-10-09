@@ -1,4 +1,10 @@
-/** Compiles the extension's SCSS with the same options for builds and CSS validation. */
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Compiles the extension's SCSS with the same options for builds and CSS validation.
+ */
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compile} from 'sass';

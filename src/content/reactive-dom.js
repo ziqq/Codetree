@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Browser helpers for `shared/reactive.js`: owned event listeners, a shared
  * animation-frame queue and delayed values.
  *
@@ -6,8 +10,6 @@
  * owner re-runs or is disposed; without an owner nothing is released. The
  * module has no side effects; browser globals are read only when a helper
  * is called.
- *
- * @module content/reactive-dom
  */
 import {batch, createRenderEffect, createSignal, onCleanup, untrack} from '../shared/reactive.js';
 

@@ -1,7 +1,9 @@
-/**
- * Sidebar placement, theme, code font and page padding.
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * @module content/sidebar/layout
+ * Sidebar placement, theme, code font and page padding.
  */
 import pageStyles from 'virtual:page-styles';
 import {fontFamilies, preferences} from '../../shared/preferences.js';

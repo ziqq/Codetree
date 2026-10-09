@@ -1,3 +1,12 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Styles of the native "View full" buttons inserted into provider diff
+ * headers; embedded into the content script and applied to the page.
+ */
+
 // Native View full controls inherit the current provider palette.
 .codetree-view-full {
   display: inline-flex;

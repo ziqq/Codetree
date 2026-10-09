@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Release workflow: tag and manual triggers, default-branch tagging, generated
  * release notes, Chrome Web Store submission states, issue completion and
  * notification variables.

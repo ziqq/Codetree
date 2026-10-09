@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Mutable sidebar state.
  *
  * Asynchronous replies are applied only if the state still describes the
@@ -17,8 +21,6 @@
  * new Set compared by contents, `preferences` a new object compared by
  * fields). `flat`, the visible tree rows, is
  * derived from `tree`, `expanded` and `query` and computed once per change.
- *
- * @module content/state
  */
 import {defaults} from '../shared/preferences.js';
 import {createMemo, createSetSignal, createSignal} from '../shared/reactive.js';

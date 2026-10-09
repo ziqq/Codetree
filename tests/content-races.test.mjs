@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Asynchronous tree loading in `content/sidebar/files.js`: stale folder replies,
  * overlapping loads and "load all folders" never modify a newer tree.
  */
@@ -25,7 +29,7 @@ function sidebar(rpc) {
     selected: '',
     expanded: new Set(),
     context: {origin: 'https://github.com', provider: 'github', owner: 'sample', repo: 'repo'},
-    info: {ref: 'main', treeSha: 'b'.repeat(40)},
+    info: {ref: 'main', treeSHA: 'b'.repeat(40)},
   };
   state.tree = makeTree(state.entries);
   // Run the production loader with controlled RPC completion order.

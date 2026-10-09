@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Renders the active tab, its toolbar and notices.
  *
  * The rendering is bound to the state with render effects: each effect
  * reads the view fields it depends on and re-runs after one of them is
  * replaced, so handlers only write the state. Toolbar controls are created
  * once and keep keyboard focus while their values change.
- *
- * @module content/sidebar/render
  */
 import {batch, createMemo, createRenderEffect, untrack} from '../../shared/reactive.js';
 import {button, el, empty} from '../dom.js';

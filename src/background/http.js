@@ -1,10 +1,12 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Bounded response readers shared by the API client and OAuth flows.
  *
  * Bodies are streamed with a byte limit, so an oversized response fails
  * before it is fully buffered.
- *
- * @module background/http
  */
 
 /**

@@ -1,11 +1,13 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Trusted extension storage with serialized writes.
  *
  * `chrome.storage.local` is restricted to trusted contexts, so content
  * scripts can never read tokens. Writes run one after another so that
  * concurrent requests cannot lose each other's read-modify-write updates.
- *
- * @module background/storage
  */
 
 /** Tail of the serialized local-storage write queue. */

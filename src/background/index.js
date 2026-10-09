@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Service-worker entry point: the trusted message broker.
  *
  * Repository pages and Settings send `{type, context?, …}` messages and
@@ -10,8 +14,6 @@
  *   bookmarks and window pin, and request data from its own host.
  *
  * Tokens stay in this worker; error messages are redacted before replying.
- *
- * @module background/index
  */
 import {preferences, validateNavigation} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
@@ -66,7 +68,7 @@ async function handle(message, sender) {
       return {
         github: Boolean(oauthConfig.github),
         gitlab: Boolean(oauthConfig.gitlab),
-        redirectUri: `https://${chrome.runtime.id}.chromiumapp.org/gitlab`,
+        redirectURI: `https://${chrome.runtime.id}.chromiumapp.org/gitlab`,
         device: await oauth.status(),
       };
     if (message.type === 'OAUTH_GITHUB_START') return oauth.start(message.access, message.label);
@@ -139,7 +141,7 @@ async function handle(message, sender) {
         (!isOptions && url.origin !== senderOrigin) ||
         url.username ||
         url.password ||
-        url.href.length > sync.maxBookmarkUrlLength
+        url.href.length > sync.maxBookmarkURLLength
       )
         throw new Error('Only enabled repository hosts can be bookmarked.');
       if (!bookmarks.some(item => item.url === url.href))

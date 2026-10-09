@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Branch, Refresh and review-filter races in the content navigation, branch and
  * request factories: replies for a previous page, filter or refresh are ignored.
  */

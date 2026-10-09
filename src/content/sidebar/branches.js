@@ -1,7 +1,9 @@
-/**
- * Branch switcher popover. Selecting a branch opens its repository root.
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * @module content/sidebar/branches
+ * Branch switcher popover. Selecting a branch opens its repository root.
  */
 import {icon} from '../../shared/icons.js';
 import {treeURL} from '../../shared/routes.js';

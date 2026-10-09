@@ -1,4 +1,10 @@
-// Provider palettes. Keep CSS variables so live site themes can override the fallbacks.
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Provider palettes. Keep CSS variables so live site themes can override the fallbacks.
+ */
 
 @mixin github-light {
   --bg: var(--bgColor-default, var(--color-canvas-default, #fff));

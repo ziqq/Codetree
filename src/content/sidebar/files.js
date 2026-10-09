@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Loads the repository tree or the changed files of a request, including
  * lazily loaded folders, and remembers expanded folders per repository,
  * ref and mode.
  *
  * Every load captures the epoch and `filesGeneration`; replies for an
  * older page, mode or tree are discarded.
- *
- * @module content/sidebar/files
  */
 import {batch} from '../../shared/reactive.js';
 import {makeTree} from '../../shared/tree.js';
@@ -82,8 +84,8 @@ export function createFiles(app) {
           viewed: diff.viewed[file.filename] === 'VIEWED',
         }));
       } else {
-        const result = state.info.treeSha
-          ? await app.rpc('TREE', {sha: state.info.treeSha})
+        const result = state.info.treeSHA
+          ? await app.rpc('TREE', {sha: state.info.treeSHA})
           : {entries: [], lazy: false};
         if (!current()) return;
         state.entries = result.entries;
@@ -158,7 +160,7 @@ export function createFiles(app) {
     const generation = state.filesGeneration;
     const promise = app
       .rpc('TREE', {
-        sha: state.context.provider === 'gitlab' ? state.info.commitSha : node.sha,
+        sha: state.context.provider === 'gitlab' ? state.info.commitSHA : node.sha,
         path: node.path,
         recursive: false,
         lazyChildren: true,

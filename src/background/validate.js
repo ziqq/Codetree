@@ -1,7 +1,9 @@
-/**
- * Validation of identifiers interpolated into API paths.
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * @module background/validate
+ * Validation of identifiers interpolated into API paths.
  */
 import {pathURL} from '../shared/routes.js';
 

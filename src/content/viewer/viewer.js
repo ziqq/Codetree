@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Full-file diff and review-comment viewer in a modal dialog.
  *
  * Each opened view gets a generation number and a root; closing the
  * dialog, opening another file or navigating invalidates replies for the
  * previous view and disposes its root, which removes its listeners and
  * pending frames.
- *
- * @module content/viewer/viewer
  */
 import {lines, fullDiff} from '../../shared/diff.js';
 import {createRoot, getOwner, onCleanup, runWithOwner} from '../../shared/reactive.js';

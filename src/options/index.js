@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Extension Settings: appearance, navigation, browser Sync and accounts.
  *
  * Settings never stores tokens itself: every change is sent to the
  * service worker, which validates and stores it. Optional host and
  * `identity` permissions are requested here because Chrome requires a
  * user gesture.
- *
- * @module options/index
  */
 import {fontFamilies, preferences, validateNavigation} from '../shared/preferences.js';
 import {createRenderEffect, createSignal} from '../shared/reactive.js';

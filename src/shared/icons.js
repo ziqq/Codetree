@@ -1,11 +1,13 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Original 24×24 line icons rendered as inline SVG.
  *
  * Used for controls and for the Minimal file-icon style. File and folder
  * icons for the Color and Monochrome styles come from file-icons
  * (see `content/sidebar/file-icons.js`).
- *
- * @module shared/icons
  */
 
 /** SVG path data by icon name. */

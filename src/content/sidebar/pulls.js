@@ -1,7 +1,9 @@
-/**
- * Open pull/merge request list with review-state filters.
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * @module content/sidebar/pulls
+ * Open pull/merge request list with review-state filters.
  */
 import {icon} from '../../shared/icons.js';
 import {batch} from '../../shared/reactive.js';

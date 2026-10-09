@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Page navigation, repository header, tabs and Refresh.
  *
  * Every page load runs in a page root: navigation disposes the previous
  * root, which closes the viewer, removes the native header buttons, closes
  * the branch popover and forgets pending folder loads, and stops the async
  * work of the previous page in addition to its request generation.
- *
- * @module content/navigation
  */
 import {batch, createAlive, createRenderEffect, createRoot, getOwner, onCleanup, untrack} from '../shared/reactive.js';
 import {repoURL} from '../shared/routes.js';

@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Original, bounded lexical syntax highlighting.
  *
  * A single-pass tokenizer recognizes comments, strings, numbers, keywords,
@@ -7,8 +11,6 @@
  * revision, yields every 16 KiB so the page stays responsive, can be
  * cancelled, and gives up above 200,000 tokens. Tokens are character
  * ranges; the viewer renders them as text nodes.
- *
- * @module content/viewer/syntax
  */
 import {lines as splitLines} from '../../shared/diff.js';
 

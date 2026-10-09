@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Bundles `src/` into an unpacked Manifest V3 extension in `build/`.
  *
  * esbuild bundles each entry point into one classic script (no runtime

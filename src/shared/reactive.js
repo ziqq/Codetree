@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Synchronous fine-grained reactivity with SolidJS names and semantics.
  *
  * Signals hold values; memos derive values lazily; render effects apply
@@ -23,8 +27,6 @@
  * values instead.
  *
  * The module has no side effects and uses no DOM, timers or microtasks.
- *
- * @module shared/reactive
  */
 
 /** The owner that new computations and cleanups attach to, or `null`. */

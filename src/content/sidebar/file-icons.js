@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * file-icons/atom icons: matching and rendering.
  *
  * The rule table is generated at build time from `vendor/file-icons` (see
  * `scripts/file-icons.mjs`). Each rule is `[glyph, darkColour, lightColour, pattern]`;
  * a glyph is either a font character with Atom's size and offsets, or
  * Octicons SVG paths.
- *
- * @module content/sidebar/file-icons
  */
 import {directories, files, fonts, glyphs} from 'virtual:file-icons';
 

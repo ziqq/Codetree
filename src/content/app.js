@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Composes the sidebar and binds page-level events.
  *
  * After the features are created, their render effects are bound inside
@@ -9,8 +13,6 @@
  * object and return their functions, which are merged into `app`.
  * Features call each other only through `app` at run time, so a test can
  * create a single feature with stubs for the rest.
- *
- * @module content/app
  */
 import {shortcutMatches} from '../shared/preferences.js';
 import {batch, catchError, createRoot, createSignal} from '../shared/reactive.js';

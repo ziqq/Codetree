@@ -1,10 +1,12 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Enabled repository hosts, request contexts and account selection.
  *
  * github.com and gitlab.com are always enabled; other HTTPS origins are
  * enabled by connecting an account for them in Settings.
- *
- * @module background/hosts
  */
 
 /**

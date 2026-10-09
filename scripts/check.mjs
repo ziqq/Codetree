@@ -1,4 +1,8 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Repository consistency checks run by `npm run check` and CI.
  *
  * Validates the manifest (version, permissions, CSP and assets of a fresh

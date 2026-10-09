@@ -1,8 +1,10 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * Connected accounts, custom-host content scripts and the public state
  * shared with pages.
- *
- * @module background/accounts
  */
 import {preferences} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';

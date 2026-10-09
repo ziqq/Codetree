@@ -1,12 +1,14 @@
-/**
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
  * The sidebar DOM inside a closed Shadow DOM.
  *
  * Builds the panel, edge handle, resize separator, toast and viewer
  * dialog, and binds their element-level events. Page styles and icon
  * fonts are separate `<style>` elements because they must apply to the
  * provider page itself.
- *
- * @module content/sidebar/view
  */
 import {icon} from '../../shared/icons.js';
 import {batch, createSignal} from '../../shared/reactive.js';
