@@ -8,7 +8,8 @@
  *
  * @module options/index
  */
-import {fontFamilies, validateNavigation} from '../shared/preferences.js';
+import {fontFamilies, preferences, validateNavigation} from '../shared/preferences.js';
+import {createRenderEffect, createSignal} from '../shared/reactive.js';
 import {normalizeOrigin} from '../shared/routes.js';
 
 // Form controls and status outputs of the Settings page.
@@ -28,13 +29,14 @@ const gitlabSignIn = document.getElementById('oauth-gitlab');
 const oauthStatus = document.getElementById('oauth-status');
 const deviceBox = document.getElementById('oauth-device');
 // OAuth availability, the pending GitHub device authorization, its poll timer and sign-in state.
-let oauthInfo;
+// Signals re-render the controls that depend on them.
+const [oauthInfo, setOAuthInfo] = createSignal(null, {name: 'oauthInfo'});
 let device;
 let pollTimer;
-let signingIn = false;
+const [signingIn, setSigningIn] = createSignal(false, {name: 'signingIn'});
 // Public state from the service worker and whether a Sync change is being saved.
 let state;
-let syncSaving = false;
+const [syncSaving, setSyncSaving] = createSignal(false, {name: 'syncSaving'});
 
 /**
  * Sends a Settings request to the service worker.
@@ -55,19 +57,23 @@ function status(element, text, error = false) {
   element.className = error ? 'error' : 'success';
 }
 
-/** Enables the OAuth buttons that are configured, unless a sign-in is in progress. */
-function signInButtons() {
-  githubSignIn.disabled = !oauthInfo?.github || signingIn;
-  gitlabSignIn.disabled = !oauthInfo?.gitlab || signingIn;
-}
+// Enable the OAuth buttons that are configured, unless a sign-in is in progress.
+createRenderEffect(() => {
+  githubSignIn.disabled = !oauthInfo()?.github || signingIn();
+  gitlabSignIn.disabled = !oauthInfo()?.gitlab || signingIn();
+});
+// Disable the Sync controls while a Sync change is being saved.
+createRenderEffect(() => {
+  syncForm.elements.enabled.disabled = syncSaving();
+  syncSave.disabled = syncSaving();
+});
 
 /** Shows the GitHub device code and schedules the next poll, or hides it. */
 function showDevice(value) {
   device = value;
-  signingIn = Boolean(value);
+  setSigningIn(Boolean(value));
   deviceBox.hidden = !value;
   clearTimeout(pollTimer);
-  signInButtons();
   if (!value) return;
   document.getElementById('oauth-code').textContent = value.userCode;
   status(oauthStatus, 'Waiting for GitHub authorization…');
@@ -96,8 +102,7 @@ async function pollDevice() {
   }
 }
 githubSignIn.addEventListener('click', async () => {
-  signingIn = true;
-  signInButtons();
+  setSigningIn(true);
   try {
     showDevice(
       await rpc('OAUTH_GITHUB_START', {
@@ -106,14 +111,12 @@ githubSignIn.addEventListener('click', async () => {
       }),
     );
   } catch (error) {
-    signingIn = false;
-    signInButtons();
+    setSigningIn(false);
     status(oauthStatus, error.message, true);
   }
 });
 gitlabSignIn.addEventListener('click', async () => {
-  signingIn = true;
-  signInButtons();
+  setSigningIn(true);
   try {
     const granted = await chrome.permissions.request({permissions: ['identity']});
     if (!granted) throw new Error('Browser sign-in permission was not granted. You can use a personal access token.');
@@ -123,8 +126,7 @@ gitlabSignIn.addEventListener('click', async () => {
   } catch (error) {
     status(oauthStatus, error.message, true);
   } finally {
-    signingIn = false;
-    signInButtons();
+    setSigningIn(false);
   }
 });
 document.getElementById('oauth-cancel').addEventListener('click', async () => {
@@ -144,9 +146,14 @@ function showFont() {
   preview.style.fontSize = `${appearance.elements.fontSize.value || 12}px`;
 }
 
-/** Fills the appearance and navigation forms from the stored preferences. */
-function renderPreferences() {
-  for (const [key, value] of Object.entries(state.preferences)) {
+/**
+ * Fills the appearance and navigation forms from the stored preferences.
+ *
+ * @param {Array<string>} [keys] Only these fields; all fields by default.
+ */
+function renderPreferences(keys = Object.keys(state.preferences)) {
+  for (const key of keys) {
+    const value = state.preferences[key];
     const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
     if (field) {
       if (field.type === 'checkbox') field.checked = value;
@@ -160,8 +167,6 @@ function renderPreferences() {
 function renderSync() {
   const value = state.sync || {enabled: false};
   syncForm.elements.enabled.checked = value.enabled === true;
-  syncForm.elements.enabled.disabled = syncSaving;
-  syncSave.disabled = syncSaving;
   if (value.error)
     status(
       syncStatus,
@@ -194,9 +199,7 @@ async function refreshSync() {
 }
 syncForm.addEventListener('submit', async event => {
   event.preventDefault();
-  syncSaving = true;
-  syncSave.disabled = true;
-  syncForm.elements.enabled.disabled = true;
+  setSyncSaving(true);
   try {
     Object.assign(state, await rpc('SYNC_SETTINGS', {enabled: syncForm.elements.enabled.checked}));
     renderPreferences();
@@ -204,14 +207,27 @@ syncForm.addEventListener('submit', async event => {
   } catch (error) {
     status(syncStatus, error.message, true);
   } finally {
-    syncSaving = false;
-    syncSave.disabled = false;
-    syncForm.elements.enabled.disabled = false;
+    setSyncSaving(false);
   }
 });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (state && area === 'local' && Object.hasOwn(changes, 'syncSettings')) void refreshSync();
+  if (!state || area !== 'local') return;
+  if (Object.hasOwn(changes, 'preferences')) {
+    // The sidebar and Sync also save preferences; show their changes without discarding unsaved edits of other fields.
+    const previous = state.preferences;
+    state.preferences = preferences(changes.preferences.newValue);
+    renderPreferences(Object.keys(state.preferences).filter(key => previous[key] !== state.preferences[key]));
+  }
+  if (Object.hasOwn(changes, 'syncSettings')) void refreshSync();
 });
+
+/**
+ * Returns the fields of [value] that differ from the stored preferences, so
+ * saving a form does not overwrite fields changed elsewhere since it was filled.
+ */
+function changedPreferences(value) {
+  return Object.fromEntries(Object.entries(value).filter(([key, field]) => field !== state.preferences[key]));
+}
 
 /** Adapts the account form to GitHub or GitLab: default origin and token guidance. */
 function showProvider() {
@@ -282,7 +298,8 @@ appearance.addEventListener('submit', async event => {
     pinned: appearance.elements.pinned.checked,
   };
   try {
-    state.preferences = await rpc('PREFERENCES', {value});
+    state.preferences = await rpc('PREFERENCES', {value: changedPreferences(value)});
+    renderPreferences(Object.keys(value));
     status(appearanceStatus, 'Saved. Refresh your repository page to apply.');
     await refreshSync();
   } catch (error) {
@@ -301,7 +318,9 @@ navigation.addEventListener('submit', async event => {
   const output = document.getElementById('navigation-status');
   try {
     validateNavigation(value);
-    state.preferences = await rpc('PREFERENCES', {value});
+    state.preferences = await rpc('PREFERENCES', {value: changedPreferences(value)});
+    // Show the stored values, for example the trimmed hide patterns.
+    renderPreferences(Object.keys(value));
     status(output, 'Saved. Refresh your repository page to apply.');
     await refreshSync();
   } catch (error) {
@@ -354,8 +373,7 @@ rpc('STATE')
     return rpc('OAUTH_INFO');
   })
   .then(value => {
-    oauthInfo = value;
-    signInButtons();
+    setOAuthInfo(value);
     document.getElementById('oauth-note').textContent =
       value.github || value.gitlab
         ? 'GitLab OAuth requests read_api. Custom servers use personal access tokens below.'
