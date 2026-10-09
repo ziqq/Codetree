@@ -27,7 +27,9 @@ export function createViewer(app) {
   const {viewer} = app.view;
   let generation = 0;
   let disposeViewer;
+  // `close` fires in a later task; if another view opened the dialog again meanwhile, the event is stale.
   listen(viewer, 'close', () => {
+    if (viewer.open) return;
     generation++;
     disposeViewer?.();
     disposeViewer = null;

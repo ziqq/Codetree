@@ -63,13 +63,12 @@ export function createRender(app) {
     'Refresh sidebar',
     run(() => app.refresh()),
   );
+  // Files matching the search, or every loaded file; both inputs are signals, so the count follows them directly.
   const fileCount = createMemo(
-    () => {
-      const flat = state.flat;
-      return state.query
-        ? flat.filter(node => node.type !== 'tree').length
-        : state.entries.filter(entry => entry.type !== 'tree').length;
-    },
+    () =>
+      state.query
+        ? state.flat.filter(node => node.type !== 'tree').length
+        : state.entries.filter(entry => entry.type !== 'tree').length,
     undefined,
     {name: 'file count'},
   );

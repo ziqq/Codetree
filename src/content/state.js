@@ -20,7 +20,10 @@ import {makeTree} from '../shared/tree.js';
 import {createSetSignal, createSignal} from './reactive.js';
 import {createDelayed} from './reactive-dom.js';
 
-/** View values use accessors; request generations, entries, tree and focus stay imperative. */
+/**
+ * View values use accessors; request generations, tree and focus stay imperative. `entries` is always
+ * replaced, never resized in place, so the file count can depend on it directly.
+ */
 const viewFields = [
   'context',
   'info',
@@ -30,6 +33,7 @@ const viewFields = [
   'mode',
   'searchText',
   'filter',
+  'entries',
   'flat',
   'lazy',
   'filesLoading',

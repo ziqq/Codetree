@@ -15,7 +15,7 @@ import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
-import {createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
+import {createMemo, createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
 import {requestFrame} from '../reactive-dom.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
@@ -307,11 +307,14 @@ export function createTree(app) {
     undefined,
     {name: 'visible tree rows'},
   );
+  // Rows depend on the icon theme only; other preference writes (such as every step of a resize) are laid out
+  // by `layout`, which already requests the rows.
+  const iconTheme = createMemo(() => state.preferences.iconTheme, undefined, {name: 'tree icon theme'});
   createRenderEffect(
     on(
       () =>
         state.tab === 'files' && !state.loading && !state.error
-          ? [state.flat, state.selected, state.mode, state.diff, state.preferences.iconTheme]
+          ? [state.flat, state.selected, state.mode, state.diff, iconTheme()]
           : null,
       rows => {
         if (rows) requestTreeRender();
