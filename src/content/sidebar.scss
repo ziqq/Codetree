@@ -119,7 +119,12 @@ button:disabled {
 {
   .syntax-#{$token} {
     color: var(--syntax-#{$token}, var(--code-text));
-    font-style: var(--syntax-#{$token}-font-style, normal);
+    // Comments are italic unless the provider theme (GitLab's Rouge styles) says otherwise.
+    $style: normal;
+    @if $token == comment {
+      $style: italic;
+    }
+    font-style: var(--syntax-#{$token}-font-style, #{$style});
     font-weight: var(--syntax-#{$token}-font-weight, normal);
   }
 }
