@@ -9,6 +9,8 @@
  * @module content/sidebar/view
  */
 import {icon} from '../../shared/icons.js';
+import {batch, createSignal} from '../../shared/reactive.js';
+import {createDelayed} from '../reactive-dom.js';
 import {button, el} from '../dom.js';
 import {fontFaces} from './file-icons.js';
 
@@ -21,7 +23,6 @@ import {fontFaces} from './file-icons.js';
 export function createView(app) {
   const {state, run} = app;
   let hoverTimer;
-  let queryTimer;
   let resizeStart = null;
   const host = document.createElement('div');
   host.id = 'codetree-extension';
@@ -160,21 +161,22 @@ export function createView(app) {
   shadow.addEventListener('click', event => {
     if (!branchbar.contains(event.target)) app.closeBranches();
   });
-  search.addEventListener('input', () => {
-    clearTimeout(queryTimer);
-    queryTimer = setTimeout(() => {
-      state.focus = 0;
-      body.scrollTop = 0;
-      state.query = search.value;
-    }, 100);
+  // The search field is the source of `state.query`: typing updates it after 100 ms, and writing
+  // `state.query` (for example clearing it on navigation) updates the field and cancels a pending value.
+  const [searchText, setSearchText] = createSignal(search.value, {name: 'searchText'});
+  const query = createDelayed(searchText, 100);
+  Object.defineProperty(state, 'query', {
+    get: query,
+    set(value) {
+      batch(() => {
+        search.value = value;
+        setSearchText(value);
+        query.set(value);
+      });
+    },
+    enumerable: true,
   });
-
-  /** Clears the search field and the query, including a pending query from typing. */
-  function clearSearch() {
-    clearTimeout(queryTimer);
-    search.value = '';
-    state.query = '';
-  }
+  search.addEventListener('input', () => setSearchText(search.value));
   accountSelect.addEventListener(
     'change',
     run(async () => {
@@ -252,7 +254,6 @@ export function createView(app) {
     tabButtons,
     search,
     searchHint,
-    clearSearch,
     toolbar,
     notice,
     body,

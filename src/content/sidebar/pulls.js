@@ -9,6 +9,14 @@ import {pullURL} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {requestName} from '../page.js';
 
+/** Returns the loaded requests whose number, title or author contains the search query. */
+export function matchingPulls(state) {
+  const query = state.query.toLowerCase();
+  return state.pulls.filter(pull =>
+    `${pull.number} ${pull.title} ${pull.user?.login || ''}`.toLowerCase().includes(query),
+  );
+}
+
 /** Creates the requests feature: `loadPulls` and `renderPulls`. */
 export function createPulls(app) {
   const {state} = app;
@@ -51,10 +59,7 @@ export function createPulls(app) {
   function renderPulls() {
     const {body} = app.view;
     const name = requestName(state.context);
-    const query = state.query.toLowerCase();
-    const pulls = state.pulls.filter(pull =>
-      `${pull.number} ${pull.title} ${pull.user?.login || ''}`.toLowerCase().includes(query),
-    );
+    const pulls = matchingPulls(state);
     if (!pulls.length) {
       body.replaceChildren(
         empty(

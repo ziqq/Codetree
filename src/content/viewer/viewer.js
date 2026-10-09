@@ -1,14 +1,18 @@
 /**
  * Full-file diff and review-comment viewer in a modal dialog.
  *
- * Each opened view gets a generation number; closing the dialog, opening
- * another file or navigating invalidates replies for the previous view.
+ * Each opened view gets a generation number and a root; closing the
+ * dialog, opening another file or navigating invalidates replies for the
+ * previous view and disposes its root, which removes its listeners and
+ * pending frames.
  *
  * @module content/viewer/viewer
  */
 import {lines, fullDiff} from '../../shared/diff.js';
+import {createRoot, getOwner, onCleanup, runWithOwner} from '../../shared/reactive.js';
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
+import {listen, requestFrame} from '../reactive-dom.js';
 import {tokenize} from './syntax.js';
 
 /** Converts a diff file to a tree node shape used by the viewer. */
@@ -21,13 +25,16 @@ export function createViewer(app) {
   const {state, run} = app;
   const {viewer} = app.view;
   let generation = 0;
+  let disposeShell = () => {};
   viewer.addEventListener('close', () => {
     generation++;
+    disposeShell();
   });
 
   /** Closes the dialog and invalidates its pending work. */
   function closeViewer() {
     generation++;
+    disposeShell();
     if (viewer.open) viewer.close();
   }
 
@@ -39,10 +46,18 @@ export function createViewer(app) {
   /**
    * Opens the dialog with an empty layout for a new view.
    *
-   * @returns {{actions: Element, body: Element, bottom: Element, generation: number}}
+   * `owner` is the root of the view; work that adds listeners after an
+   * `await` runs with it so the listeners are removed with the view.
+   *
+   * @returns {{actions: Element, body: Element, bottom: Element, generation: number, owner: Object}}
    */
   function viewerShell(title, subtitle, label = 'Full-file diff') {
     generation++;
+    disposeShell();
+    const owner = createRoot(dispose => {
+      disposeShell = dispose;
+      return getOwner();
+    });
     viewer.setAttribute('aria-label', label);
     const heading = el('div', {class: 'viewer-heading'}, [el('strong', {text: title}), el('small', {text: subtitle})]);
     const actions = el('div', {class: 'viewer-actions'}, [button('close', 'Close viewer', () => viewer.close())]);
@@ -52,7 +67,7 @@ export function createViewer(app) {
       el('div', {class: 'viewer-inner'}, [el('div', {class: 'viewer-header'}, [heading, actions]), viewerBody, bottom]),
     );
     if (!viewer.open) viewer.showModal();
-    return {actions, body: viewerBody, bottom, generation};
+    return {actions, body: viewerBody, bottom, generation, owner};
   }
 
   /**
@@ -130,9 +145,9 @@ export function createViewer(app) {
       code.style.height = `${rows.length * rowHeight}px`;
       const maxLength = rows.reduce((max, row) => Math.max(max, row.text.length), 0);
       code.style.width = `${Math.max(600, 128 + Math.min(4000, maxLength) * state.preferences.fontSize * 0.65)}px`;
-      let frame = 0;
+      let frame = null;
       const draw = () => {
-        frame = 0;
+        frame = null;
         const start = Math.max(0, Math.floor(shell.body.scrollTop / rowHeight) - 6);
         const end = Math.min(rows.length, start + Math.ceil(shell.body.clientHeight / rowHeight) + 14);
         const fragment = document.createDocumentFragment();
@@ -161,13 +176,17 @@ export function createViewer(app) {
         code.replaceChildren(fragment);
       };
       shell.body.replaceChildren(code);
-      shell.body.addEventListener(
-        'scroll',
-        () => {
-          if (!frame) frame = requestAnimationFrame(draw);
-        },
-        {passive: true},
-      );
+      runWithOwner(shell.owner, () => {
+        onCleanup(() => frame?.());
+        listen(
+          shell.body,
+          'scroll',
+          () => {
+            if (!frame) frame = runWithOwner(null, () => requestFrame(draw));
+          },
+          {passive: true},
+        );
+      });
       shell.bottom.prepend(
         el('span', {class: 'adds', text: `+${node.adds}`}),
         el('span', {class: 'dels', text: `−${node.dels}`}),

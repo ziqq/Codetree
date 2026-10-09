@@ -11,6 +11,8 @@
 import {batch, createMemo, createRenderEffect, untrack} from '../../shared/reactive.js';
 import {button, el, empty} from '../dom.js';
 import {providerName, requestName} from '../page.js';
+import {matchingBookmarks} from './bookmarks.js';
+import {matchingPulls} from './pulls.js';
 import {rowHeight} from './tree.js';
 
 /** Review-state filters of the request list with their labels; `null` is replaced by the request name. */
@@ -134,7 +136,7 @@ export function createRender(app) {
       toolbar.replaceChildren(...parts, refreshButton);
   }
 
-  /** Shows the number of files, requests or bookmarks of the active tab. */
+  /** Shows the number of files, requests or bookmarks of the active tab; a search counts only the matches. */
   function renderCount() {
     count.textContent = String(
       state.tab === 'files'
@@ -142,9 +144,16 @@ export function createRender(app) {
           ? visibleFiles()
           : fileTotal()
         : state.tab === 'pulls'
-          ? state.pulls.length
-          : state.public?.bookmarks.length || 0,
+          ? matchingPulls(state).length
+          : matchingBookmarks(state).length,
     );
+  }
+
+  /** The loading state and error of the active tab: the tree status on Files, the request status elsewhere. */
+  function status() {
+    return state.tab === 'files'
+      ? {loading: state.filesLoading, error: state.filesError}
+      : {loading: state.loading, error: state.error};
   }
 
   /**
@@ -152,8 +161,9 @@ export function createRender(app) {
    * re-runs only for changes of the visible tab.
    */
   function bodyInputs() {
-    const inputs = [state.tab, state.context, state.loading, state.error];
-    if (state.loading || state.error) return inputs;
+    const {loading, error} = status();
+    const inputs = [state.tab, state.context, loading, error];
+    if (loading || error) return inputs;
     if (state.tab === 'files')
       inputs.push(state.lazy, state.loadingAll, state.mode, state.diff, state.flat, state.query);
     else if (state.tab === 'pulls') inputs.push(state.pulls, state.query, state.filter);
@@ -165,15 +175,16 @@ export function createRender(app) {
   function renderBody() {
     notice.replaceChildren();
     notice.className = 'notice';
-    if (state.loading) {
+    const {loading, error} = status();
+    if (loading) {
       const node = empty(`Loading from ${providerName(state.context)}`, 'Fetching repository data…', 'refresh');
       node.classList.add('loading');
       body.replaceChildren(node);
       return;
     }
-    if (state.error) {
+    if (error) {
       body.replaceChildren(
-        empty('Could not load this view', state.error, 'file', [
+        empty('Could not load this view', error, 'file', [
           el('button', {class: 'small-button primary', text: 'Retry', onClick: run(() => app.refresh())}),
           el('button', {class: 'small-button', text: 'Open settings', onClick: run(() => app.rpc('OPTIONS'))}),
         ]),
@@ -243,6 +254,19 @@ export function createRender(app) {
     );
     createRenderEffect(renderToolbar, undefined, {name: 'toolbar'});
     createRenderEffect(renderCount, undefined, {name: 'count'});
+    createRenderEffect(
+      previous => {
+        const query = state.query;
+        // A new search starts at the first result.
+        if (query !== previous) {
+          state.focus = 0;
+          body.scrollTop = 0;
+        }
+        return query;
+      },
+      '',
+      {name: 'queryReset'},
+    );
     createRenderEffect(
       () => {
         bodyInputs();

@@ -9,9 +9,10 @@
  */
 import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
-import {createRenderEffect} from '../../shared/reactive.js';
+import {createRenderEffect, runWithOwner} from '../../shared/reactive.js';
 import {fileKind} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
+import {requestFrame} from '../reactive-dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
@@ -21,7 +22,7 @@ export const rowHeight = 29;
 export function createTree(app) {
   const {state, run} = app;
   const {host, shadow, body, spacer} = app.view;
-  let renderFrame = 0;
+  let renderFrame = null;
 
   /**
    * Returns the icon of a row: a file-icons glyph for Color and Monochrome,
@@ -56,18 +57,24 @@ export function createTree(app) {
     );
   }
 
-  /** Renders the visible rows on the next animation frame, at most once per frame. */
+  /**
+   * Renders the visible rows on the next shared animation frame, at most once per frame.
+   *
+   * The frame has no owner: effects that request it re-run often and must not cancel it.
+   */
   function requestTreeRender() {
     if (!renderFrame)
-      renderFrame = requestAnimationFrame(() => {
-        renderFrame = 0;
-        renderTreeRows();
-      });
+      renderFrame = runWithOwner(null, () =>
+        requestFrame(() => {
+          renderFrame = null;
+          renderTreeRows();
+        }),
+      );
   }
 
   /** Renders the rows in the viewport, keeping keyboard focus on the same path. */
   function renderTreeRows() {
-    if (state.tab !== 'files' || state.loading || state.error || !body.contains(spacer)) return;
+    if (state.tab !== 'files' || state.filesLoading || state.filesError || !body.contains(spacer)) return;
     state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
     const start = Math.max(0, Math.floor(body.scrollTop / rowHeight) - 6);
     const end = Math.min(state.flat.length, start + Math.ceil(body.clientHeight / rowHeight) + 14);

@@ -9,19 +9,23 @@
  * @module content/native/header-buttons
  */
 import {icon} from '../../shared/icons.js';
+import {runWithOwner} from '../../shared/reactive.js';
 import {route} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {providerName} from '../page.js';
+import {requestFrame} from '../reactive-dom.js';
 import {diffNode} from '../viewer/viewer.js';
 
 /** Creates the header-button feature: `clearHeaderButtons`, `prepareHeaderButtons` and `scheduleHeaderButtons`. */
 export function createHeaderButtons(app) {
   const {state, run} = app;
   let fullViewPaths = new Map();
-  let headerFrame = 0;
+  let headerFrame = null;
 
-  /** Removes every inserted button and forgets the diff files. */
+  /** Removes every inserted button, cancels a pending re-check and forgets the diff files. */
   function clearHeaderButtons() {
+    headerFrame?.();
+    headerFrame = null;
     fullViewPaths.clear();
     document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
   }
@@ -173,11 +177,13 @@ export function createHeaderButtons(app) {
   /** Re-checks native headers on the next animation frame after page updates. */
   function scheduleHeaderButtons() {
     if (!headerFrame)
-      headerFrame = requestAnimationFrame(() => {
-        headerFrame = 0;
-        app.positionHandle();
-        if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
-      });
+      headerFrame = runWithOwner(null, () =>
+        requestFrame(() => {
+          headerFrame = null;
+          app.positionHandle();
+          if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
+        }),
+      );
   }
   return {clearHeaderButtons, prepareHeaderButtons, scheduleHeaderButtons};
 }

@@ -10,6 +10,12 @@ import {icon} from '../../shared/icons.js';
 import {button, el, empty} from '../dom.js';
 import {requestName} from '../page.js';
 
+/** Returns the bookmarks whose title or URL contains the search query. */
+export function matchingBookmarks(state) {
+  const query = state.query.toLowerCase();
+  return (state.public?.bookmarks || []).filter(item => `${item.title} ${item.url}`.toLowerCase().includes(query));
+}
+
 /** Creates the bookmarks feature: `bookmarkCurrent` and `renderBookmarks`. */
 export function createBookmarks(app) {
   const {state, run} = app;
@@ -30,10 +36,7 @@ export function createBookmarks(app) {
   /** Renders the bookmarks matching the search. */
   function renderBookmarks() {
     const {body} = app.view;
-    const query = state.query.toLowerCase();
-    const bookmarks = (state.public?.bookmarks || []).filter(item =>
-      `${item.title} ${item.url}`.toLowerCase().includes(query),
-    );
+    const bookmarks = matchingBookmarks(state);
     if (!bookmarks.length) {
       body.replaceChildren(
         empty(

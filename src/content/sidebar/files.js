@@ -60,10 +60,6 @@ export function createFiles(app) {
       state.loadingAll = false;
       state.filesLoading = true;
       state.filesError = '';
-      if (state.tab === 'files') {
-        state.loading = true;
-        state.error = '';
-      }
     });
     try {
       let lazy = false;
@@ -120,19 +116,12 @@ export function createFiles(app) {
         if (!current()) return;
       }
       if (state.tab === 'files') app.view.body.scrollTop = 0;
-      batch(() => {
-        state.filesLoading = false;
-        if (state.tab === 'files') state.loading = false;
-      });
+      state.filesLoading = false;
     } catch (error) {
       if (current())
         batch(() => {
           state.filesLoading = false;
           state.filesError = error.message;
-          if (state.tab === 'files') {
-            state.loading = false;
-            state.error = error.message;
-          }
         });
     }
   }

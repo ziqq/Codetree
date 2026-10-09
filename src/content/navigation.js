@@ -1,9 +1,14 @@
 /**
  * Page navigation, repository header, tabs and Refresh.
  *
+ * Every page load runs in a page root: navigation disposes the previous
+ * root, which closes the viewer, removes the native header buttons, closes
+ * the branch popover and forgets pending folder loads, and stops the async
+ * work of the previous page in addition to its request generation.
+ *
  * @module content/navigation
  */
-import {batch, createRenderEffect, untrack} from '../shared/reactive.js';
+import {batch, createAlive, createRenderEffect, createRoot, getOwner, onCleanup, untrack} from '../shared/reactive.js';
 import {repoURL} from '../shared/routes.js';
 import {makeTree} from '../shared/tree.js';
 import {el} from './dom.js';
@@ -12,6 +17,26 @@ import {currentContext, providerName} from './page.js';
 /** Creates the navigation feature: `loadPage`, `updateHeader`, `bindHeader`, `selectTab` and `refresh`. */
 export function createNavigation(app) {
   const {state} = app;
+  let disposePage = () => {};
+
+  /**
+   * Disposes the previous page root and creates the root of the new page;
+   * its owner is `app.pageOwner`.
+   *
+   * @returns {() => boolean} Whether the new page is still shown.
+   */
+  function createPageRoot() {
+    disposePage();
+    return createRoot(dispose => {
+      disposePage = dispose;
+      app.pageOwner = getOwner();
+      onCleanup(app.closeViewer);
+      onCleanup(app.clearHeaderButtons);
+      onCleanup(app.closeBranches);
+      onCleanup(() => app.loadingFolders.clear());
+      return createAlive();
+    });
+  }
 
   /**
    * Resets the sidebar for the current URL and loads its repository.
@@ -30,22 +55,20 @@ export function createNavigation(app) {
     state.viewGeneration++;
     state.refreshGeneration++;
     state.branchGeneration++;
-    app.closeViewer();
-    app.clearHeaderButtons();
-    app.closeBranches();
-    app.loadingFolders.clear();
+    const alive = createPageRoot();
+    const current = () => alive() && epoch === state.epoch;
     batch(() => {
       state.context = context;
       state.info = null;
       state.diff = null;
       state.branches = null;
-      state.loading = true;
+      state.loading = false;
       state.error = '';
       state.filesLoading = true;
       state.filesError = '';
       state.entries = [];
       state.tree = makeTree([]);
-      app.view.clearSearch();
+      state.query = '';
       state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
       state.tab = 'files';
       state.selected = '';
@@ -58,7 +81,7 @@ export function createNavigation(app) {
     try {
       const [publicData, info] = await Promise.all([
         app.rpc('STATE').then(value => {
-          if (epoch === state.epoch)
+          if (current())
             batch(() => {
               state.public = value;
               state.preferences = value.preferences;
@@ -67,7 +90,7 @@ export function createNavigation(app) {
         }),
         app.rpc('INIT'),
       ]);
-      if (epoch !== state.epoch) return;
+      if (!current()) return;
       batch(() => {
         state.public = publicData;
         state.preferences = publicData.preferences;
@@ -76,14 +99,10 @@ export function createNavigation(app) {
       });
       await app.loadFiles(epoch);
     } catch (error) {
-      if (epoch !== state.epoch) return;
+      if (!current()) return;
       batch(() => {
         state.filesLoading = false;
         state.filesError = error.message;
-        if (state.tab === 'files') {
-          state.loading = false;
-          state.error = error.message;
-        }
       });
     }
   }
@@ -149,9 +168,10 @@ export function createNavigation(app) {
     // The synchronous start of a request load joins the batch, so the new tab renders once.
     await batch(() => {
       state.tab = tab;
-      app.view.clearSearch();
-      state.loading = tab === 'files' ? Boolean(state.filesLoading) : tab === 'bookmarks';
-      state.error = tab === 'files' ? state.filesError || '' : '';
+      state.query = '';
+      // The Files tab keeps its own tree status; the other tabs load again.
+      state.loading = tab !== 'files';
+      state.error = '';
       if (tab === 'pulls') return app.loadPulls();
       if (tab === 'bookmarks') return loadBookmarks(epoch, generation);
     });
@@ -213,14 +233,16 @@ export function createNavigation(app) {
       }
     } catch (error) {
       if (!current()) return;
-      batch(() => {
-        if (tab === 'files') {
+      if (tab === 'files')
+        batch(() => {
           state.filesLoading = false;
           state.filesError = error.message;
-        }
-        state.loading = false;
-        state.error = error.message;
-      });
+        });
+      else
+        batch(() => {
+          state.loading = false;
+          state.error = error.message;
+        });
     }
   }
   return {loadPage, updateHeader, bindHeader, selectTab, refresh};

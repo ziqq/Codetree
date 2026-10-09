@@ -7,7 +7,8 @@
 - **CHANGED**: README previews replaced with light/dark captures of the installed extension on public GitHub and GitLab pages
 - **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
 - **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
-- **CHANGED**: the sidebar and Settings re-render through a small dependency-free reactive module (`src/shared/reactive.js`, SolidJS-style signals, memos and render effects) instead of manual redraw calls; toolbar controls persist between renders and the visible rows are computed once per change
+- **CHANGED**: the sidebar and Settings re-render through a small dependency-free reactive module (`src/shared/reactive.js`, SolidJS-style signals, memos and render effects) instead of manual redraw calls; toolbar controls persist between renders, the visible rows are computed once per change, each page and full-file view runs in its own root that releases its listeners, frames and native buttons on navigation, and the Files tab keeps a single loading status
+- **CHANGED**: the Pull/Merge requests and Bookmarks counts show the number of search matches, like the Files count
 - **FIXED**: release workflow tests require the Chrome Web Store item ID from `secrets.CWS_EXTENSION_ID` for release notes and submission
 - **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
 - **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot

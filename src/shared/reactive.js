@@ -355,3 +355,67 @@ export function catchError(fn, handler) {
     owner = previousOwner;
   }
 }
+
+/** Returns the current owner, to restore it after an `await` with `runWithOwner`. */
+export function getOwner() {
+  return owner;
+}
+
+/**
+ * Runs [fn] untracked with [node] as the owner, so computations and
+ * cleanups created after an `await` still belong to it. Does nothing if
+ * [node] was disposed.
+ *
+ * @template T
+ * @param {?Object} node An owner from `getOwner`.
+ * @param {() => T} fn
+ * @returns {T|undefined} The result of [fn].
+ */
+export function runWithOwner(node, fn) {
+  if (node?.disposed) return undefined;
+  const previousOwner = owner;
+  const previousListener = listener;
+  owner = node;
+  listener = null;
+  try {
+    return fn();
+  } finally {
+    owner = previousOwner;
+    listener = previousListener;
+  }
+}
+
+/**
+ * Creates a signal holding a Set that is replaced, never mutated, and
+ * compared by contents, so an equal new Set does not notify readers.
+ *
+ * @template T
+ * @param {Set<T>} [value=new Set()] The initial Set.
+ * @param {{name?: string}} [options]
+ * @returns {[() => Set<T>, (next: Set<T>|((previous: Set<T>) => Set<T>)) => Set<T>]}
+ */
+export function createSetSignal(value = new Set(), {name} = {}) {
+  return createSignal(value, {name, equals: sameItems});
+}
+
+/** Whether two Sets contain the same items. */
+export function sameItems(previous, next) {
+  return previous.size === next.size && [...previous].every(item => next.has(item));
+}
+
+/**
+ * Returns a getter that stays `true` until the current owner re-runs or is
+ * disposed, for asynchronous work started by that owner.
+ *
+ * It complements request generations: work owned by a page root stops
+ * applying replies once navigation disposes the root.
+ *
+ * @returns {() => boolean}
+ */
+export function createAlive() {
+  let alive = true;
+  onCleanup(() => {
+    alive = false;
+  });
+  return () => alive;
+}

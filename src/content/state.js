@@ -14,21 +14,24 @@
  * and written as plain properties, and the render effects of the sidebar
  * re-run after a field they read is replaced. A value mutated in place
  * notifies nobody, so view fields are always replaced (`expanded` gets a
- * new Set, `preferences` a new object). `flat`, the visible tree rows, is
+ * new Set compared by contents, `preferences` a new object compared by
+ * fields). `flat`, the visible tree rows, is
  * derived from `tree`, `expanded` and `query` and computed once per change.
  *
  * @module content/state
  */
 import {defaults} from '../shared/preferences.js';
-import {createMemo, createSignal} from '../shared/reactive.js';
+import {createMemo, createSetSignal, createSignal} from '../shared/reactive.js';
 import {flatten, makeTree} from '../shared/tree.js';
 
 /**
- * Fields that render effects depend on. Generations, `filesLoading`,
- * `filesError`, `entries`, `branches`, `totalPulls` and `focus` stay plain:
- * they are read only by handlers or by the virtualized row renderer.
+ * Fields that render effects depend on. Generations, `entries`, `branches`,
+ * `totalPulls` and `focus` stay plain: they are read only by handlers or by
+ * the virtualized row renderer.
  */
 const viewFields = [
+  'filesLoading',
+  'filesError',
   'context',
   'info',
   'preferences',
@@ -60,8 +63,8 @@ function sameFields(previous, next) {
 /**
  * Returns the initial state of a sidebar.
  *
- * `files*` fields keep the tree-loading status while another tab is shown;
- * `loading`/`error` describe the visible tab.
+ * `filesLoading`/`filesError` hold the status of the Files tab;
+ * `loading`/`error` hold the status of the request and bookmark tabs.
  *
  * @returns {Object} The state with signal-backed view fields.
  */
@@ -97,7 +100,10 @@ export function createState() {
     focus: 0,
   };
   for (const key of viewFields) {
-    const [get, set] = createSignal(state[key], {name: key, equals: key === 'preferences' ? sameFields : Object.is});
+    const [get, set] =
+      key === 'expanded'
+        ? createSetSignal(state[key], {name: key})
+        : createSignal(state[key], {name: key, equals: key === 'preferences' ? sameFields : Object.is});
     Object.defineProperty(state, key, {get, set, enumerable: true});
   }
   Object.defineProperty(state, 'flat', {
