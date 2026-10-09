@@ -2,16 +2,12 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Trusted extension storage with serialized writes.
  *
  * `chrome.storage.local` is restricted to trusted contexts, so content
  * scripts can never read tokens. Writes run one after another so that
  * concurrent requests cannot lose each other's read-modify-write updates.
- *
- * @module background/storage
  */
 
 /** Tail of the serialized local-storage write queue. */
@@ -53,20 +49,20 @@ export function writeStore(callback) {
 }
 
 /**
- * Stores whether the sidebar is pinned in a browser window.
+ * Stores the pin chosen with the sidebar's pin button in a browser window.
  *
- * Pin states live in session storage, so they reset when the browser or
- * extension restarts. At most 100 windows are remembered.
+ * Only explicit choices are stored, so windows without one follow the
+ * default from Settings after a refresh. Pin states live in session
+ * storage, so they reset when the browser or extension restarts. At most
+ * 100 windows are remembered.
  *
  * @param {number} windowId The browser window.
- * @param {boolean} pinned The new state, or the default when [initial] is set.
- * @param {boolean} [initial=false] Keep an existing state instead of overwriting it.
- * @returns {Promise<boolean>} The effective pin state.
+ * @param {boolean} pinned The chosen state.
+ * @returns {Promise<boolean>} The stored pin state.
  */
-export function windowPin(windowId, pinned, initial = false) {
+export function windowPin(windowId, pinned) {
   const result = sessionWrites.then(async () => {
     const {windowPins = {}} = await chrome.storage.session.get('windowPins');
-    if (initial && typeof windowPins[windowId] === 'boolean') return windowPins[windowId];
     windowPins[windowId] = pinned;
     const keys = Object.keys(windowPins);
     while (keys.length > 100) delete windowPins[keys.shift()];

@@ -59,7 +59,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | local | `preferences`, `accounts`, `selectedAccounts`, `bookmarks`, `localViewed` | Read through `readStore`; written through `writeStore`. Accounts include tokens. |
 | local | `treeCache` | Persisted trees by account, host, repository and revision. |
 | local | `syncSettings` | This device's Sync state. |
-| session | `windowPins`, `oauthDevice` | Pin state per window; pending GitHub device authorization. |
+| session | `windowPins`, `oauthDevice` | Pins chosen with the window pin button (other windows follow the default); pending GitHub device authorization. |
 | sync | `codetreeSyncSnapshot` | Only when Sync is enabled: preferences and bookmark URLs/titles/dates. |
 
 ## Content script
