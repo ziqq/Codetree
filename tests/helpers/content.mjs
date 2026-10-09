@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Bundles the content factories with the same generated icon data as the shipped extension.
  */
 
-/** Bundles the content factories with the same generated icon data as the shipped extension. */
 import {build} from 'esbuild';
 import {fileIconsModule} from '../../scripts/file-icons.mjs';
 import {root} from '../../scripts/build.mjs';

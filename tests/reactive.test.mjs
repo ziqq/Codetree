@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Regression contracts for dependency tracking, scheduling, ownership and errors.
  */
 
-/** Regression contracts for dependency tracking, scheduling, ownership and errors. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {

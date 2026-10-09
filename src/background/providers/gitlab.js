@@ -2,17 +2,14 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * GitLab REST adapter for gitlab.com and self-managed GitLab.
  *
  * Uses the broker's host-bound client and caches. Projects may live in
  * nested namespaces. Folders load one level at a time, and Viewed marks
  * are always local because GitLab has no API for them.
- *
- * @module background/providers/gitlab
  */
+
 import * as C from '../../shared/routes.js';
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {saveLocalViewed} from '../storage.js';
@@ -74,8 +71,8 @@ async function initialize(context, api) {
     return {
       repository,
       ref: project.default_branch || '',
-      commitSha: null,
-      treeSha: null,
+      commitSHA: null,
+      treeSHA: null,
       path: '',
       account: api.account?.login || null,
     };
@@ -103,8 +100,8 @@ async function initialize(context, api) {
   return {
     repository,
     ref,
-    commitSha: commit.id,
-    treeSha: commit.id,
+    commitSHA: commit.id,
+    treeSHA: commit.id,
     path: context.tail ? context.tail.slice(ref.length).replace(/^\//, '') : '',
     account: api.account?.login || null,
   };
@@ -390,17 +387,17 @@ export async function handle(message, context, api, store) {
       );
     case 'VIEWED': {
       if (context.kind !== 'pull') throw new Error('Viewed marks are available on merge requests.');
-      const headSha = sha(message.headSha);
+      const headSHA = sha(message.headSHA);
       const value = await diff(context, api, memo, false);
-      if (value.head.sha !== headSha)
+      if (value.head.sha !== headSHA)
         throw new Error('The merge request changed. Refresh the file list before marking a file as viewed.');
       if (!value.files.some(item => item.filename === message.path))
         throw new Error('This file is not part of the merge request.');
       const request = await api.json(`${root}/merge_requests/${context.number}`, 15000, true);
-      if (request.diff_refs?.head_sha !== headSha)
+      if (request.diff_refs?.head_sha !== headSHA)
         throw new Error('The merge request changed. Refresh the file list before marking a file as viewed.');
       const state = message.viewed ? 'VIEWED' : 'UNVIEWED';
-      await saveLocalViewed(`${api.prefix}:${root}:${context.number}:${headSha}`, message.path, state);
+      await saveLocalViewed(`${api.prefix}:${root}:${context.number}:${headSHA}`, message.path, state);
       return {state, mode: 'local'};
     }
     case 'REFRESH':

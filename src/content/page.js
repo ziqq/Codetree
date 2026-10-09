@@ -2,14 +2,11 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Reads the current GitHub or GitLab page: its repository context, signed-in
  * user, branch hint, theme and provider wording.
- *
- * @module content/page
  */
+
 import {pageVisible} from '../shared/preferences.js';
 import {route} from '../shared/routes.js';
 

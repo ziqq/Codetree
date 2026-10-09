@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Host-bound GitHub and GitLab API client.
  *
  * Tokens never leave the service worker. Requests are sent only to the
  * API of the context's own host, with the token in the `Authorization`
  * header, `credentials: 'omit'`, `redirect: 'error'` and a 25-second
  * timeout.
- *
- * @module background/client
  */
+
 import {clearCache, memo} from './cache.js';
 import {accountFor, providerFor} from './hosts.js';
 import {listBudget, responseBytes, responseJSON} from './http.js';

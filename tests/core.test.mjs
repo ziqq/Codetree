@@ -2,12 +2,11 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Full-file diff reconstruction: LF/CRLF handling, added/deleted files and
  * rejection of mismatched or truncated patches.
  */
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {fullDiff} from '../src/shared/diff.js';

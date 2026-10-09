@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Validates the extension stylesheets without a full CSS linter.
  *
  * Checks syntax and seven rule categories against MDN data plus the
@@ -14,6 +12,7 @@
  *
  * Usage: `node scripts/check-css.mjs`.
  */
+
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 import postcss from 'postcss';

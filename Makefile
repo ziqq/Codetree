@@ -3,6 +3,8 @@
 # Copyright (C) 2026 Anton Ustinoff
 # https://github.com/ziqq/Codetree/blob/main/LICENSE
 #
+# Shortcuts for checks, builds, packages and release tags.
+#
 
 SHELL   :=/bin/bash -e -o pipefail
 PWD     :=$(shell pwd)

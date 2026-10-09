@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Mutable sidebar state.
  *
  * Asynchronous replies are applied only if the state still describes the
@@ -15,9 +13,8 @@
  * - `viewGeneration`: tab switches and request-list loads.
  * - `refreshGeneration`: Refresh.
  * - `branchGeneration`: branch-list loads.
- *
- * @module content/state
  */
+
 import {defaults} from '../shared/preferences.js';
 import {makeTree} from '../shared/tree.js';
 import {createSetSignal, createSignal} from './reactive.js';

@@ -2,17 +2,13 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Repository routes and URLs for GitHub and GitLab.
  *
  * Pure functions shared by the service worker, the content script and
  * Settings. A *context* is the parsed route of a repository page:
  * `{origin, provider, owner, repo, kind, tail, path, number?, sha?, refHint?}`,
  * where `kind` is `repo`, `tree`, `blob`, `blame`, `raw`, `pull` or `commit`.
- *
- * @module shared/routes
  */
 
 /**

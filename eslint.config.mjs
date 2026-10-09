@@ -2,6 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * ESLint configuration: recommended rules, browser and extension globals for
+ * `src/`, service-worker globals for `src/background/` and Node.js globals
+ * for scripts and tests.
  */
 
 import js from '@eslint/js';

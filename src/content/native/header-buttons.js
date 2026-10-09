@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * "View full" buttons in native GitHub and GitLab diff file headers.
  *
  * Provider markup changes over time, so several header layouts are
  * supported (GitHub React and legacy, GitLab RapidDiffs and legacy).
  * Insertion is idempotent: re-rendered headers get exactly one button,
  * and navigation removes all of them.
- *
- * @module content/native/header-buttons
  */
+
 import {icon} from '../../shared/icons.js';
 import {route} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
@@ -138,8 +135,8 @@ export function createHeaderButtons(app) {
    * Works with a closed sidebar: the diff is loaded on demand, and errors
    * offer account connection and retry.
    */
-  async function showHeaderDiff(path, cardId) {
-    const file = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+  async function showHeaderDiff(path, cardID) {
+    const file = fullViewPaths.get(path) || fullViewPaths.get(cardID);
     if (file && state.diff) {
       await app.showDiff(diffNode(file));
       return;
@@ -155,7 +152,7 @@ export function createHeaderButtons(app) {
       app.applyDiff(diff);
       await prepareHeaderButtons(diff, epoch);
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
-      const matched = fullViewPaths.get(path) || fullViewPaths.get(cardId);
+      const matched = fullViewPaths.get(path) || fullViewPaths.get(cardID);
       if (!matched) throw new Error('This file is not in the current review. Refresh the page and try again.');
       await app.showDiff(diffNode(matched));
     } catch (error) {
@@ -172,7 +169,7 @@ export function createHeaderButtons(app) {
             type: 'button',
             class: 'small-button',
             text: 'Retry',
-            onClick: run(() => showHeaderDiff(path, cardId)),
+            onClick: run(() => showHeaderDiff(path, cardID)),
           }),
         ]),
       );

@@ -2,16 +2,13 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Local bookmarks for pages on enabled repository hosts.
  *
  * Bookmarks are stored by the service worker and included in browser Sync
  * only when the user enables it.
- *
- * @module content/sidebar/bookmarks
  */
+
 import {icon} from '../../shared/icons.js';
 import {button, el, empty} from '../dom.js';
 import {requestName} from '../page.js';

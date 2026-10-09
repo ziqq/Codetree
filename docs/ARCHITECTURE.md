@@ -59,7 +59,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | local | `preferences`, `accounts`, `selectedAccounts`, `bookmarks`, `localViewed` | Read through `readStore`; written through `writeStore`. Accounts include tokens. |
 | local | `treeCache` | Persisted trees by account, host, repository and revision. |
 | local | `syncSettings` | This device's Sync state. |
-| session | `windowPins`, `oauthDevice` | Pin state per window; pending GitHub device authorization. |
+| session | `windowPins`, `oauthDevice` | Pins chosen with the window pin button (other windows follow the default); pending GitHub device authorization. |
 | sync | `codetreeSyncSnapshot` | Only when Sync is enabled: preferences and bookmark URLs/titles/dates. |
 
 ## Content script
@@ -103,10 +103,11 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 - `core.test.mjs`: full-file diff validation.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
+- `window-pins.test.mjs`: the default pin edited by Settings and per-window pins chosen with the pin button, through the bundled service worker.
 - `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order.
 - `reactive.test.mjs`, `reactive-dom.test.mjs`: dependency graphs, lazy equality cutoffs, render/effect ordering, owners, error draining and listener/frame/timer cleanup.
 - `sidebar-reactive.test.mjs`: persistent control focus, searched counts, background Files status, header updates, atomic diff rows, account rollback and keyboard tab stops through the content factories with synthetic DOM/RPC fixtures.
-- `options-reactive.test.mjs`: stored and normalized preferences, unsaved form preservation, Sync errors and OAuth timer cleanup through the bundled Settings entry point with synthetic browser events.
+- `options-reactive.test.mjs`: stored and normalized preferences, unsaved form preservation (including edits of fields that another save did not change), Sync errors and OAuth timer cleanup through the bundled Settings entry point with synthetic browser events.
 - `release.test.mjs`: release and store workflow behavior.
 
 Browser behavior, authenticated APIs and store publication need the manual checks in [Contributing](../CONTRIBUTING.md) and [Verification](VERIFICATION.md).

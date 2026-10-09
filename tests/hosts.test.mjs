@@ -2,13 +2,12 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Request-context validation for repository pages: contexts built like the
  * content script's must pass, and branch or path segments that could reach
  * API paths must not.
  */
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {validateContext} from '../src/background/hosts.js';

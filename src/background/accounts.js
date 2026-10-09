@@ -2,20 +2,17 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Connected accounts, custom-host content scripts and the public state
  * shared with pages.
- *
- * @module background/accounts
  */
+
 import {preferences} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {clearCache} from './cache.js';
 import {client} from './client.js';
 import {enabledBookmarks, origins, providerFor} from './hosts.js';
-import {readStore, windowPin, writeStore} from './storage.js';
+import {readStore, writeStore} from './storage.js';
 import * as sync from './sync.js';
 
 /**
@@ -23,8 +20,10 @@ import * as sync from './sync.js';
  *
  * Accounts are reduced to their ID, host, username, label and provider;
  * tokens are never included. Pages receive only the accounts and account
- * selection of their own host and bookmarks for enabled hosts. Pinning
- * reflects the sender's window, and only Settings receives the Sync status.
+ * selection of their own host and bookmarks for enabled hosts. A page's
+ * pinning is the pin chosen in its window, or the stored default until a
+ * pin is chosen there; Settings always receives the stored default, which
+ * it edits. Only Settings receives the Sync status.
  *
  * @param {Object} store The stored data.
  * @param {chrome.runtime.MessageSender} sender The requesting page or Settings.
@@ -34,10 +33,10 @@ export async function publicState(store, sender) {
   const value = preferences(store.preferences);
   const isOptions = sender?.url === chrome.runtime.getURL('options.html');
   const visible = origin => isOptions || origin === new URL(sender?.url || 'about:blank').origin;
-  if (Number.isInteger(sender?.tab?.windowId)) {
+  // Settings opened in a tab also has a window; it must show and save the default, not that window's pin.
+  if (!isOptions && Number.isInteger(sender?.tab?.windowId)) {
     const {windowPins = {}} = await chrome.storage.session.get('windowPins');
     if (typeof windowPins[sender.tab.windowId] === 'boolean') value.pinned = windowPins[sender.tab.windowId];
-    else value.pinned = await windowPin(sender.tab.windowId, value.pinned, true);
   }
   return {
     preferences: value,

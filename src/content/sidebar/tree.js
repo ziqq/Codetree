@@ -2,17 +2,14 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Virtualized tree rows, keyboard navigation, Viewed marks and navigation
  * to files and native diffs.
  *
  * Only the rows in the scrolled viewport (plus a small buffer) exist in
  * the DOM, so large repositories stay responsive.
- *
- * @module content/sidebar/tree
  */
+
 import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
@@ -153,7 +150,7 @@ export function createTree(app) {
           row.append(full);
           if (state.diff?.viewedMode !== 'none') {
             const context = state.context;
-            const headSha = state.diff.head.sha;
+            const headSHA = state.diff.head.sha;
             const epoch = state.epoch;
             const generation = state.filesGeneration;
             const alive = app.pageAlive || (() => true);
@@ -171,12 +168,12 @@ export function createTree(app) {
                 const viewed = checkbox.checked;
                 checkbox.disabled = true;
                 try {
-                  const result = await app.rpc('VIEWED', {context, headSha, path: node.path, viewed});
+                  const result = await app.rpc('VIEWED', {context, headSHA, path: node.path, viewed});
                   if (
                     !alive() ||
                     epoch !== state.epoch ||
                     generation !== state.filesGeneration ||
-                    state.diff?.head.sha !== headSha
+                    state.diff?.head.sha !== headSHA
                   )
                     return;
                   node.viewed = result.state === 'VIEWED';

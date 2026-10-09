@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Extension Settings: appearance, navigation, browser Sync and accounts.
  *
  * Settings never stores tokens itself: every change is sent to the
  * service worker, which validates and stores it. Optional host and
  * `identity` permissions are requested here because Chrome requires a
  * user gesture.
- *
- * @module options/index
  */
+
 import {fontFamilies, preferences, validateNavigation} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {
@@ -177,9 +174,17 @@ createRoot(dispose =>
         preview.style.fontSize = `${appearance.elements.fontSize.value || 12}px`;
       }
 
-      /** Fills the appearance and navigation forms from the stored preferences. */
-      function renderPreferences() {
-        for (const [key, value] of Object.entries(state.preferences)) {
+      /**
+       * Fills appearance and navigation fields from the stored preferences.
+       *
+       * Only [keys] are written, so unsaved edits of other fields survive a
+       * change saved elsewhere (sidebar, Sync or the other form).
+       *
+       * @param {Array<string>} [keys] The fields to fill; all by default.
+       */
+      function renderPreferences(keys = Object.keys(state.preferences)) {
+        for (const key of keys) {
+          const value = state.preferences[key];
           const field = appearance.elements.namedItem(key) || navigation.elements.namedItem(key);
           if (field) {
             if (field.type === 'checkbox') field.checked = value;
@@ -298,6 +303,11 @@ createRoot(dispose =>
           accounts.append(row);
         }
       }
+      /** Saves [value] from a form and shows the stored values of its fields, for example normalized ones. */
+      async function savePreferences(value) {
+        state.preferences = await rpc('PREFERENCES', {value});
+        renderPreferences(Object.keys(value));
+      }
       appearance.addEventListener('input', showFont);
       appearance.addEventListener('submit', async event => {
         event.preventDefault();
@@ -310,7 +320,7 @@ createRoot(dispose =>
           pinned: appearance.elements.pinned.checked,
         };
         try {
-          state.preferences = await rpc('PREFERENCES', {value});
+          await savePreferences(value);
           status(appearanceStatus, 'Saved. Refresh your repository page to apply.');
           await refreshSync();
         } catch (error) {
@@ -329,7 +339,7 @@ createRoot(dispose =>
         const output = document.getElementById('navigation-status');
         try {
           validateNavigation(value);
-          state.preferences = await rpc('PREFERENCES', {value});
+          await savePreferences(value);
           status(output, 'Saved. Refresh your repository page to apply.');
           await refreshSync();
         } catch (error) {
@@ -413,8 +423,8 @@ createRoot(dispose =>
       createRenderEffect(
         on(
           () => state.preferences,
-          value => {
-            if (value) renderPreferences();
+          (value, previous) => {
+            if (value) renderPreferences(Object.keys(value).filter(key => !previous || previous[key] !== value[key]));
           },
         ),
         undefined,

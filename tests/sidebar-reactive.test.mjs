@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Reactive sidebar regressions through the real factories, with synthetic DOM/RPC fixtures.
  */
 
-/** Reactive sidebar regressions through the real factories, with synthetic DOM/RPC fixtures. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';
@@ -54,7 +55,7 @@ function sidebar(t, rpc = () => Promise.resolve({pulls: [], total: 0})) {
     Object.assign(app.state, {
       epoch: 1,
       context: {origin, provider: 'github', owner: 'sample', repo: 'repo', kind: 'repository'},
-      info: {ref: 'main', treeSha: 'a'.repeat(40), repository: {}},
+      info: {ref: 'main', treeSHA: 'a'.repeat(40), repository: {}},
       public: publicData,
       preferences: {...app.state.preferences, iconTheme: 'minimal'},
     });
@@ -211,7 +212,7 @@ test('a new page resets repository and disables Branch before STATE or INIT repl
   assert.equal(ui.view.branchButton.disabled, true);
   assert.equal(ui.view.branchLabel.textContent, 'Branch');
   stateReply.resolve({...publicData, preferences: ui.state.preferences});
-  initReply.resolve({ref: 'next', treeSha: 'b'.repeat(40), repository: {}});
+  initReply.resolve({ref: 'next', treeSHA: 'b'.repeat(40), repository: {}});
   await pending;
   assert.equal(ui.view.branchButton.disabled, false);
   assert.equal(ui.view.branchLabel.textContent, 'next');

@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Generates the content-script icon table from the vendored file-icons/atom
  * rules (`icondb.cjs`), glyph metrics (`icons.less`), colours
  * (`colours.less`) and fonts.
@@ -15,6 +13,7 @@
  * for Atom's dark and light themes. Unknown constructs fail the build
  * instead of producing wrong icons.
  */
+
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';

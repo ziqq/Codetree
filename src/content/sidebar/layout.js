@@ -2,13 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Sidebar placement, theme, code font and page padding.
  */
 
-/**
- * Sidebar placement, theme, code font and page padding.
- *
- * @module content/sidebar/layout
- */
 import pageStyles from 'virtual:page-styles';
 import {fontFamilies, preferences} from '../../shared/preferences.js';
 import {isDark} from '../page.js';
