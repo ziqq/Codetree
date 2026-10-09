@@ -125,3 +125,24 @@ test('overlapping loads in the same mode keep the newest tree', async () => {
     ['new.js'],
   );
 });
+
+test('loading all folders rebuilds the tree once per four folders', async () => {
+  const ui = sidebar((type, value) => Promise.resolve({entries: [{path: `${value.path}.js`, type: 'blob'}]}));
+  ui.state.entries = ['a', 'b', 'c', 'd'].map(path => ({path, type: 'tree', sha: 'c'.repeat(40), loaded: false}));
+  let tree = makeTree(ui.state.entries);
+  let builds = 0;
+  Object.defineProperty(ui.state, 'tree', {
+    get: () => tree,
+    set: value => {
+      builds++;
+      tree = value;
+    },
+  });
+  await ui.loadAllFolders();
+  assert.equal(builds, 1);
+  assert.equal(ui.state.lazy, false);
+  assert.deepEqual(
+    Array.from(tree.nodes.values(), node => node.path).filter(path => path.endsWith('.js')),
+    ['a/a.js', 'b/b.js', 'c/c.js', 'd/d.js'],
+  );
+});

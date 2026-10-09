@@ -98,7 +98,10 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 - `core.test.mjs`: full-file diff validation.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
-- `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order.
+- `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order; one tree rebuild per four lazily loaded folders.
+- `reactive.test.mjs`: the reactive primitives and their browser helpers.
+- `sidebar.test.mjs`: the composed sidebar on a minimal fake DOM (`tests/support/`): toolbar focus, other tabs left alone by background loads, search counts, header updates, the keyboard tab stop and changed-file rows reloaded with a new review diff.
+- `settings.test.mjs`: Settings keeps preferences changed elsewhere and shows stored values.
 - `release.test.mjs`: release and store workflow behavior.
 
 Browser behavior, authenticated APIs and store publication need the manual checks in [Contributing](../CONTRIBUTING.md) and [Verification](VERIFICATION.md).

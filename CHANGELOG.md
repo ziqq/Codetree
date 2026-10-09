@@ -2,6 +2,7 @@
 
 ## 0.3.1
 
+- **ADDED**: regressions for the reactive primitives, sidebar rendering and Settings preferences on a minimal fake DOM
 - **ADDED**: Chrome Web Store listing fields, privacy answers, screenshots and promo images in `docs/STORE_LISTING.md` and `docs/store/`
 - **CHANGED**: new Codetree extension icon matching the store icon
 - **CHANGED**: README previews replaced with light/dark captures of the installed extension on public GitHub and GitLab pages

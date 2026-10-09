@@ -46,7 +46,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
-`npm test` runs approved regressions for Viewed revision checks against the bundled service worker, asynchronous tree loading through the content factories, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
+`npm test` runs approved regressions for Viewed revision checks against the bundled service worker, asynchronous tree loading through the content factories, reactive primitives, sidebar rendering and Settings preferences on a minimal fake DOM (`tests/support/`), full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
 
 ## Coding conventions
 
