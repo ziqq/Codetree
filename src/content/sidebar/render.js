@@ -2,14 +2,11 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Reactive tab chrome, persistent toolbar controls and active-tab body.
  * Rendering stays imperative; hidden tabs do not subscribe to their data.
- *
- * @module content/sidebar/render
  */
+
 import {button, el, empty} from '../dom.js';
 import {providerName, requestName} from '../page.js';
 import {batch, createMemo, createRenderEffect, on} from '../reactive.js';

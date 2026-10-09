@@ -2,17 +2,14 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * User preferences, keyboard shortcuts and page-display rules.
  *
  * The service worker normalizes stored and synced values with
  * [preferences]; Settings and the content script use the same helpers so
  * every context accepts exactly the same values.
- *
- * @module shared/preferences
  */
+
 import {repoURL} from './routes.js';
 
 /** Default preferences used for new installations and invalid values. */

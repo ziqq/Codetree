@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Synchronous fine-grained reactivity with SolidJS semantics.
  *
  * The API mirrors Solid: `createSignal`, `createMemo`, `createRenderEffect`,
@@ -27,8 +25,6 @@
  *
  * The module has no side effects and uses no DOM, timers or microtasks, so
  * it runs unchanged under `node --test`.
- *
- * @module content/reactive
  */
 
 /** The owner that new computations and cleanups attach to, or `null`. */

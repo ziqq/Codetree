@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Composes the sidebar and binds page-level events.
  *
  * Features are factories `createX(app)` that receive one shared `app`
  * object and return their functions, which are merged into `app`.
  * Features call each other only through `app` at run time, so a test can
  * create a single feature with stubs for the rest.
- *
- * @module content/app
  */
+
 import {shortcutMatches} from '../shared/preferences.js';
 import {createHeaderButtons} from './native/header-buttons.js';
 import {createNavigation} from './navigation.js';

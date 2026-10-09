@@ -2,14 +2,11 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Page navigation, reactive repository header, tabs and Refresh.
  * Page roots release repository resources; request generations still reject stale replies.
- *
- * @module content/navigation
  */
+
 import {repoURL} from '../shared/routes.js';
 import {makeTree} from '../shared/tree.js';
 import {el} from './dom.js';

@@ -1,10 +1,9 @@
-#
-# https://github.com/ziqq/Codetree
-# Copyright (C) 2026 Anton Ustinoff
-# https://github.com/ziqq/Codetree/blob/main/LICENSE
-#
+"""
+https://github.com/ziqq/Codetree
+Copyright (C) 2026 Anton Ustinoff
+https://github.com/ziqq/Codetree/blob/main/LICENSE
 
-"""Package and verify a deterministic Chrome extension ZIP from the bundled build/ directory.
+Package and verify a deterministic Chrome extension ZIP from the bundled build/ directory.
 
 The ZIP contains the bundled runtime files, PRIVACY.md, THIRD_PARTY_NOTICES.md and
 LICENSE, with `manifest.json` at its root. Entries are sorted, stored without

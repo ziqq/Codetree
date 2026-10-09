@@ -2,16 +2,12 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Reconstructs a full-file diff from two file revisions and their patch.
  *
  * Every patch line is checked against both revisions, so a truncated,
  * mismatched or reordered patch is rejected instead of being shown as a
  * complete diff.
- *
- * @module shared/diff
  */
 
 /**

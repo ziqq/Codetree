@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Optional browser Sync of preferences and bookmarks.
  *
  * Off by default and enabled per device in Settings. One versioned
@@ -15,9 +13,8 @@
  * The newest `updatedAt` wins. Enabling merges remote bookmarks with local
  * ones by URL, keeping local details for duplicates. Only the trusted
  * service worker loads this module.
- *
- * @module background/sync
  */
+
 import * as C from '../shared/preferences.js';
 
 /** `chrome.storage.sync` key of the shared snapshot. */

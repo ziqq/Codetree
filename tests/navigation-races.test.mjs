@@ -2,12 +2,11 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Branch, Refresh and review-filter races in the content navigation, branch and
  * request factories: replies for a previous page, filter or refresh are ignored.
  */
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createNavigation} from '../src/content/navigation.js';

@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Service-worker entry point: the trusted message broker.
  *
  * Repository pages and Settings send `{type, context?, …}` messages and
@@ -16,9 +14,8 @@
  *   bookmarks and window pin, and request data from its own host.
  *
  * Tokens stay in this worker; error messages are redacted before replying.
- *
- * @module background/index
  */
+
 import {preferences, validateNavigation} from '../shared/preferences.js';
 import {normalizeOrigin} from '../shared/routes.js';
 import {publicState, registerEnterpriseScripts, removeAccount, saveAccount} from './accounts.js';

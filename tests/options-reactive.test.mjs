@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Settings regressions through the bundled entry point and synthetic broker/storage events.
  */
 
-/** Settings regressions through the bundled entry point and synthetic broker/storage events. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';

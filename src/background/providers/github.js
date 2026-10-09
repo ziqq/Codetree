@@ -2,16 +2,13 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * GitHub REST and GraphQL adapter for github.com and GitHub Enterprise Server.
  *
  * Uses the broker's host-bound client and caches. Viewed marks use GitHub's
  * own GraphQL state when the account can read it, and local marks otherwise.
- *
- * @module background/providers/github
  */
+
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {listBudget} from '../http.js';
 import {saveLocalViewed} from '../storage.js';

@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * OAuth sign-in for github.com (device flow) and gitlab.com (authorization
  * code with PKCE), and token refresh.
  *
  * Requests go directly to the provider without cookies, redirects or a
  * client secret. A pending GitHub device authorization is kept in session
  * storage so Settings can resume polling after it is reopened.
- *
- * @module background/oauth/flow
  */
+
 import {responseJSON} from '../http.js';
 import {oauthConfig as config} from './config.js';
 

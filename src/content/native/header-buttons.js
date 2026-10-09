@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * "View full" buttons in native GitHub and GitLab diff file headers.
  *
  * Provider markup changes over time, so several header layouts are
  * supported (GitHub React and legacy, GitLab RapidDiffs and legacy).
  * Insertion is idempotent: re-rendered headers get exactly one button,
  * and navigation removes all of them.
- *
- * @module content/native/header-buttons
  */
+
 import {icon} from '../../shared/icons.js';
 import {route} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';

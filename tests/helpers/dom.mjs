@@ -2,9 +2,9 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Small DOM fixture for content factories; browser layout and native host selectors are not simulated.
  */
-
-/** Small DOM fixture for content factories; browser layout and native host selectors are not simulated. */
 
 /** Element/text nodes with event handlers, focus and the selectors used by the tested factories. */
 export class Node {

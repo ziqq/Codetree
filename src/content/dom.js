@@ -2,16 +2,13 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Explicit DOM construction helpers.
  *
  * Server and user text is always set with `textContent`; no HTML strings
  * are parsed.
- *
- * @module content/dom
  */
+
 import {icon} from '../shared/icons.js';
 
 /**

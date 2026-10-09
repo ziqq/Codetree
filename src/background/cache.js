@@ -2,9 +2,7 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Bounded API caches.
  *
  * - The memory cache keeps up to 80 entries / 12 MiB of API responses with
@@ -14,9 +12,8 @@
  *
  * Every clear increments a generation; replies started before the clear
  * are returned to their caller but never written back into the cache.
- *
- * @module background/cache
  */
+
 import {storageReady} from './storage.js';
 
 /** API responses by key: `{value, expires, size}`, oldest first. */

@@ -2,18 +2,15 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Loads the repository tree or the changed files of a request, including
  * lazily loaded folders, and remembers expanded folders per repository,
  * ref and mode.
  *
  * Every load captures the epoch and `filesGeneration`; replies for an
  * older page, mode or tree are discarded.
- *
- * @module content/sidebar/files
  */
+
 import {makeTree} from '../../shared/tree.js';
 import {batch, withOwner} from '../reactive.js';
 

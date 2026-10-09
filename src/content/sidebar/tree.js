@@ -2,17 +2,14 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * Virtualized tree rows, keyboard navigation, Viewed marks and navigation
  * to files and native diffs.
  *
  * Only the rows in the scrolled viewport (plus a small buffer) exist in
  * the DOM, so large repositories stay responsive.
- *
- * @module content/sidebar/tree
  */
+
 import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';

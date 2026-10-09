@@ -2,12 +2,8 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
- * The repository tree model used by the virtualized sidebar.
  *
- * @module shared/tree
+ * The repository tree model used by the virtualized sidebar.
  */
 
 /**

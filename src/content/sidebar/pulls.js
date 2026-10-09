@@ -2,13 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Open pull/merge request list with review-state filters.
  */
 
-/**
- * Open pull/merge request list with review-state filters.
- *
- * @module content/sidebar/pulls
- */
 import {icon} from '../../shared/icons.js';
 import {pullURL} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';

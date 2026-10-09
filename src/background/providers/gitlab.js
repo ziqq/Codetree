@@ -2,17 +2,14 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
- */
-
-/**
+ *
  * GitLab REST adapter for gitlab.com and self-managed GitLab.
  *
  * Uses the broker's host-bound client and caches. Projects may live in
  * nested namespaces. Folders load one level at a time, and Viewed marks
  * are always local because GitLab has no API for them.
- *
- * @module background/providers/gitlab
  */
+
 import * as C from '../../shared/routes.js';
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {saveLocalViewed} from '../storage.js';

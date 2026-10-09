@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Reactive sidebar regressions through the real factories, with synthetic DOM/RPC fixtures.
  */
 
-/** Reactive sidebar regressions through the real factories, with synthetic DOM/RPC fixtures. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';

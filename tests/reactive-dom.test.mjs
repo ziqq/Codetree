@@ -2,9 +2,10 @@
  * https://github.com/ziqq/Codetree
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Browser helper lifetime and scheduling contracts with controlled clocks.
  */
 
-/** Browser helper lifetime and scheduling contracts with controlled clocks. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createEffect, createRoot, createSignal, getOwner, runWithOwner} from '../src/content/reactive.js';
