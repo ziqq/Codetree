@@ -1,7 +1,7 @@
 {
   "name": "codetree",
   "description": "Chrome extension: code tree, file search, PR/MR review and full-file diffs for GitHub and GitLab. Development, bundling and packaging tools; the extension has no runtime dependencies.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "type": "module",

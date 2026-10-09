@@ -1,12 +1,7 @@
 # Changelog
 
-## 0.3.1
+## 0.4.0
 
-- **ADDED**: Chrome Web Store listing fields, privacy answers, screenshots and promo images in `docs/STORE_LISTING.md` and `docs/store/`
-- **CHANGED**: new Codetree extension icon matching the store icon
-- **CHANGED**: README previews replaced with light/dark captures of the installed extension on public GitHub and GitLab pages
-- **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
-- **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
 - **CHANGED**: sidebar and Settings use dependency-free signals, lazy memos and owned effects; search is debounced, counts respect search in every tab and tree rows remain virtualized
 - **CHANGED**: every source file's license header contains its module description, and abbreviations in Codetree's own names are upper case (`clientID`, `treeSHA`, `headSHA`, `redirectURI`)
 - **FIXED**: sidebar filters retain keyboard focus, background tree loads preserve other tabs, folder groups rebuild the tree once, and navigation/Refresh update the repository header consistently
@@ -14,17 +9,25 @@
 - **FIXED**: Settings follows stored preference changes and displays normalized saved navigation values, preventing stale appearance fields from overwriting sidebar or Sync changes
 - **FIXED**: full-file syntax colors follow GitHub's current tokens and GitLab's selected native code styles; Dart types, annotations, `this` and operators use their proper categories
 - **FIXED**: release workflow tests require the Chrome Web Store item ID from `secrets.CWS_EXTENSION_ID` for release notes and submission
-- **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
-- **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot
-- **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
-- **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
-- **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
-- **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, , the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
+- **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
 - **FIXED**: unpinning in Settings is kept after reloading Settings and applies to windows without their own pin after a refresh; only the sidebar's pin button sets a per-window pin
 - **FIXED**: a preference saved in the sidebar, by Sync or in the other Settings form no longer discards unsaved edits of other Settings fields
 - **FIXED**: the full-file viewer keeps its GitHub and GitLab syntax colors when the page does not define theme variables, and comments are italic unless GitLab's theme says otherwise
 - **FIXED**: dragging the sidebar edge on GitLab no longer reads the native code colors on every step; they are read on page, theme and stylesheet changes and when the viewer opens
 - **FIXED**: Settings restored from the back/forward cache keeps updating, a bookmark change is confirmed even if another page opened meanwhile, and a late dialog `close` event no longer closes a newly opened viewer
+
+## 0.3.1
+
+- **ADDED**: Chrome Web Store listing fields, privacy answers, screenshots and promo images in `docs/STORE_LISTING.md` and `docs/store/`
+- **CHANGED**: new Codetree extension icon matching the store icon
+- **CHANGED**: README previews replaced with light/dark captures of the installed extension on public GitHub and GitLab pages
+- **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
+- **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
+- **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
+- **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot
+- **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
+- **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
+- **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
 
 ## 0.3.0
 
