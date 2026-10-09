@@ -166,6 +166,24 @@ test('stored sidebar/Sync appearance changes reach the form before another appea
   assert.equal(save.value.iconTheme, 'minimal');
 });
 
+test('a preference saved elsewhere keeps unsaved edits of other fields', async t => {
+  const ui = await settings(t);
+  const appearance = ui.element('appearance-form');
+  const navigation = ui.element('navigation-form');
+  appearance.elements.fontSize.value = '16';
+  navigation.elements.hidePatterns.value = '/sample/repo/wiki/*';
+  await ui.stored({...defaults, width: 420});
+  assert.equal(appearance.elements.width.value, 420);
+  assert.equal(appearance.elements.fontSize.value, '16');
+  assert.equal(navigation.elements.hidePatterns.value, '/sample/repo/wiki/*');
+  await appearance.fire('submit');
+  assert.equal(
+    navigation.elements.hidePatterns.value,
+    '/sample/repo/wiki/*',
+    'an Appearance save keeps Navigation edits',
+  );
+});
+
 test('navigation save displays the broker-normalized values', async t => {
   const ui = await settings(t);
   const navigation = ui.element('navigation-form');
