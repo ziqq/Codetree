@@ -34,8 +34,8 @@ export function createBookmarks(app) {
         ? {remove: existing.id}
         : {url: location.href, title: document.title.replace(/ [·|] (GitHub|GitLab)$/, '')},
     );
-    if (!alive() || epoch !== state.epoch) return;
-    state.public = {...state.public, bookmarks};
+    if (alive() && epoch === state.epoch) state.public = {...state.public, bookmarks};
+    // The change is saved even if another page opened meanwhile, so it is always confirmed.
     app.toast(existing ? 'Bookmark removed.' : 'Page bookmarked on this browser.');
   }
 

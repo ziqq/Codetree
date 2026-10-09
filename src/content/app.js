@@ -141,7 +141,7 @@ export function mount() {
         chrome.runtime.onMessage.addListener(onMessage);
         onCleanup(() => chrome.runtime.onMessage.removeListener(onMessage));
         // Follow provider theme switches and re-insert header buttons after page updates.
-        const themeObserver = new MutationObserver(withOwner(app.layout));
+        const themeObserver = new MutationObserver(withOwner(app.updateTheme));
         onCleanup(() => themeObserver.disconnect());
         themeObserver.observe(document.documentElement, {
           attributes: true,
@@ -159,7 +159,7 @@ export function mount() {
           headersObserver.observe(document.body, {childList: true, subtree: true});
           onCleanup(() => headersObserver.disconnect());
         }
-        listen(matchMedia('(prefers-color-scheme: dark)'), 'change', app.layout);
+        listen(matchMedia('(prefers-color-scheme: dark)'), 'change', app.updateTheme);
         listen(
           window,
           'resize',

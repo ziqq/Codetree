@@ -448,7 +448,10 @@ createRoot(dispose =>
         undefined,
         {name: 'Settings Sync saving'},
       );
-      listen(window, 'pagehide', dispose, {once: true});
+      // A page kept in the back/forward cache is restored with its bindings, so only a real unload disposes them.
+      listen(window, 'pagehide', event => {
+        if (!event.persisted) dispose();
+      });
     },
     error => {
       document.getElementById('page-error').textContent = error.message;

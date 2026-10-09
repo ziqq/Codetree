@@ -22,6 +22,9 @@
 - **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, , the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
 - **FIXED**: unpinning in Settings is kept after reloading Settings and applies to windows without their own pin after a refresh; only the sidebar's pin button sets a per-window pin
 - **FIXED**: a preference saved in the sidebar, by Sync or in the other Settings form no longer discards unsaved edits of other Settings fields
+- **FIXED**: the full-file viewer keeps its GitHub and GitLab syntax colors when the page does not define theme variables, and comments are italic unless GitLab's theme says otherwise
+- **FIXED**: dragging the sidebar edge on GitLab no longer reads the native code colors on every step; they are read on page, theme and stylesheet changes and when the viewer opens
+- **FIXED**: Settings restored from the back/forward cache keeps updating, a bookmark change is confirmed even if another page opened meanwhile, and a late dialog `close` event no longer closes a newly opened viewer
 
 ## 0.3.0
 
