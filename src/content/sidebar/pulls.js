@@ -4,6 +4,7 @@
  * @module content/sidebar/pulls
  */
 import {icon} from '../../shared/icons.js';
+import {batch} from '../../shared/reactive.js';
 import {pullURL} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {requestName} from '../page.js';
@@ -25,22 +26,24 @@ export function createPulls(app) {
     const generation = (state.viewGeneration = (state.viewGeneration || 0) + 1);
     const current = () =>
       epoch === state.epoch && generation === state.viewGeneration && filter === state.filter && state.tab === tab;
-    state.loading = true;
-    state.error = '';
-    app.render();
+    batch(() => {
+      state.loading = true;
+      state.error = '';
+    });
     try {
       const result = await app.rpc('PULLS', {filter});
       if (!current()) return;
-      state.pulls = result.pulls;
-      state.totalPulls = result.total;
-      state.loading = false;
-      app.render();
-    } catch (error) {
-      if (current()) {
+      batch(() => {
+        state.pulls = result.pulls;
+        state.totalPulls = result.total;
         state.loading = false;
-        state.error = error.message;
-        app.render();
-      }
+      });
+    } catch (error) {
+      if (current())
+        batch(() => {
+          state.loading = false;
+          state.error = error.message;
+        });
     }
   }
 

@@ -1,120 +1,170 @@
 /**
  * Renders the active tab, its toolbar and notices.
  *
+ * The rendering is bound to the state with render effects: each effect
+ * reads the view fields it depends on and re-runs after one of them is
+ * replaced, so handlers only write the state. Toolbar controls are created
+ * once and keep keyboard focus while their values change.
+ *
  * @module content/sidebar/render
  */
+import {batch, createMemo, createRenderEffect, untrack} from '../../shared/reactive.js';
 import {button, el, empty} from '../dom.js';
 import {providerName, requestName} from '../page.js';
+import {rowHeight} from './tree.js';
 
-/** Creates the render feature: `render`. */
+/** Review-state filters of the request list with their labels; `null` is replaced by the request name. */
+const filters = [
+  ['all', null],
+  ['awaiting', 'Requested from me'],
+  ['reviewed', 'Reviewed by me'],
+  ['changes', 'Changes requested'],
+  ['approved', 'Approved'],
+  ['unreviewed', 'No reviews'],
+];
+
+/** Creates the render feature: `bindRender`. */
 export function createRender(app) {
   const {state, run} = app;
   const {tabButtons, body, spacer, search, toolbar, notice} = app.view;
+  const modeSelect = el('select', {'aria-label': 'File tree mode'});
+  const filterSelect = el('select');
+  const filesTitle = el('span', {class: 'toolbar-title'});
+  const bookmarksTitle = el('span', {class: 'toolbar-title', text: 'Saved on this browser'});
+  const count = el('span', {class: 'count'});
+  const collapseButton = button('collapse', 'Collapse folders', () => {
+    state.expanded = new Set();
+    app.rememberExpansion();
+  });
+  const refreshButton = button(
+    'refresh',
+    'Refresh sidebar',
+    run(() => app.refresh()),
+  );
+  modeSelect.addEventListener(
+    'change',
+    run(async () => {
+      app.rememberExpansion();
+      // The synchronous start of the load joins the batch, so the tab renders once.
+      await batch(() => {
+        state.mode = modeSelect.value;
+        return app.loadFiles();
+      });
+    }),
+  );
+  filterSelect.addEventListener(
+    'change',
+    run(async () => {
+      await batch(() => {
+        state.filter = filterSelect.value;
+        return app.loadPulls();
+      });
+    }),
+  );
 
-  /** Renders the toolbar of the active tab: tree mode or request filter, count and actions. */
-  function renderToolbar() {
-    toolbar.replaceChildren();
-    if (state.tab === 'files') {
-      if (['pull', 'commit'].includes(state.context?.kind)) {
-        const select = el('select', {'aria-label': 'File tree mode'}, [
-          el('option', {value: 'files', text: 'Repository files'}),
-          el('option', {
-            value: 'changes',
-            text:
-              state.context.kind === 'pull'
-                ? `${state.context.provider === 'gitlab' ? 'MR !' : 'PR #'}${state.context.number} changes`
-                : 'Commit changes',
-          }),
-        ]);
-        select.value = state.mode;
-        select.addEventListener(
-          'change',
-          run(async () => {
-            app.rememberExpansion();
-            state.mode = select.value;
-            await app.loadFiles();
-          }),
-        );
-        toolbar.append(select);
-      } else
-        toolbar.append(
-          el('span', {class: 'toolbar-title', text: state.lazy ? 'Loaded repository files' : 'Repository files'}),
-        );
-      const files = state.flat.filter(node => node.type !== 'tree').length;
-      toolbar.append(
-        el('span', {
-          class: 'count',
-          text: String(state.query ? files : state.entries.filter(entry => entry.type !== 'tree').length),
-        }),
-      );
-      toolbar.append(
-        button('collapse', 'Collapse folders', () => {
-          state.expanded.clear();
-          app.rememberExpansion();
-          app.updateTree();
-        }),
-      );
-    } else if (state.tab === 'pulls') {
-      const name = requestName(state.context);
-      const select = el('select', {'aria-label': `Filter ${name}s`});
-      for (const [value, label] of [
-        ['all', `All open ${name}s`],
-        ['awaiting', 'Requested from me'],
-        ['reviewed', 'Reviewed by me'],
-        ['changes', 'Changes requested'],
-        ['approved', 'Approved'],
-        ['unreviewed', 'No reviews'],
-      ])
-        select.append(el('option', {value, text: label}));
-      select.value = state.filter;
-      select.addEventListener(
-        'change',
-        run(async () => {
-          state.filter = select.value;
-          await app.loadPulls();
-        }),
-      );
-      toolbar.append(select, el('span', {class: 'count', text: String(state.pulls.length)}));
-    } else
-      toolbar.append(
-        el('span', {class: 'toolbar-title', text: 'Saved on this browser'}),
-        el('span', {class: 'count', text: String(state.public?.bookmarks.length || 0)}),
-      );
-    toolbar.append(
-      button(
-        'refresh',
-        'Refresh sidebar',
-        run(() => app.refresh()),
-      ),
+  /** Number of files in the tree, without folders. */
+  const fileTotal = createMemo(
+    () => {
+      let total = 0;
+      for (const node of state.tree.nodes.values()) if (node.type !== 'tree') total++;
+      return total;
+    },
+    0,
+    {name: 'fileTotal'},
+  );
+
+  /** Number of files among the visible rows. */
+  const visibleFiles = createMemo(() => state.flat.filter(node => node.type !== 'tree').length, 0, {
+    name: 'visibleFiles',
+  });
+
+  /** Applies the active tab to the tab buttons, the list labels and the search field. */
+  function renderTabs() {
+    const tab = state.tab;
+    const name = requestName(state.context);
+    for (const [id, button] of Object.entries(tabButtons)) button.setAttribute('aria-selected', String(id === tab));
+    body.setAttribute(
+      'aria-label',
+      tab === 'pulls' ? `${providerName(state.context)} ${name}s` : tab === 'bookmarks' ? 'Bookmarks' : 'Files',
+    );
+    search.placeholder =
+      tab === 'pulls' ? `Find a ${name}…` : tab === 'bookmarks' ? 'Find a bookmark…' : 'Find a file…';
+    search.setAttribute(
+      'aria-label',
+      tab === 'pulls' ? `Search ${name}s` : tab === 'bookmarks' ? 'Search bookmarks' : 'Search files and folders',
     );
   }
 
-  /** Renders the active tab, including its loading, error and empty states. */
-  function render() {
-    const name = requestName(state.context);
-    for (const [id, tab] of Object.entries(tabButtons)) tab.setAttribute('aria-selected', String(id === state.tab));
-    body.setAttribute(
-      'aria-label',
-      state.tab === 'pulls'
-        ? `${providerName(state.context)} ${name}s`
-        : state.tab === 'bookmarks'
-          ? 'Bookmarks'
-          : 'Files',
+  /** Fills the tree-mode and request-filter options for the current repository. */
+  function renderOptions() {
+    const context = state.context;
+    const name = requestName(context);
+    modeSelect.replaceChildren(
+      el('option', {value: 'files', text: 'Repository files'}),
+      el('option', {
+        value: 'changes',
+        text:
+          context?.kind === 'pull'
+            ? `${context.provider === 'gitlab' ? 'MR !' : 'PR #'}${context.number} changes`
+            : 'Commit changes',
+      }),
     );
-    search.placeholder =
-      state.tab === 'pulls' ? `Find a ${name}…` : state.tab === 'bookmarks' ? 'Find a bookmark…' : 'Find a file…';
-    search.setAttribute(
-      'aria-label',
-      state.tab === 'pulls'
-        ? `Search ${name}s`
-        : state.tab === 'bookmarks'
-          ? 'Search bookmarks'
-          : 'Search files and folders',
+    filterSelect.setAttribute('aria-label', `Filter ${name}s`);
+    filterSelect.replaceChildren(
+      ...filters.map(([value, label]) => el('option', {value, text: label || `All open ${name}s`})),
     );
+    // New options select the first one; restore the current values without depending on them.
+    untrack(() => {
+      modeSelect.value = state.mode;
+      filterSelect.value = state.filter;
+    });
+  }
+
+  /** Shows the controls of the active tab in the toolbar. */
+  function renderToolbar() {
+    const tab = state.tab;
+    const parts =
+      tab === 'files'
+        ? [['pull', 'commit'].includes(state.context?.kind) ? modeSelect : filesTitle, count, collapseButton]
+        : tab === 'pulls'
+          ? [filterSelect, count]
+          : [bookmarksTitle, count];
+    // Keep focused controls in place: only replace the toolbar when its parts change.
+    if (parts.length + 1 !== toolbar.childElementCount || parts.some((part, index) => toolbar.children[index] !== part))
+      toolbar.replaceChildren(...parts, refreshButton);
+  }
+
+  /** Shows the number of files, requests or bookmarks of the active tab. */
+  function renderCount() {
+    count.textContent = String(
+      state.tab === 'files'
+        ? state.query
+          ? visibleFiles()
+          : fileTotal()
+        : state.tab === 'pulls'
+          ? state.pulls.length
+          : state.public?.bookmarks.length || 0,
+    );
+  }
+
+  /**
+   * Reads the fields the active tab body depends on, so the body effect
+   * re-runs only for changes of the visible tab.
+   */
+  function bodyInputs() {
+    const inputs = [state.tab, state.context, state.loading, state.error];
+    if (state.loading || state.error) return inputs;
+    if (state.tab === 'files')
+      inputs.push(state.lazy, state.loadingAll, state.mode, state.diff, state.flat, state.query);
+    else if (state.tab === 'pulls') inputs.push(state.pulls, state.query, state.filter);
+    else inputs.push(state.public, state.query);
+    return inputs;
+  }
+
+  /** Renders the active tab body and its notices, including loading, error and empty states. */
+  function renderBody() {
     notice.replaceChildren();
     notice.className = 'notice';
-    if (state.tab === 'files' && !state.loading && !state.error) app.updateTree(false);
-    renderToolbar();
     if (state.loading) {
       const node = empty(`Loading from ${providerName(state.context)}`, 'Fetching repository data…', 'refresh');
       node.classList.add('loading');
@@ -158,11 +208,49 @@ export function createRender(app) {
           ),
         );
       else {
+        spacer.style.height = `${state.flat.length * rowHeight}px`;
         if (!body.contains(spacer)) body.replaceChildren(spacer);
         app.requestTreeRender();
       }
     } else if (state.tab === 'pulls') app.renderPulls();
     else app.renderBookmarks();
   }
-  return {render};
+
+  /** Binds the tabs, toolbar and body to the state; called once inside the app root. */
+  function bindRender() {
+    createRenderEffect(renderTabs, undefined, {name: 'tabs'});
+    createRenderEffect(renderOptions, undefined, {name: 'options'});
+    createRenderEffect(
+      () => {
+        modeSelect.value = state.mode;
+      },
+      undefined,
+      {name: 'mode'},
+    );
+    createRenderEffect(
+      () => {
+        filterSelect.value = state.filter;
+      },
+      undefined,
+      {name: 'filter'},
+    );
+    createRenderEffect(
+      () => {
+        filesTitle.textContent = state.lazy ? 'Loaded repository files' : 'Repository files';
+      },
+      undefined,
+      {name: 'filesTitle'},
+    );
+    createRenderEffect(renderToolbar, undefined, {name: 'toolbar'});
+    createRenderEffect(renderCount, undefined, {name: 'count'});
+    createRenderEffect(
+      () => {
+        bodyInputs();
+        untrack(renderBody);
+      },
+      undefined,
+      {name: 'body'},
+    );
+  }
+  return {bindRender};
 }

@@ -23,9 +23,7 @@ export function createBookmarks(app) {
         ? {remove: existing.id}
         : {url: location.href, title: document.title.replace(/ [·|] (GitHub|GitLab)$/, '')},
     );
-    state.public.bookmarks = bookmarks;
-    app.updateHeader();
-    if (state.tab === 'bookmarks') app.render();
+    state.public = {...state.public, bookmarks};
     app.toast(existing ? 'Bookmark removed.' : 'Page bookmarked on this browser.');
   }
 
@@ -62,9 +60,8 @@ export function createBookmarks(app) {
           'close',
           `Remove bookmark: ${bookmark.title}`,
           run(async () => {
-            state.public.bookmarks = await app.rpc('BOOKMARK', {remove: bookmark.id});
-            app.updateHeader();
-            app.render();
+            const bookmarks = await app.rpc('BOOKMARK', {remove: bookmark.id});
+            state.public = {...state.public, bookmarks};
           }),
         ),
       );

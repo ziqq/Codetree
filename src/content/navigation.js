@@ -3,12 +3,13 @@
  *
  * @module content/navigation
  */
+import {batch, createRenderEffect, untrack} from '../shared/reactive.js';
 import {repoURL} from '../shared/routes.js';
 import {makeTree} from '../shared/tree.js';
 import {el} from './dom.js';
 import {currentContext, providerName} from './page.js';
 
-/** Creates the navigation feature: `loadPage`, `updateHeader`, `selectTab` and `refresh`. */
+/** Creates the navigation feature: `loadPage`, `updateHeader`, `bindHeader`, `selectTab` and `refresh`. */
 export function createNavigation(app) {
   const {state} = app;
 
@@ -33,60 +34,57 @@ export function createNavigation(app) {
     app.clearHeaderButtons();
     app.closeBranches();
     app.loadingFolders.clear();
-    state.context = context;
-    state.info = null;
-    state.diff = null;
-    state.branches = null;
-    state.loading = true;
-    state.error = '';
-    state.filesLoading = true;
-    state.filesError = '';
-    state.entries = [];
-    state.tree = makeTree([]);
-    state.flat = [];
-    state.query = '';
-    app.view.search.value = '';
-    state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
-    state.tab = 'files';
-    state.selected = '';
-    state.focus = 0;
-    state.lazy = false;
-    state.loadingAll = false;
-    app.layout();
+    batch(() => {
+      state.context = context;
+      state.info = null;
+      state.diff = null;
+      state.branches = null;
+      state.loading = true;
+      state.error = '';
+      state.filesLoading = true;
+      state.filesError = '';
+      state.entries = [];
+      state.tree = makeTree([]);
+      app.view.clearSearch();
+      state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
+      state.tab = 'files';
+      state.selected = '';
+      state.focus = 0;
+      state.lazy = false;
+      state.loadingAll = false;
+    });
     if (!context) return;
     app.scheduleHeaderButtons();
-    app.render();
     try {
       const [publicData, info] = await Promise.all([
         app.rpc('STATE').then(value => {
-          if (epoch === state.epoch) {
-            state.public = value;
-            state.preferences = value.preferences;
-            updateHeader();
-            app.layout();
-          }
+          if (epoch === state.epoch)
+            batch(() => {
+              state.public = value;
+              state.preferences = value.preferences;
+            });
           return value;
         }),
         app.rpc('INIT'),
       ]);
       if (epoch !== state.epoch) return;
-      state.public = publicData;
-      state.preferences = publicData.preferences;
-      state.info = info;
-      state.selected = info.path || '';
-      updateHeader();
-      app.layout();
+      batch(() => {
+        state.public = publicData;
+        state.preferences = publicData.preferences;
+        state.info = info;
+        state.selected = info.path || '';
+      });
       await app.loadFiles(epoch);
     } catch (error) {
       if (epoch !== state.epoch) return;
-      state.filesLoading = false;
-      state.filesError = error.message;
-      if (state.tab === 'files') {
-        state.loading = false;
-        state.error = error.message;
-      }
-      updateHeader();
-      app.render();
+      batch(() => {
+        state.filesLoading = false;
+        state.filesError = error.message;
+        if (state.tab === 'files') {
+          state.loading = false;
+          state.error = error.message;
+        }
+      });
     }
   }
 
@@ -127,6 +125,18 @@ export function createNavigation(app) {
     );
   }
 
+  /** Binds the header to the repository, its metadata and the public state; called once inside the app root. */
+  function bindHeader() {
+    createRenderEffect(
+      () => {
+        void [state.context, state.info, state.public];
+        untrack(updateHeader);
+      },
+      undefined,
+      {name: 'header'},
+    );
+  }
+
   /**
    * Shows the Files, Pull/Merge requests or Bookmarks tab.
    *
@@ -135,34 +145,34 @@ export function createNavigation(app) {
   async function selectTab(tab) {
     const epoch = state.epoch;
     const generation = (state.viewGeneration = (state.viewGeneration || 0) + 1);
-    state.tab = tab;
-    state.query = '';
-    app.view.search.value = '';
-    state.error = '';
-    state.loading = false;
     app.view.body.scrollTop = 0;
-    if (tab === 'pulls') await app.loadPulls();
-    else if (tab === 'bookmarks') {
-      state.loading = true;
-      app.render();
-      try {
-        const publicData = await app.rpc('STATE');
-        if (epoch !== state.epoch || generation !== state.viewGeneration || state.tab !== tab) return;
+    // The synchronous start of a request load joins the batch, so the new tab renders once.
+    await batch(() => {
+      state.tab = tab;
+      app.view.clearSearch();
+      state.loading = tab === 'files' ? Boolean(state.filesLoading) : tab === 'bookmarks';
+      state.error = tab === 'files' ? state.filesError || '' : '';
+      if (tab === 'pulls') return app.loadPulls();
+      if (tab === 'bookmarks') return loadBookmarks(epoch, generation);
+    });
+  }
+
+  /** Loads the public state, including bookmarks, for the Bookmarks tab opened as view [generation]. */
+  async function loadBookmarks(epoch, generation) {
+    const current = () => epoch === state.epoch && generation === state.viewGeneration && state.tab === 'bookmarks';
+    try {
+      const publicData = await app.rpc('STATE');
+      if (!current()) return;
+      batch(() => {
         state.public = publicData;
         state.loading = false;
-        updateHeader();
-        app.render();
-      } catch (error) {
-        if (epoch === state.epoch && generation === state.viewGeneration && state.tab === tab) {
+      });
+    } catch (error) {
+      if (current())
+        batch(() => {
           state.loading = false;
           state.error = error.message;
-          app.render();
-        }
-      }
-    } else {
-      state.loading = Boolean(state.filesLoading);
-      state.error = state.filesError || '';
-      app.render();
+        });
     }
   }
 
@@ -194,7 +204,6 @@ export function createNavigation(app) {
         const publicData = await app.rpc('STATE');
         if (!current()) return;
         state.public = publicData;
-        app.render();
       } else {
         const info = await app.rpc('INIT');
         if (!current()) return;
@@ -204,14 +213,15 @@ export function createNavigation(app) {
       }
     } catch (error) {
       if (!current()) return;
-      if (tab === 'files') {
-        state.filesLoading = false;
-        state.filesError = error.message;
-      }
-      state.loading = false;
-      state.error = error.message;
-      app.render();
+      batch(() => {
+        if (tab === 'files') {
+          state.filesLoading = false;
+          state.filesError = error.message;
+        }
+        state.loading = false;
+        state.error = error.message;
+      });
     }
   }
-  return {loadPage, updateHeader, selectTab, refresh};
+  return {loadPage, updateHeader, bindHeader, selectTab, refresh};
 }

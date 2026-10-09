@@ -8,6 +8,7 @@
  *
  * @module content/sidebar/files
  */
+import {batch} from '../../shared/reactive.js';
 import {makeTree} from '../../shared/tree.js';
 
 /** Creates the files feature; also exposes `expansionMemory` and `loadingFolders`. */
@@ -19,6 +20,21 @@ export function createFiles(app) {
   /** Key of the remembered expansion: host, repository, ref and mode. */
   function expansionKey() {
     return `${state.context?.origin}/${state.context?.owner}/${state.context?.repo}:${state.info?.ref}:${state.mode}`;
+  }
+
+  /**
+   * Loads [folders] together and rebuilds the tree once for all of them, so
+   * loading many folders does not rebuild and re-render it per folder.
+   *
+   * @param {Array<Object>} folders Tree nodes of unloaded folders.
+   * @param {() => boolean} current Whether the load still belongs to the shown tree.
+   * @throws {*} The first folder error, after the folders that loaded are in the tree.
+   */
+  async function loadFolders(folders, current) {
+    const results = await Promise.allSettled(folders.map(node => loadFolder(node, false)));
+    if (current()) state.tree = makeTree(state.entries);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
   }
 
   /** Saves the expanded folders of the current tree. */
@@ -40,15 +56,17 @@ export function createFiles(app) {
     const generation = ++state.filesGeneration;
     const current = () => epoch === state.epoch && generation === state.filesGeneration;
     loadingFolders.clear();
-    state.loadingAll = false;
-    state.filesLoading = true;
-    state.filesError = '';
-    if (state.tab === 'files') {
-      state.loading = true;
-      state.error = '';
-    }
-    app.render();
+    batch(() => {
+      state.loadingAll = false;
+      state.filesLoading = true;
+      state.filesError = '';
+      if (state.tab === 'files') {
+        state.loading = true;
+        state.error = '';
+      }
+    });
     try {
+      let lazy = false;
       if (mode === 'changes') {
         const diff = await app.rpc('DIFF');
         if (!current()) return;
@@ -67,52 +85,55 @@ export function createFiles(app) {
           comments: grouped.get(file.filename) || [],
           viewed: diff.viewed[file.filename] === 'VIEWED',
         }));
-        state.lazy = false;
       } else {
         const result = state.info.treeSha
           ? await app.rpc('TREE', {sha: state.info.treeSha})
           : {entries: [], lazy: false};
         if (!current()) return;
         state.entries = result.entries;
-        state.lazy = result.lazy;
+        lazy = result.lazy;
       }
-      state.tree = makeTree(state.entries);
-      state.expanded = expansionMemory.get(expansionKey()) || new Set();
-      if (mode === 'changes' && !state.expanded.size) {
-        for (const node of state.tree.nodes.values())
-          if (node.type === 'tree' && node.path) state.expanded.add(node.path);
+      const tree = makeTree(state.entries);
+      const expanded = new Set(expansionMemory.get(expansionKey()));
+      if (mode === 'changes' && !expanded.size) {
+        for (const node of tree.nodes.values()) if (node.type === 'tree' && node.path) expanded.add(node.path);
       }
       let path = state.selected;
       while (path.includes('/')) {
         path = path.slice(0, path.lastIndexOf('/'));
-        state.expanded.add(path);
+        expanded.add(path);
       }
+      // The tab still shows the loading state, so the new tree is not rendered until it is complete.
+      batch(() => {
+        state.lazy = lazy;
+        state.tree = tree;
+        state.expanded = expanded;
+      });
       if (mode === 'files') {
         while (current()) {
           const folders = Array.from(state.tree.nodes.values())
             .filter(node => node.type === 'tree' && !node.loaded && state.expanded.has(node.path))
             .slice(0, 4);
           if (!folders.length) break;
-          await Promise.all(folders.map(loadFolder));
+          await loadFolders(folders, current);
         }
         if (!current()) return;
       }
-      state.filesLoading = false;
-      if (state.tab === 'files') {
-        state.loading = false;
-        app.view.body.scrollTop = 0;
-      }
-      app.render();
-    } catch (error) {
-      if (current()) {
+      if (state.tab === 'files') app.view.body.scrollTop = 0;
+      batch(() => {
         state.filesLoading = false;
-        state.filesError = error.message;
-        if (state.tab === 'files') {
-          state.loading = false;
-          state.error = error.message;
-        }
-        app.render();
-      }
+        if (state.tab === 'files') state.loading = false;
+      });
+    } catch (error) {
+      if (current())
+        batch(() => {
+          state.filesLoading = false;
+          state.filesError = error.message;
+          if (state.tab === 'files') {
+            state.loading = false;
+            state.error = error.message;
+          }
+        });
     }
   }
 
@@ -120,22 +141,29 @@ export function createFiles(app) {
   async function toggleFolder(node) {
     const epoch = state.epoch;
     const generation = state.filesGeneration;
-    if (state.expanded.has(node.path)) state.expanded.delete(node.path);
-    else {
-      state.expanded.add(node.path);
+    if (state.expanded.has(node.path)) {
+      const expanded = new Set(state.expanded);
+      expanded.delete(node.path);
+      state.expanded = expanded;
+    } else {
+      // Expand after the children are loaded, so the folder never shows as open and empty.
       if (!node.loaded) await loadFolder(node);
+      if (epoch !== state.epoch || generation !== state.filesGeneration) return;
+      state.expanded = new Set(state.expanded).add(node.path);
     }
-    if (epoch !== state.epoch || generation !== state.filesGeneration) return;
     rememberExpansion();
-    app.updateTree();
   }
 
   /**
    * Loads the children of a lazy folder once; concurrent calls share the request.
    *
    * GitHub folders load by tree SHA, GitLab folders by path at the commit.
+   *
+   * @param {Object} node The folder node.
+   * @param {boolean} [rebuild=true] Rebuild the tree after the reply; `false`
+   *     when the caller rebuilds it once for several folders.
    */
-  async function loadFolder(node) {
+  async function loadFolder(node, rebuild = true) {
     if (node.loaded || loadingFolders.has(node.path)) return loadingFolders.get(node.path);
     const epoch = state.epoch;
     const generation = state.filesGeneration;
@@ -155,8 +183,7 @@ export function createFiles(app) {
           const path = `${node.path}/${entry.path}`;
           if (!known.has(path)) state.entries.push({...entry, path});
         }
-        state.tree = makeTree(state.entries);
-        app.updateTree();
+        if (rebuild) state.tree = makeTree(state.entries);
       })
       .finally(() => {
         if (loadingFolders.get(node.path) === promise) loadingFolders.delete(node.path);
@@ -172,7 +199,6 @@ export function createFiles(app) {
     const generation = state.filesGeneration;
     const current = () => epoch === state.epoch && generation === state.filesGeneration;
     state.loadingAll = true;
-    app.render();
     try {
       while (current()) {
         const folders = Array.from(state.tree.nodes.values())
@@ -182,13 +208,10 @@ export function createFiles(app) {
           state.lazy = false;
           break;
         }
-        await Promise.all(folders.map(loadFolder));
+        await loadFolders(folders, current);
       }
     } finally {
-      if (current()) {
-        state.loadingAll = false;
-        app.render();
-      }
+      if (current()) state.loadingAll = false;
     }
   }
   return {

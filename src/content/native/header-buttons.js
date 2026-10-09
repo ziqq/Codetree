@@ -140,11 +140,14 @@ export function createHeaderButtons(app) {
     try {
       const diff = await app.rpc('DIFF');
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
+      // Changed-file rows built from the previous diff would pair its Viewed marks with the new head.
+      const stale = Boolean(state.diff) && state.mode === 'changes';
       state.diff = diff;
       await prepareHeaderButtons(diff, epoch);
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
       const matched = fullViewPaths.get(path) || fullViewPaths.get(cardId);
       if (!matched) throw new Error('This file is not in the current review. Refresh the page and try again.');
+      if (stale) run(() => app.loadFiles(epoch))();
       await app.showDiff(diffNode(matched));
     } catch (error) {
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;

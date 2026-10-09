@@ -48,7 +48,9 @@ export function createView(app) {
     'pin',
     'Pin sidebar in this window',
     run(async () => {
-      state.preferences.pinned = await app.rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
+      const pinned = await app.rpc('WINDOW_PIN', {pinned: !state.preferences.pinned});
+      // The pin belongs to this window; only `open` is saved as a preference.
+      state.preferences = {...state.preferences, pinned, open: true};
       await app.setPreferences({open: true});
     }),
   );
@@ -161,33 +163,39 @@ export function createView(app) {
   search.addEventListener('input', () => {
     clearTimeout(queryTimer);
     queryTimer = setTimeout(() => {
-      state.query = search.value;
       state.focus = 0;
       body.scrollTop = 0;
-      app.render();
+      state.query = search.value;
     }, 100);
   });
+
+  /** Clears the search field and the query, including a pending query from typing. */
+  function clearSearch() {
+    clearTimeout(queryTimer);
+    search.value = '';
+    state.query = '';
+  }
   accountSelect.addEventListener(
     'change',
     run(async () => {
-      await app.rpc('SELECT_ACCOUNT', {origin: state.context.origin, id: accountSelect.value});
+      try {
+        await app.rpc('SELECT_ACCOUNT', {origin: state.context.origin, id: accountSelect.value});
+      } catch (error) {
+        // Show the account that is still selected.
+        app.updateHeader();
+        throw error;
+      }
       await app.loadPage(true);
     }),
   );
   handle.addEventListener('mouseenter', () => {
-    if (!state.preferences.pinned) {
-      state.preferences.open = true;
-      app.layout();
-    }
+    if (!state.preferences.pinned) state.preferences = {...state.preferences, open: true};
   });
   panel.addEventListener('mouseenter', () => clearTimeout(hoverTimer));
   panel.addEventListener('mouseleave', () => {
     if (!state.preferences.pinned && !viewer.open && branchPopover.hidden)
       hoverTimer = setTimeout(() => {
-        if (!panel.contains(shadow.activeElement)) {
-          state.preferences.open = false;
-          app.layout();
-        }
+        if (!panel.contains(shadow.activeElement)) state.preferences = {...state.preferences, open: false};
       }, 250);
   });
   resize.addEventListener('pointerdown', event => {
@@ -198,8 +206,7 @@ export function createView(app) {
   resize.addEventListener('pointermove', event => {
     if (!resizeStart) return;
     const delta = (event.clientX - resizeStart.x) * (state.preferences.dock === 'left' ? 1 : -1);
-    state.preferences.width = Math.max(240, Math.min(600, resizeStart.width + delta));
-    app.layout();
+    state.preferences = {...state.preferences, width: Math.max(240, Math.min(600, resizeStart.width + delta))};
   });
   resize.addEventListener(
     'pointerup',
@@ -245,6 +252,7 @@ export function createView(app) {
     tabButtons,
     search,
     searchHint,
+    clearSearch,
     toolbar,
     notice,
     body,

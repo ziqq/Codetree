@@ -9,14 +9,15 @@
  */
 import {icon} from '../../shared/icons.js';
 import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
-import {fileKind, flatten} from '../../shared/tree.js';
+import {createRenderEffect} from '../../shared/reactive.js';
+import {fileKind} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
-const rowHeight = 29;
+export const rowHeight = 29;
 
-/** Creates the tree feature: `updateTree`, `requestTreeRender`, `renderTreeRows`, `diffURL` and `openFile`. */
+/** Creates the tree feature: `bindTree`, `requestTreeRender`, `renderTreeRows`, `diffURL` and `openFile`. */
 export function createTree(app) {
   const {state, run} = app;
   const {host, shadow, body, spacer} = app.view;
@@ -39,12 +40,20 @@ export function createTree(app) {
     return svg;
   }
 
-  /** Recomputes the visible rows after expansion, search or data changes. */
-  function updateTree(shouldRender = true) {
-    state.flat = flatten(state.tree, state.expanded, state.query);
-    state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
-    spacer.style.height = `${state.flat.length * rowHeight}px`;
-    if (shouldRender) app.render();
+  /**
+   * Re-renders the rows when the selected file changes; rows for new data
+   * are requested by the tab body.
+   */
+  function bindTree() {
+    createRenderEffect(
+      previous => {
+        const selected = state.selected;
+        if (selected !== previous) requestTreeRender();
+        return selected;
+      },
+      '',
+      {name: 'selectedRow'},
+    );
   }
 
   /** Renders the visible rows on the next animation frame, at most once per frame. */
@@ -59,6 +68,7 @@ export function createTree(app) {
   /** Renders the rows in the viewport, keeping keyboard focus on the same path. */
   function renderTreeRows() {
     if (state.tab !== 'files' || state.loading || state.error || !body.contains(spacer)) return;
+    state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
     const start = Math.max(0, Math.floor(body.scrollTop / rowHeight) - 6);
     const end = Math.min(state.flat.length, start + Math.ceil(body.clientHeight / rowHeight) + 14);
     const focusedPath = shadow.activeElement?.closest?.('.tree-row')?.dataset.path;
@@ -189,7 +199,12 @@ export function createTree(app) {
           state.focus = index;
           if (folder) {
             if (state.preferences.folderClick) await app.toggleFolder(node);
-            else row.focus();
+            else {
+              // Keep a single tab stop on the focused row without re-rendering the rows.
+              spacer.querySelector('[tabindex="0"]')?.setAttribute('tabindex', '-1');
+              row.setAttribute('tabindex', '0');
+              row.focus();
+            }
           } else await openFile(node);
         }),
       );
@@ -277,12 +292,11 @@ export function createTree(app) {
           history.replaceState(null, '', url);
           app.lastURL = location.href;
           state.selected = node.path;
-          requestTreeRender();
           return;
         }
       }
       location.assign(url);
     } else location.assign(blobURL(state.context, state.info.ref, node.path, node.type === 'commit' ? 'tree' : 'blob'));
   }
-  return {updateTree, requestTreeRender, renderTreeRows, diffURL, openFile};
+  return {bindTree, requestTreeRender, renderTreeRows, diffURL, openFile};
 }

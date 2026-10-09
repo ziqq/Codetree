@@ -5,9 +5,10 @@
  */
 import pageStyles from 'virtual:page-styles';
 import {fontFamilies, preferences} from '../../shared/preferences.js';
+import {createRenderEffect, untrack} from '../../shared/reactive.js';
 import {isDark} from '../page.js';
 
-/** Creates the layout feature: `layout`, `positionHandle` and `setPreferences`. */
+/** Creates the layout feature: `layout`, `bindLayout`, `positionHandle` and `setPreferences`. */
 export function createLayout(app) {
   const {state} = app;
   const {host, pageStyle, panel, handle, resize, toastBox, pinButton, closeButton, searchHint} = app.view;
@@ -51,9 +52,27 @@ export function createLayout(app) {
       available && (prefs.fontFamily !== 'default' || prefs.fontSize !== 12)
         ? `.blob-code,.blob-code-inner,.react-code-text,[data-testid="code-cell"],pre code,.rd-line-text,.line_content,.blob-content pre{font-family:${fontFamilies[prefs.fontFamily]}!important;font-size:${prefs.fontSize}px!important;}`
         : '';
-    pageStyle.textContent = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
+    const text = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
       ${pageStyles}`;
+    // Rewriting an unchanged page style would restyle the whole provider page.
+    if (pageStyle.textContent !== text) pageStyle.textContent = text;
     app.requestTreeRender();
+  }
+
+  /**
+   * Lays out again after the preferences, the repository or the readiness
+   * change; called once inside the app root. Theme changes of the page call
+   * `layout` directly.
+   */
+  function bindLayout() {
+    createRenderEffect(
+      () => {
+        void [state.preferences, state.context, app.uiReady];
+        untrack(layout);
+      },
+      undefined,
+      {name: 'layout'},
+    );
   }
 
   /** Reads GitLab's selected code theme without applying it to the sidebar chrome. */
@@ -108,8 +127,7 @@ export function createLayout(app) {
    */
   async function setPreferences(value) {
     state.preferences = preferences({...state.preferences, ...value});
-    layout();
     await app.rpc('PREFERENCES', {value});
   }
-  return {layout, positionHandle, setPreferences};
+  return {layout, bindLayout, positionHandle, setPreferences};
 }

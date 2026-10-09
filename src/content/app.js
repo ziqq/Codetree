@@ -1,6 +1,10 @@
 /**
  * Composes the sidebar and binds page-level events.
  *
+ * After the features are created, their render effects are bound inside
+ * one app root whose errors are shown as a toast, so a failing effect never
+ * breaks the handler that changed the state.
+ *
  * Features are factories `createX(app)` that receive one shared `app`
  * object and return their functions, which are merged into `app`.
  * Features call each other only through `app` at run time, so a test can
@@ -9,6 +13,7 @@
  * @module content/app
  */
 import {shortcutMatches} from '../shared/preferences.js';
+import {batch, catchError, createRoot, createSignal} from '../shared/reactive.js';
 import {createHeaderButtons} from './native/header-buttons.js';
 import {createNavigation} from './navigation.js';
 import {createBookmarks} from './sidebar/bookmarks.js';
@@ -29,8 +34,10 @@ import {createViewer} from './viewer/viewer.js';
  * `run`, `lastURL`, `uiReady` and every feature function.
  */
 export function mount() {
-  const app = {state: createState(), lastURL: '', uiReady: false};
+  const app = {state: createState(), lastURL: ''};
   const {state} = app;
+  const [uiReady, setUIReady] = createSignal(false, {name: 'uiReady'});
+  Object.defineProperty(app, 'uiReady', {get: uiReady, set: setUIReady, enumerable: true});
   let toastTimer;
 
   /**
@@ -85,6 +92,17 @@ export function mount() {
     createHeaderButtons(app),
   );
   const {run} = app;
+  createRoot(() =>
+    catchError(
+      () => {
+        app.bindLayout();
+        app.bindHeader();
+        app.bindRender();
+        app.bindTree();
+      },
+      error => app.toast(error.message),
+    ),
+  );
   const {host, shadow, pageStyle, iconFonts, search, stylesheetLoaded} = app.view;
   document.documentElement.append(host, pageStyle, iconFonts);
 
@@ -108,10 +126,7 @@ export function mount() {
   });
   chrome.runtime.onMessage.addListener(message => {
     if (message.type === 'TOGGLE') run(() => app.setPreferences({open: !state.preferences.open}))();
-    if (message.type === 'WINDOW_PIN_CHANGED') {
-      state.preferences.pinned = message.pinned;
-      app.layout();
-    }
+    if (message.type === 'WINDOW_PIN_CHANGED') state.preferences = {...state.preferences, pinned: message.pinned};
   });
   // Follow provider theme switches and re-insert header buttons after page updates.
   const themeObserver = new MutationObserver(app.layout);
@@ -147,9 +162,11 @@ export function mount() {
   }, 1000);
   run(async () => {
     const [publicData] = await Promise.all([app.rpc('STATE'), stylesheetLoaded]);
-    state.public = publicData;
-    state.preferences = publicData.preferences;
-    app.uiReady = true;
+    batch(() => {
+      state.public = publicData;
+      state.preferences = publicData.preferences;
+      app.uiReady = true;
+    });
     await app.loadPage();
   })();
 }
