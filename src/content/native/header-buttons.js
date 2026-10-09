@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * "View full" buttons in native GitHub and GitLab diff file headers.
  *
@@ -13,15 +19,19 @@ import {route} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {diffNode} from '../viewer/viewer.js';
+import {withOwner} from '../reactive.js';
+import {requestFrame} from '../reactive-dom.js';
 
 /** Creates the header-button feature: `clearHeaderButtons`, `prepareHeaderButtons` and `scheduleHeaderButtons`. */
 export function createHeaderButtons(app) {
   const {state, run} = app;
   let fullViewPaths = new Map();
-  let headerFrame = 0;
+  let headerFrame;
 
   /** Removes every inserted button and forgets the diff files. */
   function clearHeaderButtons() {
+    headerFrame?.();
+    headerFrame = null;
     fullViewPaths.clear();
     document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
   }
@@ -31,12 +41,14 @@ export function createHeaderButtons(app) {
    * anchor, then inserts the buttons.
    */
   async function prepareHeaderButtons(diff, epoch) {
+    const context = state.context;
+    const alive = app.pageAlive || (() => true);
     const paths = new Map();
     await Promise.all(
       diff.files.map(async file => {
         for (const path of [file.filename, file.previous_filename].filter(Boolean)) {
           paths.set(path, file);
-          if (state.context.provider === 'github') {
+          if (context.provider === 'github') {
             const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(path));
             paths.set(
               'diff-' + Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join(''),
@@ -46,7 +58,7 @@ export function createHeaderButtons(app) {
         }
       }),
     );
-    if (epoch !== state.epoch || state.diff !== diff) return;
+    if (!alive() || epoch !== state.epoch || state.diff !== diff) return;
     fullViewPaths = paths;
     document.querySelectorAll('.codetree-view-full').forEach(button => button.remove());
     injectHeaderButtons();
@@ -140,7 +152,7 @@ export function createHeaderButtons(app) {
     try {
       const diff = await app.rpc('DIFF');
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
-      state.diff = diff;
+      app.applyDiff(diff);
       await prepareHeaderButtons(diff, epoch);
       if (epoch !== state.epoch || !app.isCurrent(shell)) return;
       const matched = fullViewPaths.get(path) || fullViewPaths.get(cardId);
@@ -168,13 +180,13 @@ export function createHeaderButtons(app) {
   }
 
   /** Re-checks native headers on the next animation frame after page updates. */
-  function scheduleHeaderButtons() {
+  const scheduleHeaderButtons = withOwner(() => {
     if (!headerFrame)
-      headerFrame = requestAnimationFrame(() => {
-        headerFrame = 0;
+      headerFrame = requestFrame(() => {
+        headerFrame = null;
         app.positionHandle();
         if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
       });
-  }
+  });
   return {clearHeaderButtons, prepareHeaderButtons, scheduleHeaderButtons};
 }

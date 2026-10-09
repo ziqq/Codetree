@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Asynchronous tree loading in `content/sidebar/files.js`: stale folder replies,
  * overlapping loads and "load all folders" never modify a newer tree.

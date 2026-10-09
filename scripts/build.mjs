@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Bundles `src/` into an unpacked Manifest V3 extension in `build/`.
  *
@@ -68,7 +74,14 @@ export async function buildExtension(outdir = resolve(root, 'build')) {
     target: 'chrome116',
     charset: 'utf8',
     legalComments: 'none',
-    banner: {js: "'use strict';"},
+    banner: {
+      js: `/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+'use strict';`,
+    },
     logLevel: 'warning',
     plugins: [
       fileIcons,

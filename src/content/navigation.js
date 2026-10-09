@@ -1,5 +1,12 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
- * Page navigation, repository header, tabs and Refresh.
+ * Page navigation, reactive repository header, tabs and Refresh.
+ * Page roots release repository resources; request generations still reject stale replies.
  *
  * @module content/navigation
  */
@@ -7,18 +14,13 @@ import {repoURL} from '../shared/routes.js';
 import {makeTree} from '../shared/tree.js';
 import {el} from './dom.js';
 import {currentContext, providerName} from './page.js';
+import {batch, createAlive, createRenderEffect, createRoot, getOwner, on, onCleanup, runWithOwner} from './reactive.js';
 
-/** Creates the navigation feature: `loadPage`, `updateHeader`, `selectTab` and `refresh`. */
+/** Creates navigation actions and the repository-header binding. */
 export function createNavigation(app) {
   const {state} = app;
 
-  /**
-   * Resets the sidebar for the current URL and loads its repository.
-   *
-   * Starts a new epoch, so replies for the previous page are ignored.
-   *
-   * @param {boolean} [force=false] Reload even if the URL did not change.
-   */
+  /** Disposes the previous page, resets the view in one batch and loads the new repository. */
   async function loadPage(force = false) {
     if (!app.uiReady) return;
     const context = currentContext(state);
@@ -29,74 +31,83 @@ export function createNavigation(app) {
     state.viewGeneration++;
     state.refreshGeneration++;
     state.branchGeneration++;
-    app.closeViewer();
-    app.clearHeaderButtons();
-    app.closeBranches();
-    app.loadingFolders.clear();
-    state.context = context;
-    state.info = null;
-    state.diff = null;
-    state.branches = null;
-    state.loading = true;
-    state.error = '';
-    state.filesLoading = true;
-    state.filesError = '';
-    state.entries = [];
-    state.tree = makeTree([]);
-    state.flat = [];
-    state.query = '';
-    app.view.search.value = '';
-    state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
-    state.tab = 'files';
-    state.selected = '';
-    state.focus = 0;
-    state.lazy = false;
-    state.loadingAll = false;
-    app.layout();
+    app.disposePage?.();
+    runWithOwner(app.owner, () =>
+      createRoot(dispose => {
+        app.disposePage = dispose;
+        app.pageOwner = getOwner();
+        app.pageAlive = createAlive();
+        onCleanup(() => app.loadingFolders.clear());
+        onCleanup(() => app.closeBranches());
+        onCleanup(() => app.clearHeaderButtons());
+        onCleanup(() => app.closeViewer());
+      }),
+    );
+    const alive = app.pageAlive;
+    const current = () => alive() && epoch === state.epoch;
+    batch(() => {
+      state.context = context;
+      state.info = null;
+      state.diff = null;
+      state.branches = null;
+      state.filesLoading = true;
+      state.filesError = '';
+      state.viewLoading = false;
+      state.viewError = '';
+      state.entries = [];
+      state.tree = makeTree([]);
+      state.expanded = new Set();
+      state.searchText = '';
+      state.query = '';
+      state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
+      state.tab = 'files';
+      state.selected = '';
+      state.focus = 0;
+      state.lazy = false;
+      state.loadingAll = false;
+      app.updateTree();
+    });
     if (!context) return;
     app.scheduleHeaderButtons();
-    app.render();
     try {
       const [publicData, info] = await Promise.all([
         app.rpc('STATE').then(value => {
-          if (epoch === state.epoch) {
-            state.public = value;
-            state.preferences = value.preferences;
-            updateHeader();
-            app.layout();
-          }
+          if (current())
+            batch(() => {
+              state.public = value;
+              state.preferences = value.preferences;
+            });
           return value;
         }),
         app.rpc('INIT'),
       ]);
-      if (epoch !== state.epoch) return;
-      state.public = publicData;
-      state.preferences = publicData.preferences;
-      state.info = info;
-      state.selected = info.path || '';
-      updateHeader();
-      app.layout();
+      if (!current()) return;
+      batch(() => {
+        state.public = publicData;
+        state.preferences = publicData.preferences;
+        state.info = info;
+        state.selected = info.path || '';
+      });
       await app.loadFiles(epoch);
     } catch (error) {
-      if (epoch !== state.epoch) return;
-      state.filesLoading = false;
-      state.filesError = error.message;
-      if (state.tab === 'files') {
-        state.loading = false;
-        state.error = error.message;
-      }
-      updateHeader();
-      app.render();
+      if (!current()) return;
+      batch(() => {
+        state.filesLoading = false;
+        state.filesError = error.message;
+      });
     }
   }
 
-  /** Renders the repository name, branch label, account selector and bookmark state. */
+  /** Renders header data from one consistent context/info/public snapshot. */
   function updateHeader() {
     const {repository, tabButtons, branchLabel, branchButton, accountSelect, bookmarkButton} = app.view;
     const context = state.context;
-    repository.replaceChildren();
-    if (!context) return;
-    repository.append(
+    if (!context) {
+      repository?.replaceChildren();
+      branchButton.disabled = true;
+      return;
+    }
+    repository.replaceChildren(
       el('a', {class: 'repo-name', href: repoURL(context), title: `${context.owner}/${context.repo}`}, [
         el('small', {text: `${context.owner} / `}),
         document.createTextNode(context.repo),
@@ -127,57 +138,49 @@ export function createNavigation(app) {
     );
   }
 
-  /**
-   * Shows the Files, Pull/Merge requests or Bookmarks tab.
-   *
-   * @param {'files'|'pulls'|'bookmarks'} tab
-   */
+  /** Switches tabs and resets search without copying Files status into list status. */
   async function selectTab(tab) {
     const epoch = state.epoch;
     const generation = (state.viewGeneration = (state.viewGeneration || 0) + 1);
-    state.tab = tab;
-    state.query = '';
-    app.view.search.value = '';
-    state.error = '';
-    state.loading = false;
+    const alive = app.pageAlive || (() => true);
+    batch(() => {
+      state.tab = tab;
+      state.searchText = '';
+      state.query = '';
+      state.viewError = '';
+      state.viewLoading = tab === 'bookmarks';
+      state.focus = 0;
+    });
     app.view.body.scrollTop = 0;
     if (tab === 'pulls') await app.loadPulls();
     else if (tab === 'bookmarks') {
-      state.loading = true;
-      app.render();
       try {
         const publicData = await app.rpc('STATE');
-        if (epoch !== state.epoch || generation !== state.viewGeneration || state.tab !== tab) return;
-        state.public = publicData;
-        state.loading = false;
-        updateHeader();
-        app.render();
-      } catch (error) {
-        if (epoch === state.epoch && generation === state.viewGeneration && state.tab === tab) {
+        if (!alive() || epoch !== state.epoch || generation !== state.viewGeneration || state.tab !== tab) return;
+        batch(() => {
+          state.public = publicData;
           state.loading = false;
-          state.error = error.message;
-          app.render();
-        }
+        });
+      } catch (error) {
+        if (alive() && epoch === state.epoch && generation === state.viewGeneration && state.tab === tab)
+          batch(() => {
+            state.loading = false;
+            state.error = error.message;
+          });
       }
-    } else {
-      state.loading = Boolean(state.filesLoading);
-      state.error = state.filesError || '';
-      app.render();
     }
   }
 
-  /**
-   * Clears the worker caches and reloads the visible tab.
-   *
-   * Stops if the page, tab, mode or view changes while clearing.
-   */
+  /** Clears caches and reloads only if the page, tab, mode and view remain current. */
   async function refresh() {
     const epoch = state.epoch;
     const tab = state.tab;
     const mode = state.mode;
     const viewGeneration = state.viewGeneration;
+    const alive = app.pageAlive || (() => true);
     const generation = (state.refreshGeneration = (state.refreshGeneration || 0) + 1);
     const current = () =>
+      alive() &&
       epoch === state.epoch &&
       generation === state.refreshGeneration &&
       viewGeneration === state.viewGeneration &&
@@ -193,25 +196,31 @@ export function createNavigation(app) {
       else if (tab === 'bookmarks') {
         const publicData = await app.rpc('STATE');
         if (!current()) return;
-        state.public = publicData;
-        app.render();
+        batch(() => {
+          state.public = publicData;
+          state.loading = false;
+          state.error = '';
+        });
       } else {
         const info = await app.rpc('INIT');
         if (!current()) return;
         state.info = info;
-        app.updateHeader();
         await app.loadFiles(epoch);
       }
     } catch (error) {
       if (!current()) return;
-      if (tab === 'files') {
-        state.filesLoading = false;
-        state.filesError = error.message;
-      }
-      state.loading = false;
-      state.error = error.message;
-      app.render();
+      batch(() => {
+        if (tab === 'files') {
+          state.filesLoading = false;
+          state.filesError = error.message;
+        }
+        state.loading = false;
+        state.error = error.message;
+      });
     }
   }
+  createRenderEffect(on([() => state.context, () => state.info, () => state.public], updateHeader), undefined, {
+    name: 'repository header',
+  });
   return {loadPage, updateHeader, selectTab, refresh};
 }

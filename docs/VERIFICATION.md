@@ -156,3 +156,21 @@ A clean `npm ci`, full `npm run verify` (36 unchanged regressions), strict npm a
 - Firefox, Safari and extension-store distribution.
 
 Actual public page DOM was inspected read-only to select GitHub React and GitLab RapidDiffs header anchors. The extension was not injected into live pages during that inspection. Fixture interactions and direct API checks do not replace the pending environment checks.
+
+## Issue #14 reactive migration — 2026-10-08
+
+The maintainer approved the main implementation, regression coverage and search-aware counts in every tab. The complete suite passes 81 checks, including 42 new checks for the reactive core and browser helpers, sidebar bindings and bundled Settings. Existing navigation races now check visible header state rather than manual render-call counts. Native View full coverage invokes the inserted button's handler and verifies that the fresh head, rows, comments and Viewed state are installed before the viewer opens. A failing memo drains unrelated queued work and recovers its readers on the next source change.
+
+A one-off harness using the original `1c9d0a1` factories reproduced two failures: loading a review filter replaced its control and lost focus, and a search matching one request left the count at two. The new regressions pass with the corrected factories.
+
+Eight checks also passed with real browser DOM in local fixtures: filter identity/focus, search debounce/focus, background Files completion, folder keyboard tab stops, bookmark search counts, stored appearance preservation, normalized navigation values and preservation of unsaved appearance edits during Sync replies. Sidebar fixtures bundle the production factories and generated file icons; Settings uses the shipped bundle and HTML forms. Chrome APIs and repository data are synthetic. The fixture server, scripts and screenshots stay outside the repository and runtime archive.
+
+Full `npm run verify`, strict npm audit and archive inspection passed. This migration's unpacked build has not been loaded into the installed Chrome extension; live authenticated APIs, native provider markup and actual browser-account Sync remain outside this fixture proof.
+
+## Native Full View syntax themes — 2026-10-09
+
+The maintainer's Dart screenshots exposed missing type tokens and an incorrect function-color mapping. Types, metadata, `this`/`super` and nullable/ternary operators now have separate lexical categories. GitHub syntax colors come from its current canonical CSS tokens, with legacy token aliases and plain text as fallbacks; the fixed syntax palettes were removed. GitLab colors, font styles and weights are read from token spans under its current native code container, or a hidden native-theme container when all files are collapsed. The temporary spans are removed after reading. Stylesheet loads and changes to stylesheet selection refresh the copied styles.
+
+Current GitHub tokens and GitLab light/dark code stylesheets were inspected read-only on public pages. The production viewer/layout factories rendered the screenshot fragment in a local browser fixture using those captured native styles. Colors, italics and weights matched native tokens in GitHub dark and GitLab light/dark; switching back to GitHub cleared GitLab's copied styles. A live GitHub token change propagated while the dialog stayed open, and virtualized rows retained their colors. Captured browser error logs were empty. This is local fixture proof, not a reload of the installed extension or authenticated API validation.
+
+The existing 81 approved regressions, formatting, lint, static checks and runtime packaging passed. No tracked regression tests were added or edited for this syntax/theme correction before main-implementation approval.

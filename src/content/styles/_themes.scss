@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 // Provider palettes. Keep CSS variables so live site themes can override the fallbacks.
 
 @mixin github-light {
@@ -18,13 +24,20 @@
   --diff-delete-bg: var(--diffBlob-deletionLine-bgColor, #ffebe9);
   --diff-add-number-bg: var(--diffBlob-additionNum-bgColor, #aceebb);
   --diff-delete-number-bg: var(--diffBlob-deletionNum-bgColor, #ffcecb);
-  --syntax-comment: var(--color-prettylights-syntax-comment, #6e7781);
-  --syntax-keyword: var(--color-prettylights-syntax-keyword, #cf222e);
-  --syntax-string: var(--color-prettylights-syntax-string, #0a3069);
-  --syntax-number: var(--color-prettylights-syntax-constant, #0550ae);
-  --syntax-function: var(--color-prettylights-syntax-entity, #8250df);
-  --syntax-property: var(--color-prettylights-syntax-variable, #953800);
-  --syntax-tag: var(--color-prettylights-syntax-entity-tag, #116329);
+  --syntax-comment: var(--prettylights-syntax-comment, var(--color-prettylights-syntax-comment, var(--code-text)));
+  --syntax-keyword: var(--prettylights-syntax-keyword, var(--color-prettylights-syntax-keyword, var(--code-text)));
+  --syntax-string: var(--prettylights-syntax-string, var(--color-prettylights-syntax-string, var(--code-text)));
+  --syntax-number: var(--prettylights-syntax-constant, var(--color-prettylights-syntax-constant, var(--code-text)));
+  --syntax-function: var(--prettylights-syntax-entity, var(--color-prettylights-syntax-entity, var(--code-text)));
+  --syntax-property: var(--prettylights-syntax-variable, var(--color-prettylights-syntax-variable, var(--code-text)));
+  --syntax-tag: var(--prettylights-syntax-entityTag, var(--color-prettylights-syntax-entity-tag, var(--code-text)));
+  --syntax-type: var(--syntax-number);
+  --syntax-constant: var(--syntax-number);
+  --syntax-builtin: var(--syntax-number);
+  --syntax-annotation: var(--syntax-keyword);
+  --syntax-operator: var(--syntax-keyword);
+  --syntax-punctuation: var(--code-text);
+  --syntax-heading: var(--syntax-keyword);
 }
 
 @mixin github-dark {
@@ -43,13 +56,6 @@
   --diff-delete-bg: var(--diffBlob-deletionLine-bgColor, #f851491a);
   --diff-add-number-bg: var(--diffBlob-additionNum-bgColor, #3fb9504d);
   --diff-delete-number-bg: var(--diffBlob-deletionNum-bgColor, #f851494d);
-  --syntax-comment: var(--color-prettylights-syntax-comment, #9198a1);
-  --syntax-keyword: var(--color-prettylights-syntax-keyword, #ff7b72);
-  --syntax-string: var(--color-prettylights-syntax-string, #a5d6ff);
-  --syntax-number: var(--color-prettylights-syntax-constant, #79c0ff);
-  --syntax-function: var(--color-prettylights-syntax-entity, #d2a8ff);
-  --syntax-property: var(--color-prettylights-syntax-variable, #ffa657);
-  --syntax-tag: var(--color-prettylights-syntax-entity-tag, #7ee787);
 }
 
 @mixin gitlab-light {
@@ -70,13 +76,20 @@
   --diff-delete-bg: var(--native-code-old-diff-background-color, #fbe9eb);
   --diff-add-number-bg: var(--native-code-new-diff-line-number-background-color, #ddfbe6);
   --diff-delete-number-bg: var(--native-code-old-diff-line-number-background-color, #f9d7dc);
-  --syntax-comment: #998;
-  --syntax-keyword: var(--code-text);
-  --syntax-string: #d14;
-  --syntax-number: #099;
-  --syntax-function: #900;
-  --syntax-property: #008080;
-  --syntax-tag: #000080;
+  --syntax-comment: var(--native-syntax-comment, var(--code-text));
+  --syntax-keyword: var(--native-syntax-keyword, var(--code-text));
+  --syntax-string: var(--native-syntax-string, var(--code-text));
+  --syntax-number: var(--native-syntax-number, var(--code-text));
+  --syntax-constant: var(--native-syntax-constant, var(--code-text));
+  --syntax-function: var(--native-syntax-function, var(--code-text));
+  --syntax-property: var(--native-syntax-property, var(--code-text));
+  --syntax-tag: var(--native-syntax-tag, var(--code-text));
+  --syntax-type: var(--native-syntax-type, var(--code-text));
+  --syntax-builtin: var(--native-syntax-builtin, var(--code-text));
+  --syntax-annotation: var(--native-syntax-annotation, var(--code-text));
+  --syntax-operator: var(--native-syntax-operator, var(--code-text));
+  --syntax-punctuation: var(--native-syntax-punctuation, var(--code-text));
+  --syntax-heading: var(--native-syntax-heading, var(--code-text));
 }
 
 @mixin gitlab-dark {
@@ -97,11 +110,4 @@
   --diff-delete-bg: var(--native-code-old-diff-background-color, #4b2526);
   --diff-add-number-bg: var(--native-code-new-diff-line-number-background-color, #233726);
   --diff-delete-number-bg: var(--native-code-old-diff-line-number-background-color, #4b2526);
-  --syntax-comment: #969896;
-  --syntax-keyword: #b294bb;
-  --syntax-string: #b5bd68;
-  --syntax-number: #de935f;
-  --syntax-function: #81a2be;
-  --syntax-property: #81a2be;
-  --syntax-tag: #8abeb7;
 }

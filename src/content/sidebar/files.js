@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Loads the repository tree or the changed files of a request, including
  * lazily loaded folders, and remembers expanded folders per repository,
@@ -9,6 +15,7 @@
  * @module content/sidebar/files
  */
 import {makeTree} from '../../shared/tree.js';
+import {batch, withOwner} from '../reactive.js';
 
 /** Creates the files feature; also exposes `expansionMemory` and `loadingFolders`. */
 export function createFiles(app) {
@@ -36,56 +43,53 @@ export function createFiles(app) {
    * @param {number} [epoch=state.epoch] The page this load belongs to.
    */
   async function loadFiles(epoch = state.epoch) {
+    const alive = app.pageAlive || (() => true);
     const mode = state.mode;
     const generation = ++state.filesGeneration;
-    const current = () => epoch === state.epoch && generation === state.filesGeneration;
+    const current = () => alive() && epoch === state.epoch && generation === state.filesGeneration;
     loadingFolders.clear();
-    state.loadingAll = false;
-    state.filesLoading = true;
-    state.filesError = '';
-    if (state.tab === 'files') {
-      state.loading = true;
-      state.error = '';
-    }
-    app.render();
+    batch(() => {
+      state.loadingAll = false;
+      state.filesLoading = true;
+      state.filesError = '';
+    });
     try {
+      let entries;
+      let lazy;
+      let diff;
       if (mode === 'changes') {
-        const diff = await app.rpc('DIFF');
+        diff = await app.rpc('DIFF');
         if (!current()) return;
-        state.diff = diff;
-        await app.prepareHeaderButtons(diff, epoch);
-        if (!current()) return;
-        const grouped = new Map();
-        for (const comment of diff.comments) {
-          if (!grouped.has(comment.path)) grouped.set(comment.path, []);
-          grouped.get(comment.path).push(comment);
-        }
-        state.entries = diff.files.map(file => ({
-          ...file,
-          path: file.filename,
-          type: 'blob',
-          comments: grouped.get(file.filename) || [],
-          viewed: diff.viewed[file.filename] === 'VIEWED',
-        }));
-        state.lazy = false;
+        entries = diffEntries(diff);
+        lazy = false;
       } else {
         const result = state.info.treeSha
           ? await app.rpc('TREE', {sha: state.info.treeSha})
           : {entries: [], lazy: false};
         if (!current()) return;
-        state.entries = result.entries;
-        state.lazy = result.lazy;
+        entries = result.entries;
+        lazy = result.lazy;
       }
-      state.tree = makeTree(state.entries);
-      state.expanded = expansionMemory.get(expansionKey()) || new Set();
-      if (mode === 'changes' && !state.expanded.size) {
-        for (const node of state.tree.nodes.values())
-          if (node.type === 'tree' && node.path) state.expanded.add(node.path);
-      }
-      let path = state.selected;
-      while (path.includes('/')) {
-        path = path.slice(0, path.lastIndexOf('/'));
-        state.expanded.add(path);
+      batch(() => {
+        if (diff) state.diff = diff;
+        state.entries = entries;
+        state.lazy = lazy;
+        state.tree = makeTree(entries);
+        const expanded = new Set(expansionMemory.get(expansionKey()));
+        if (mode === 'changes' && !expanded.size) {
+          for (const node of state.tree.nodes.values()) if (node.type === 'tree' && node.path) expanded.add(node.path);
+        }
+        let path = state.selected;
+        while (path.includes('/')) {
+          path = path.slice(0, path.lastIndexOf('/'));
+          expanded.add(path);
+        }
+        state.expanded = expanded;
+        app.updateTree();
+      });
+      if (diff) {
+        await app.prepareHeaderButtons(diff, epoch);
+        if (!current()) return;
       }
       if (mode === 'files') {
         while (current()) {
@@ -93,25 +97,20 @@ export function createFiles(app) {
             .filter(node => node.type === 'tree' && !node.loaded && state.expanded.has(node.path))
             .slice(0, 4);
           if (!folders.length) break;
-          await Promise.all(folders.map(loadFolder));
+          const results = await Promise.all(folders.map(node => loadFolder(node, false)));
+          if (!current()) return;
+          mergeFolders(results);
         }
         if (!current()) return;
       }
+      if (state.tab === 'files') app.view.body.scrollTop = 0;
       state.filesLoading = false;
-      if (state.tab === 'files') {
-        state.loading = false;
-        app.view.body.scrollTop = 0;
-      }
-      app.render();
     } catch (error) {
       if (current()) {
-        state.filesLoading = false;
-        state.filesError = error.message;
-        if (state.tab === 'files') {
-          state.loading = false;
-          state.error = error.message;
-        }
-        app.render();
+        batch(() => {
+          state.filesLoading = false;
+          state.filesError = error.message;
+        });
       }
     }
   }
@@ -120,14 +119,17 @@ export function createFiles(app) {
   async function toggleFolder(node) {
     const epoch = state.epoch;
     const generation = state.filesGeneration;
-    if (state.expanded.has(node.path)) state.expanded.delete(node.path);
-    else {
-      state.expanded.add(node.path);
+    const expanded = new Set(state.expanded);
+    if (expanded.has(node.path)) {
+      expanded.delete(node.path);
+      state.expanded = expanded;
+    } else {
+      expanded.add(node.path);
+      state.expanded = expanded;
       if (!node.loaded) await loadFolder(node);
     }
     if (epoch !== state.epoch || generation !== state.filesGeneration) return;
     rememberExpansion();
-    app.updateTree();
   }
 
   /**
@@ -135,10 +137,11 @@ export function createFiles(app) {
    *
    * GitHub folders load by tree SHA, GitLab folders by path at the commit.
    */
-  async function loadFolder(node) {
+  async function loadFolder(node, commit = true) {
     if (node.loaded || loadingFolders.has(node.path)) return loadingFolders.get(node.path);
     const epoch = state.epoch;
     const generation = state.filesGeneration;
+    const alive = app.pageAlive || (() => true);
     const promise = app
       .rpc('TREE', {
         sha: state.context.provider === 'gitlab' ? state.info.commitSha : node.sha,
@@ -146,23 +149,71 @@ export function createFiles(app) {
         recursive: false,
         lazyChildren: true,
       })
-      .then(result => {
-        if (epoch !== state.epoch || generation !== state.filesGeneration) return;
-        const parent = state.entries.find(entry => entry.path === node.path);
-        if (parent) parent.loaded = true;
-        const known = new Set(state.entries.map(entry => entry.path));
-        for (const entry of result.entries) {
-          const path = `${node.path}/${entry.path}`;
-          if (!known.has(path)) state.entries.push({...entry, path});
-        }
-        state.tree = makeTree(state.entries);
-        app.updateTree();
-      })
+      .then(
+        withOwner(result => {
+          if (!alive() || epoch !== state.epoch || generation !== state.filesGeneration) return;
+          // One group of folder replies is committed together by its caller.
+          return {node, entries: result.entries};
+        }),
+      )
       .finally(() => {
         if (loadingFolders.get(node.path) === promise) loadingFolders.delete(node.path);
       });
     loadingFolders.set(node.path, promise);
-    return promise;
+    const result = await promise;
+    if (commit && result && alive() && epoch === state.epoch && generation === state.filesGeneration)
+      mergeFolders([result]);
+    return result;
+  }
+
+  /** Rebuilds and flattens once for a group of loaded folders, preserving concurrent additions. */
+  function mergeFolders(results) {
+    const entries = [...state.entries];
+    const known = new Set(entries.map(entry => entry.path));
+    for (const result of results.filter(Boolean)) {
+      const index = entries.findIndex(entry => entry.path === result.node.path);
+      if (index !== -1) entries[index] = {...entries[index], loaded: true};
+      for (const entry of result.entries) {
+        const path = `${result.node.path}/${entry.path}`;
+        if (!known.has(path)) {
+          known.add(path);
+          entries.push({...entry, path});
+        }
+      }
+    }
+    batch(() => {
+      state.entries = entries;
+      state.tree = makeTree(entries);
+      app.updateTree();
+    });
+  }
+
+  /** Applies a diff and its matching Viewed/comment rows atomically, including native-header loads. */
+  function applyDiff(diff) {
+    batch(() => {
+      state.diff = diff;
+      if (state.mode !== 'changes') return;
+      state.entries = diffEntries(diff);
+      state.tree = makeTree(state.entries);
+      state.lazy = false;
+      app.updateTree();
+    });
+  }
+
+  /** Builds tree entries using comments and Viewed marks from this exact diff revision. */
+  function diffEntries(diff) {
+    const grouped = new Map();
+    for (const comment of diff.comments) {
+      if (!grouped.has(comment.path)) grouped.set(comment.path, []);
+      grouped.get(comment.path).push(comment);
+    }
+    return diff.files.map(file => ({
+      ...file,
+      path: file.filename,
+      type: 'blob',
+      comments: grouped.get(file.filename) || [],
+      viewed: diff.viewed[file.filename] === 'VIEWED',
+    }));
   }
 
   /** Loads every lazy folder, four at a time, so search covers the whole repository. */
@@ -170,9 +221,9 @@ export function createFiles(app) {
     if (state.loadingAll) return;
     const epoch = state.epoch;
     const generation = state.filesGeneration;
-    const current = () => epoch === state.epoch && generation === state.filesGeneration;
+    const alive = app.pageAlive || (() => true);
+    const current = () => alive() && epoch === state.epoch && generation === state.filesGeneration;
     state.loadingAll = true;
-    app.render();
     try {
       while (current()) {
         const folders = Array.from(state.tree.nodes.values())
@@ -182,12 +233,13 @@ export function createFiles(app) {
           state.lazy = false;
           break;
         }
-        await Promise.all(folders.map(loadFolder));
+        const results = await Promise.all(folders.map(node => loadFolder(node, false)));
+        if (!current()) return;
+        mergeFolders(results);
       }
     } finally {
       if (current()) {
         state.loadingAll = false;
-        app.render();
       }
     }
   }
@@ -200,5 +252,6 @@ export function createFiles(app) {
     toggleFolder,
     loadFolder,
     loadAllFolders,
+    applyDiff,
   };
 }

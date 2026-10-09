@@ -1,3 +1,9 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Sidebar placement, theme, code font and page padding.
  *
@@ -6,6 +12,26 @@
 import pageStyles from 'virtual:page-styles';
 import {fontFamilies, preferences} from '../../shared/preferences.js';
 import {isDark} from '../page.js';
+import {createRenderEffect, on, onCleanup} from '../reactive.js';
+import {listen} from '../reactive-dom.js';
+
+/** Native Rouge token classes in GitLab's active code-theme stylesheet. */
+const gitlabTokens = {
+  comment: 'c1',
+  keyword: 'k',
+  heading: 'gh',
+  tag: 'nt',
+  string: 's',
+  number: 'm',
+  constant: 'kc',
+  type: 'nc',
+  function: 'nf',
+  property: 'na',
+  builtin: 'bp',
+  annotation: 'nd',
+  operator: 'o',
+  punctuation: 'p',
+};
 
 /** Creates the layout feature: `layout`, `positionHandle` and `setPreferences`. */
 export function createLayout(app) {
@@ -13,6 +39,15 @@ export function createLayout(app) {
   const {host, pageStyle, panel, handle, resize, toastBox, pinButton, closeButton, searchHint} = app.view;
   let nativeSidebar = null;
   const nativeSidebarObserver = new ResizeObserver(positionHandle);
+  onCleanup(() => nativeSidebarObserver.disconnect());
+  listen(
+    document,
+    'load',
+    event => {
+      if (state.context?.provider === 'gitlab' && event.target instanceof HTMLLinkElement) updateCodeColors();
+    },
+    {capture: true},
+  );
 
   /**
    * Applies the preferences and theme to the sidebar and the page.
@@ -51,31 +86,61 @@ export function createLayout(app) {
       available && (prefs.fontFamily !== 'default' || prefs.fontSize !== 12)
         ? `.blob-code,.blob-code-inner,.react-code-text,[data-testid="code-cell"],pre code,.rd-line-text,.line_content,.blob-content pre{font-family:${fontFamilies[prefs.fontFamily]}!important;font-size:${prefs.fontSize}px!important;}`
         : '';
-    pageStyle.textContent = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
+    const text = `@media(min-width:800px){body{padding-${prefs.dock}:${padding}px!important;}}${fontStyle}
       ${pageStyles}`;
-    app.requestTreeRender();
+    if (pageStyle.textContent !== text) pageStyle.textContent = text;
+    app.requestTreeRender?.();
   }
 
-  /** Reads GitLab's selected code theme without applying it to the sidebar chrome. */
+  /** Reads GitLab's active native code styles; the closed viewer cannot inherit page selectors. */
   function updateCodeColors() {
-    const source =
-      state.context?.provider === 'gitlab'
-        ? document.querySelector(
-            '.code-syntax-highlight-theme, .diff-file .code, .diff-table.code, .rd-diff-file .code',
-          )
-        : null;
-    const colors = source ? getComputedStyle(source) : null;
-    for (const name of [
-      'background',
-      'text-color',
-      'new-diff-background-color',
-      'old-diff-background-color',
-      'new-diff-line-number-background-color',
-      'old-diff-line-number-background-color',
-    ]) {
-      const value = colors?.getPropertyValue(`--code-${name}`).trim();
-      if (value) host.style.setProperty(`--native-code-${name}`, value);
-      else host.style.removeProperty(`--native-code-${name}`);
+    const gitlab = state.context?.provider === 'gitlab';
+    const source = gitlab
+      ? document.querySelector('.code-syntax-highlight-theme, .diff-file .code, .diff-table.code, .rd-diff-file .code')
+      : null;
+    const probe = gitlab ? document.createElement('span') : null;
+    if (probe) {
+      probe.className = source ? '' : 'code-syntax-highlight-theme';
+      if (!source) probe.style.color = 'var(--code-text-color)';
+      probe.hidden = true;
+      probe.setAttribute('aria-hidden', 'true');
+    }
+    const tokens = Object.entries(gitlabTokens).map(([type, className]) => {
+      const token = probe ? document.createElement('span') : null;
+      if (token) {
+        token.className = className;
+        probe.append(token);
+      }
+      return [type, token];
+    });
+    if (gitlab) (source || document.body || document.documentElement).append(probe);
+    try {
+      const colors = gitlab ? getComputedStyle(source || probe) : null;
+      for (const name of [
+        'background',
+        'text-color',
+        'new-diff-background-color',
+        'old-diff-background-color',
+        'new-diff-line-number-background-color',
+        'old-diff-line-number-background-color',
+      ]) {
+        const value = colors?.getPropertyValue(`--code-${name}`).trim();
+        if (value) host.style.setProperty(`--native-code-${name}`, value);
+        else host.style.removeProperty(`--native-code-${name}`);
+      }
+      for (const [type, token] of tokens) {
+        const style = gitlab ? getComputedStyle(token) : null;
+        for (const [property, name] of [
+          ['color', `--native-syntax-${type}`],
+          ['font-style', `--syntax-${type}-font-style`],
+          ['font-weight', `--syntax-${type}-font-weight`],
+        ]) {
+          if (style) host.style.setProperty(name, style.getPropertyValue(property));
+          else host.style.removeProperty(name);
+        }
+      }
+    } finally {
+      probe?.remove();
     }
   }
 
@@ -108,8 +173,10 @@ export function createLayout(app) {
    */
   async function setPreferences(value) {
     state.preferences = preferences({...state.preferences, ...value});
-    layout();
     await app.rpc('PREFERENCES', {value});
   }
-  return {layout, positionHandle, setPreferences};
+  createRenderEffect(on([() => state.preferences, () => state.context, () => app.uiReady], layout), undefined, {
+    name: 'sidebar layout',
+  });
+  return {layout, positionHandle, setPreferences, updateCodeColors};
 }

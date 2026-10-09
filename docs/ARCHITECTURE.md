@@ -69,6 +69,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | Module | Role |
 | --- | --- |
 | `state.js` | Mutable state and request generations (`epoch`, `filesGeneration`, `viewGeneration`, `refreshGeneration`, `branchGeneration`). |
+| `reactive.js`, `reactive-dom.js` | Dependency-free signals, lazy memos, synchronous render/effect queues and owners; owned listeners, shared animation frames and debounced values. |
 | `page.js`, `dom.js` | Page context, theme and wording; DOM helpers using `textContent` only. |
 | `navigation.js` | Page loads, header, tabs, Refresh. |
 | `sidebar/view.js`, `layout.js`, `render.js` | Shadow DOM elements, placement and page padding, tab rendering. |
@@ -79,6 +80,12 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | `native/header-buttons.js` | View full buttons in native diff headers. |
 
 Every asynchronous reply is applied only if the generations captured at its start still match, so navigation, Refresh, tab or filter changes cannot be overwritten by an older reply. The race regressions in `tests/` exercise these rules through the factories.
+
+View fields in `state.js` are signal-backed accessors, so factories keep the `state.x = value` syntax. `expanded` is replaced with a new Set and compared by contents. Generations, tree entries, the tree model and keyboard focus stay plain fields. `updateTree()` invalidates one tree derivation after structural changes; expansion and the debounced search invalidate it directly. Multi-field updates use `batch`. Files status is stored once; the visible `loading`/`error` accessors choose between Files and list status without copying on tab switches.
+
+The app root owns sidebar bindings and global listeners. Each navigation disposes its page root, closes its viewer and branch popover, removes native buttons and clears pending folder requests. Page liveness checks complement request generations. Each viewer shell owns its scroll listener and frames, and releases them on close or replacement. `catchError` on the app root reports computation errors as a toast; feature actions run untracked. Settings uses the same primitives with separate preference, account, OAuth and Sync bindings and listens for stored preference changes.
+
+Render effects update tab chrome, persistent toolbar controls, the active body, notices, header and layout independently. Hidden tabs do not subscribe to their data. All tab counts respect search; request and bookmark counts share their matching lists with the body through lazy memos. Tree rows remain imperative and virtualized; one binding schedules the viewport through the shared frame queue. Provider-driven theme reads and native-header insertion also stay imperative. Identical page-style text is not rewritten.
 
 ## Build and package
 
@@ -97,6 +104,9 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
 - `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order.
+- `reactive.test.mjs`, `reactive-dom.test.mjs`: dependency graphs, lazy equality cutoffs, render/effect ordering, owners, error draining and listener/frame/timer cleanup.
+- `sidebar-reactive.test.mjs`: persistent control focus, searched counts, background Files status, header updates, atomic diff rows, account rollback and keyboard tab stops through the content factories with synthetic DOM/RPC fixtures.
+- `options-reactive.test.mjs`: stored and normalized preferences, unsaved form preservation, Sync errors and OAuth timer cleanup through the bundled Settings entry point with synthetic browser events.
 - `release.test.mjs`: release and store workflow behavior.
 
 Browser behavior, authenticated APIs and store publication need the manual checks in [Contributing](../CONTRIBUTING.md) and [Verification](VERIFICATION.md).

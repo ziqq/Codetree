@@ -1,8 +1,14 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ */
+
 /**
  * Original, bounded lexical syntax highlighting.
  *
  * A single-pass tokenizer recognizes comments, strings, numbers, keywords,
- * constants, functions, properties, tags, punctuation and operators for
+ * constants, Dart types/metadata, builtins, functions, properties, tags, punctuation and operators for
  * common languages. It keeps multi-line string/comment state per
  * revision, yields every 16 KiB so the page stays responsive, can be
  * cancelled, and gives up above 200,000 tokens. Tokens are character
@@ -88,7 +94,11 @@ const keywords = Object.fromEntries(
 
 /** Literal constants shared by most languages. */
 const constants = new Set(['true', 'false', 'null', 'nil', 'none', 'undefined', 'nan', 'inf', 'yes', 'no']);
+/** Lowercase Dart core types; other types conventionally start with a capital, after leading underscores/dollars. */
+const dartTypes = new Set(['bool', 'double', 'int', 'num', 'dynamic']);
 const identifier = /[$a-zA-Z_][$\w]*/y;
+/** Dart metadata, including a library prefix, is styled separately from constructor calls. */
+const annotation = /@[$a-zA-Z_][$\w]*(?:\.[$a-zA-Z_][$\w]*)*/y;
 const number = /(?:0[xob][\da-f_]+|\d[\d_]*(?:\.[\d_]*)?(?:e[+-]?\d[\d_]*)?)(?:n|[ulfd])?/iy;
 
 /**
@@ -201,7 +211,12 @@ export async function tokenize(text, path, current = () => true) {
         inTag = false;
         emit(start, start + 1, 'punctuation');
       } else if (name === 'markup' && !inTag) position++;
-      else if (/\d/.test(character)) {
+      else if (name === 'dart' && character === '@') {
+        annotation.lastIndex = position;
+        const match = annotation.exec(line);
+        if (match) emit(start, start + match[0].length, 'annotation');
+        else position++;
+      } else if (/\d/.test(character)) {
         number.lastIndex = position;
         const match = number.exec(line);
         emit(start, start + match[0].length, 'number');
@@ -212,7 +227,9 @@ export async function tokenize(text, path, current = () => true) {
         const value = name === 'sql' ? word.toLowerCase() : word;
         const rest = line.slice(position);
         let type = '';
-        if (keywords[name]?.has(value)) type = 'keyword';
+        if (name === 'dart' && ['this', 'super'].includes(word)) type = 'builtin';
+        else if (name === 'dart' && (dartTypes.has(word) || /^[$_]*[A-Z]/.test(word))) type = 'type';
+        else if (keywords[name]?.has(value)) type = 'keyword';
         else if (constants.has(word.toLowerCase())) type = 'constant';
         else if (name === 'markup')
           type =
@@ -220,7 +237,8 @@ export async function tokenize(text, path, current = () => true) {
         else if (['yaml', 'toml', 'css'].includes(name) && /^\s*[:=]/.test(rest)) type = 'property';
         else if (/^\s*\(/.test(rest)) type = 'function';
         if (type) emit(start, position, type);
-      } else if (/[{}()[\];,.?:]/.test(character)) emit(start, start + 1, 'punctuation');
+      } else if (name === 'dart' && /[?:]/.test(character)) emit(start, start + 1, 'operator');
+      else if (/[{}()[\];,.?:]/.test(character)) emit(start, start + 1, 'punctuation');
       else if (/[+\-*/%=!<>&|^~]/.test(character)) emit(start, start + 1, 'operator');
       else position++;
       scanned += Math.max(1, position - start);

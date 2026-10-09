@@ -1,3 +1,9 @@
+#
+# https://github.com/ziqq/Codetree
+# Copyright (C) 2026 Anton Ustinoff
+# https://github.com/ziqq/Codetree/blob/main/LICENSE
+#
+
 SHELL   :=/bin/bash -e -o pipefail
 PWD     :=$(shell pwd)
 VERSION :=$(shell node -p "require('./src/manifest.json').version")
