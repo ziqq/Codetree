@@ -7,12 +7,21 @@
 - **CHANGED**: README previews replaced with light/dark captures of the installed extension on public GitHub and GitLab pages
 - **CHANGED**: removed the unused `activeTab` permission; the toolbar button only messages the page
 - **CHANGED**: Chrome Web Store secrets are passed only to the configuration check and upload steps, and release jobs install dependencies without lifecycle scripts
+- **CHANGED**: the sidebar and Settings re-render through a small dependency-free reactive module (`src/shared/reactive.js`, SolidJS-style signals, memos and render effects) instead of manual redraw calls; toolbar controls persist between renders and the visible rows are computed once per change
 - **FIXED**: release workflow tests require the Chrome Web Store item ID from `secrets.CWS_EXTENSION_ID` for release notes and submission
 - **FIXED**: pages receive only the accounts and account selection of their own host and can bookmark only their own host
 - **FIXED**: bookmark URLs longer than 2,048 characters are rejected so they cannot exhaust local storage or the Sync snapshot
 - **FIXED**: branch and path tails with empty, `.` or `..` segments (for example from an encoded `%2F`) are rejected before API requests
 - **FIXED**: a not-found reply without an account now explains that private repositories need a connected account with read access; with an account it names the account and the token/SSO checks
 - **FIXED**: viewer loading and error states are centered, and the Open Settings and Retry buttons sit under the explanation with visible button styles
+- **FIXED**: saving Appearance in Settings no longer overwrites the dock or width changed in the sidebar or by Sync, and Settings shows preferences changed elsewhere without discarding unsaved edits of other fields
+- **FIXED**: after saving, Settings shows the stored Navigation values, for example trimmed hide patterns
+- **FIXED**: changing the tree mode or review filter with the keyboard keeps focus on the select
+- **FIXED**: background tree loading no longer re-renders the Pull/Merge requests or Bookmarks tab, and "Load all folders" rebuilds the tree once per four folders instead of once per folder
+- **FIXED**: the repository header updates as soon as the page changes and after Refresh on the Bookmarks tab, and a failed account switch shows the account that is still selected
+- **FIXED**: a review diff reloaded from a native View full button also reloads the changed-file rows, so their Viewed marks belong to the same head revision
+- **FIXED**: clicking a folder with folder click disabled moves the keyboard tab stop to that row
+- **FIXED**: the page style is rewritten only when it changes, and the sidebar lays out once per navigation and pin click
 - **FIXED**: sidebar loading and error states are centered with Retry and Open settings in one row below the text, , the toast stays within the docked sidebar, and a failed Refresh or Retry is reported in the view instead of being repeated in a toast
 
 ## 0.3.0

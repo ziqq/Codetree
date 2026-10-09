@@ -18,7 +18,7 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 
 ## Project structure
 
-- `src/shared/`: preferences/shortcuts, routes/URLs, tree model, patch validation and original icons; side-effect-free ES modules used by every context.
+- `src/shared/`: preferences/shortcuts, routes/URLs, tree model, patch validation, reactive primitives and original icons; side-effect-free ES modules used by every context.
 - `src/background/`: trusted service worker. `index.js` routes messages; `storage`, `cache`, `http`, `client`, `hosts`, `accounts` and `validate` hold the host-bound broker, bounded caches and request validation.
 - `src/background/providers/`: GitHub REST/GraphQL and GitLab REST adapters, each with its own request handler.
 - `src/background/sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.

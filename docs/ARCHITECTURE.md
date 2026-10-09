@@ -68,7 +68,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 
 | Module | Role |
 | --- | --- |
-| `state.js` | Mutable state and request generations (`epoch`, `filesGeneration`, `viewGeneration`, `refreshGeneration`, `branchGeneration`). |
+| `state.js` | State with signal-backed view fields, the derived visible rows (`flat`) and request generations (`epoch`, `filesGeneration`, `viewGeneration`, `refreshGeneration`, `branchGeneration`). |
 | `page.js`, `dom.js` | Page context, theme and wording; DOM helpers using `textContent` only. |
 | `navigation.js` | Page loads, header, tabs, Refresh. |
 | `sidebar/view.js`, `layout.js`, `render.js` | Shadow DOM elements, placement and page padding, tab rendering. |
@@ -77,6 +77,8 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | `sidebar/branches.js`, `pulls.js`, `bookmarks.js` | Branch popover, request list and filters, bookmarks. |
 | `viewer/` | Full-file diff and comments dialog; lexical highlighting. |
 | `native/header-buttons.js` | View full buttons in native diff headers. |
+
+Rendering is bound to the state with `src/shared/reactive.js`, a dependency-free module with SolidJS names and semantics (`createSignal`, `createMemo`, `createRenderEffect`, `createRoot`, `batch`, `untrack`, `catchError`). View fields of `state.js` are plain properties backed by signals; handlers only write them, and the `bindX()` functions of the layout, header, render and tree features create the render effects that apply them to the DOM. `mount()` binds these effects inside one app root whose errors are shown as a toast. Updates are synchronous: when a write or the outermost `batch` returns, the DOM is current, so several writes of one handler go into `batch`. Only replaced values notify, so view fields are always replaced, never mutated in place (`expanded` gets a new Set, `preferences` a new object). Virtualized rows, the viewer, native header buttons and page-theme changes stay imperative; the tab-body effect only requests the existing row renderer. Settings uses the same module for its OAuth and Sync controls.
 
 Every asynchronous reply is applied only if the generations captured at its start still match, so navigation, Refresh, tab or filter changes cannot be overwritten by an older reply. The race regressions in `tests/` exercise these rules through the factories.
 
