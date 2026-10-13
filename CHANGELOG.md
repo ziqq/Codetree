@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- **ADDED**: Generate token button in Settings opens token creation for the selected GitHub, GitLab or custom server in a new tab
+- **FIXED**: native View full buttons recognize GitHub's current diff header classes and appear in the header actions
+
 ## 0.4.0
 
 - **CHANGED**: sidebar and Settings use dependency-free signals, lazy memos and owned effects; search is debounced, counts respect search in every tab and tree rows remain virtualized

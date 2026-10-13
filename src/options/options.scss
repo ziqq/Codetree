@@ -295,6 +295,30 @@ small {
   padding-top: 20px;
   border-top: 1px solid var(--border);
 }
+.token-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.token-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+.token-heading button {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+.token-heading button:hover {
+  border-color: var(--accent);
+}
 .optional {
   color: var(--muted);
   font-size: 10px;

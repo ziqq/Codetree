@@ -24,7 +24,7 @@
           <h1>Settings</h1>
           <p class="intro">Your repositories, with a little more room to explore.</p>
         </div>
-        <span class="version">v0.4.0</span>
+        <span class="version">v0.4.1</span>
       </header>
       <section class="card" aria-labelledby="appearance-title">
         <div class="section-heading">
@@ -213,19 +213,26 @@
             >Account label <span class="optional">optional</span
             ><input name="label" maxlength="60" placeholder="Personal, work…" autocomplete="off"
           /></label>
-          <label
-            >Personal access token<input
+          <div class="token-field">
+            <div class="token-heading">
+              <label for="account-token">Personal access token</label>
+              <button id="generate-token" type="button" title="Open token creation in a new tab">Generate token</button>
+            </div>
+            <input
+              id="account-token"
               name="token"
               type="password"
               placeholder="Paste your token"
               required
               autocomplete="off"
               spellcheck="false"
-            /><small
+              aria-describedby="token-note"
+            />
+            <small id="token-note"
               >The token is verified directly with the selected host. It stays in this browser's extension
               storage.</small
-            ></label
-          >
+            >
+          </div>
           <div class="permission-note" id="github-permissions">
             <strong>GitHub token permissions</strong>
             <p>
