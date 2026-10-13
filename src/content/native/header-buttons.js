@@ -19,6 +19,9 @@ import {diffNode} from '../viewer/viewer.js';
 import {withOwner} from '../reactive.js';
 import {requestFrame} from '../reactive-dom.js';
 
+/** GitHub React headers with either scoped module names or the current class-name format. */
+const githubHeaderSelector = '[class*="DiffFileHeader-module__diff-file-header"], [class*="diff-file-header__"]';
+
 /** Creates the header-button feature: `clearHeaderButtons`, `prepareHeaderButtons` and `scheduleHeaderButtons`. */
 export function createHeaderButtons(app) {
   const {state, run} = app;
@@ -75,7 +78,7 @@ export function createHeaderButtons(app) {
       ),
     );
     if (state.context.provider === 'github') {
-      for (const header of document.querySelectorAll('[class*="DiffFileHeader-module__diff-file-header"]')) {
+      for (const header of document.querySelectorAll(githubHeaderSelector)) {
         const card = header.closest('[role="region"]');
         if (card) cards.add(card);
       }
@@ -95,13 +98,11 @@ export function createHeaderButtons(app) {
       const file = fullViewPaths.get(path) || fullViewPaths.get(card.id);
       if (!path) path = file?.filename;
       if (!path) continue;
-      const header = card.querySelector(
-        '[class*="DiffFileHeader-module__diff-file-header"], .rd-diff-file-header, .file-header, .diffhead',
-      );
+      const header = card.querySelector(`${githubHeaderSelector}, .rd-diff-file-header, .file-header, .diffhead`);
       if (!header || header.querySelector('.codetree-view-full')) continue;
       const actions =
         header.querySelector('.rd-diff-file-info, .file-actions') ||
-        (header.className.includes('DiffFileHeader-module__') ? header.lastElementChild : header);
+        (header.matches(githubHeaderSelector) ? header.lastElementChild : header);
       const filename = file?.filename || path;
       const binary =
         /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|ttf|otf|woff2?|pdf|zip|gz|7z|rar|mp[34]|mov|ogg|wav|wasm|exe|dll|so|dylib)$/i.test(

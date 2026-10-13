@@ -262,6 +262,24 @@ createRoot(dispose =>
       }
       accountForm.elements.provider.addEventListener('change', showProvider);
 
+      /** Handles the form's token-creation button; older Enterprise servers use classic tokens. */
+      async function generateToken(event) {
+        if (event.target.id !== 'generate-token') return;
+        try {
+          const origin = normalizeOrigin(accountForm.elements.origin.value.trim());
+          const provider = accountForm.elements.provider.value;
+          let path;
+          if (provider === 'gitlab') path = '/-/user_settings/personal_access_tokens';
+          else if (provider === 'github')
+            path = origin === 'https://github.com' ? '/settings/personal-access-tokens/new' : '/settings/tokens/new';
+          else throw new Error('Select GitHub or GitLab.');
+          await chrome.tabs.create({url: `${origin}${path}`});
+        } catch (error) {
+          status(accountStatus, error.message, true);
+        }
+      }
+      listen(accountForm, 'click', generateToken);
+
       /** Renders the connected accounts with their remove buttons. */
       function renderAccounts() {
         accounts.replaceChildren();
