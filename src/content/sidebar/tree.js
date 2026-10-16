@@ -137,6 +137,12 @@ export function createTree(app) {
               el('span', {class: 'dels', text: node.dels ? `−${node.dels}` : ''}),
             ]),
           );
+        if (folder && node.viewed && state.diff?.viewedMode !== 'none') {
+          const label = `All listed files in ${node.path} viewed ${state.diff?.viewedMode === 'github' ? 'on GitHub' : 'locally'}`;
+          row.append(
+            el('span', {class: 'folder-viewed', role: 'img', 'aria-label': label, title: label}, [icon('check')]),
+          );
+        }
         if (!folder) {
           const full = button(
             'diff',
@@ -179,6 +185,15 @@ export function createTree(app) {
                   node.viewed = result.state === 'VIEWED';
                   const entry = state.entries.find(entry => entry.path === node.path);
                   if (entry) entry.viewed = node.viewed;
+                  // Only ancestors can change; search and collapsed rows do not affect the full tree.
+                  let path = node.path;
+                  state.tree.nodes.get(path).viewed = node.viewed;
+                  while (path.includes('/')) {
+                    path = path.slice(0, path.lastIndexOf('/'));
+                    const parent = state.tree.nodes.get(path);
+                    parent.viewed =
+                      parent.loaded && parent.children.length > 0 && parent.children.every(child => child.viewed);
+                  }
                   requestTreeRender();
                 } catch (error) {
                   checkbox.checked = Boolean(node.viewed);
@@ -194,7 +209,11 @@ export function createTree(app) {
       }
       row.addEventListener(
         'click',
-        run(async () => {
+        run(async event => {
+          if (!folder && (event.ctrlKey || event.metaKey)) {
+            await openFile(node, true);
+            return;
+          }
           state.focus = index;
           if (folder) {
             if (state.preferences.folderClick) await app.toggleFolder(node);
@@ -272,15 +291,26 @@ export function createTree(app) {
 
   /**
    * Opens a file: scrolls to its diff when it is on the current page,
-   * otherwise navigates to the diff or file view.
+   * otherwise navigates to the diff or file view. Modified clicks open
+   * that same URL in a new tab without scrolling or selecting the source row.
+   *
+   * @param {Object} node The file row.
+   * @param {boolean} [newTab=false] Open a separate tab without an opener.
    */
-  async function openFile(node) {
-    if (state.mode === 'changes') {
-      const epoch = state.epoch;
-      const generation = state.filesGeneration;
-      const alive = app.pageAlive || (() => true);
-      const url = await diffURL(node);
-      if (!alive() || epoch !== state.epoch || generation !== state.filesGeneration) return;
+  async function openFile(node, newTab = false) {
+    const changes = state.mode === 'changes';
+    const epoch = state.epoch;
+    const generation = state.filesGeneration;
+    const alive = app.pageAlive || (() => true);
+    const url = changes
+      ? await diffURL(node)
+      : blobURL(state.context, state.info.ref, node.path, node.type === 'commit' ? 'tree' : 'blob');
+    if (!alive() || epoch !== state.epoch || generation !== state.filesGeneration) return;
+    if (newTab) {
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    if (changes) {
       if (location.pathname === new URL(url).pathname) {
         const hash = new URL(url).hash.slice(1);
         const target =
@@ -295,8 +325,8 @@ export function createTree(app) {
           return;
         }
       }
-      location.assign(url);
-    } else location.assign(blobURL(state.context, state.info.ref, node.path, node.type === 'commit' ? 'tree' : 'blob'));
+    }
+    location.assign(url);
   }
   createRenderEffect(
     on([treeVersion, () => state.expanded, () => state.query], () => {

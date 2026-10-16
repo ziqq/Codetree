@@ -10,7 +10,7 @@ The same Codetree sidebar serves both providers. This table describes the implem
 | Changed-file tree | PRs and commits | MRs and commits |
 | File/folder statistics | API additions/deletions | Counts from available diff hunks; omitted patches cannot contribute complete counts |
 | Inline comments | PR/commit comments | MR discussion notes/replies and commit comments; API access may require a token |
-| Viewed marks | Native GraphQL when available, explicit local fallback | Local, scoped to project/request/head/account |
+| Viewed marks | Native GraphQL when available, explicit local fallback; folder indicators | Local, scoped to project/request/head/account; folder indicators |
 | Whole-file preview | Merge-base/head or first parent/commit | Merge-base/head or first parent/commit; source and target project IDs for forks |
 | Native View full button | Current React headers and legacy file headers | RapidDiffs headers and legacy file headers |
 | Open request list | REST; GraphQL with account | Paginated merge-request list |
@@ -37,6 +37,8 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 ## Shared appearance and navigation
 
 - Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Codetree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.
+- Ctrl/Cmd-click a file row to open its file page or native diff in a new tab. Ordinary clicks retain their existing navigation behavior.
+- In changed-file trees, a folder has a Viewed indicator when all listed descendant files are Viewed, including files hidden by search or collapsed folders. The indicator follows the provider's Viewed mode and updates after a successful file-mark change; it does not mark files in bulk.
 - File and folder icons from [file-icons/atom](https://github.com/file-icons/atom), matched by the same path and name rules: Color uses its theme-specific colours, Monochrome the muted text colour, and Minimal the original simple icons. Files without a rule use the original icons.
 - System monospace and locally installed named code fonts, with configurable size.
 - Configurable toggle/search shortcuts, up to eight comma-separated alternatives per action; blank disables the action. Ctrl/Cmd/Alt/Shift/Mod, single keys and named navigation/function keys are supported. Typing, composition, AltGraph and key repeats do not trigger them; browser-reserved combinations may take priority. Arrow-key tree navigation remains available.
