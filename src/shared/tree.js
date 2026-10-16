@@ -30,8 +30,8 @@ export function fileKind(path) {
  *
  * Missing parent folders are created, entries with empty, `.` or `..`
  * segments are skipped, folders sort before files with natural ordering,
- * and folders aggregate the additions, deletions and comment counts of
- * their descendants.
+ * and folders aggregate the additions, deletions, comment counts and
+ * Viewed state of their descendants. Empty or unloaded folders are not Viewed.
  *
  * @param {Array<Object>} entries Entries with `path` (or `filename`), `type`
  *     and optional `additions`, `deletions`, `comments` and `loaded`.
@@ -85,6 +85,8 @@ export function makeTree(entries) {
   const collator = new Intl.Collator('en', {numeric: true, sensitivity: 'base'});
   const sorted = Array.from(nodes.values()).sort((a, b) => b.depth - a.depth);
   for (const node of sorted) {
+    if (node.type === 'tree')
+      node.viewed = node.loaded && node.children.length > 0 && node.children.every(child => child.viewed);
     node.children.sort(
       (a, b) => Number(b.type === 'tree') - Number(a.type === 'tree') || collator.compare(a.name, b.name),
     );

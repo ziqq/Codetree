@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {createHash} from 'node:crypto';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -96,6 +97,280 @@ function entries(ui, value) {
     ui.state.entries = value;
     ui.state.tree = makeTree(value);
     ui.updateTree();
+  });
+}
+
+/** Captures browser navigation while keeping native diff scrolling observable. */
+function fileNavigation(t, provider, kind) {
+  const ui = sidebar(t);
+  const gitlab = provider === 'gitlab';
+  const root = gitlab ? 'https://gitlab.example.com/team/nested/repo' : `${origin}/sample/repo`;
+  const path = 'src/a b#?.js';
+  const sha = 'b'.repeat(40);
+  const request = `${root}/${gitlab ? '-/merge_requests' : 'pull'}/42`;
+  const hash = createHash(gitlab ? 'sha1' : 'sha256')
+    .update(path)
+    .digest('hex');
+  const target =
+    kind === 'repository'
+      ? `${root}/${gitlab ? '-/' : ''}blob/feature%2Freview/src/a%20b%23%3F.js`
+      : kind === 'commit'
+        ? `${root}/${gitlab ? '-/' : ''}commit/${sha}`
+        : gitlab
+          ? `${request}/diffs?file_path=src%2Fa%20b%23%3F.js#${hash}`
+          : `${request}/changes#diff-${hash}`;
+  const page = kind === 'repository' ? root : kind === 'commit' ? target : `${request}/${gitlab ? 'diffs' : 'changes'}`;
+  const location = new URL(page);
+  const opened = [];
+  const assigned = [];
+  const replaced = [];
+  const scrolled = [];
+  location.assign = url => assigned.push(url);
+  globalThis.window.open = (...args) => opened.push(args);
+  install(t, {location, history: {replaceState: (...args) => replaced.push(args)}});
+  batch(() => {
+    ui.state.context = {
+      origin: new URL(root).origin,
+      provider,
+      owner: gitlab ? 'team/nested' : 'sample',
+      repo: 'repo',
+      kind: kind === 'repository' ? 'repo' : kind,
+      number: 42,
+      sha,
+    };
+    ui.state.info = {...ui.state.info, ref: 'feature/review'};
+    ui.state.mode = kind === 'repository' ? 'files' : 'changes';
+    ui.state.selected = 'keep.js';
+    if (kind === 'repository') entries(ui, [{path, type: 'blob'}]);
+    else ui.applyDiff({...reviewDiff('none', {}, [path]), head: {sha}});
+    ui.state.expanded = new Set(['src']);
+  });
+  const native = globalThis.document.createElement('div');
+  native.setAttribute('data-codetree-file', path);
+  native.scrollIntoView = options => scrolled.push(options);
+  globalThis.document.body.append(native);
+  ui.clock.flush();
+  return {ui, path, target, page, opened, assigned, replaced, scrolled};
+}
+
+/** A changed-file response with a nested folder and an independent sibling file. */
+function reviewDiff(viewedMode, viewed = {}, paths = ['src/nested/a.js', 'src/b.js', 'other/c.js']) {
+  return {
+    head: {sha: 'a'.repeat(40)},
+    files: paths.map(filename => ({filename})),
+    comments: [],
+    viewed,
+    viewedMode,
+    warnings: [],
+  };
+}
+
+/** Reads a rendered row by its exact path without depending on the row order. */
+function treeRow(ui, path) {
+  const row = ui.view.spacer.querySelectorAll('.tree-row').find(row => row.dataset.path === path);
+  assert.ok(row, `Expected a visible row for ${path}`);
+  return row;
+}
+
+for (const provider of ['github', 'gitlab']) {
+  for (const kind of ['repository', 'pull', 'commit']) {
+    for (const [modifier, keys] of [
+      ['Ctrl', {ctrlKey: true}],
+      ['Cmd', {metaKey: true}],
+    ]) {
+      test(`${modifier}-click opens the ${provider} ${kind} file in a separate tab without navigating the source`, async t => {
+        const {ui, path, target, page, opened, assigned, replaced, scrolled} = fileNavigation(t, provider, kind);
+        const focus = ui.state.focus;
+        await treeRow(ui, path).fire('click', keys);
+        assert.deepEqual(ui.errors, []);
+        assert.deepEqual(opened, [[target, '_blank', 'noopener']]);
+        assert.deepEqual(assigned, []);
+        assert.deepEqual(replaced, []);
+        assert.deepEqual(scrolled, []);
+        assert.equal(globalThis.location.href, page);
+        assert.equal(ui.state.selected, 'keep.js');
+        assert.equal(ui.state.focus, focus);
+      });
+    }
+    test(`ordinary click keeps ${provider} ${kind} file navigation in the source tab`, async t => {
+      const {ui, path, target, opened, assigned, replaced, scrolled} = fileNavigation(t, provider, kind);
+      await treeRow(ui, path).fire('click');
+      assert.deepEqual(ui.errors, []);
+      assert.deepEqual(opened, []);
+      if (kind === 'repository') {
+        assert.deepEqual(assigned, [target]);
+        assert.deepEqual(scrolled, []);
+        assert.deepEqual(replaced, []);
+      } else {
+        assert.deepEqual(assigned, []);
+        assert.deepEqual(scrolled, [{block: 'start'}]);
+        assert.deepEqual(replaced, [[null, '', target]]);
+        assert.equal(ui.state.selected, path);
+      }
+    });
+  }
+}
+
+for (const keys of [{ctrlKey: true}, {metaKey: true}]) {
+  test(`${keys.ctrlKey ? 'Ctrl' : 'Cmd'}-click keeps folder expansion instead of opening a tab`, async t => {
+    const ui = sidebar(t);
+    const opened = [];
+    globalThis.window.open = (...args) => opened.push(args);
+    entries(ui, [{path: 'src/a.js', type: 'blob'}]);
+    ui.clock.flush();
+    await treeRow(ui, 'src').fire('click', keys);
+    assert.equal(ui.state.expanded.has('src'), true);
+    ui.clock.flush();
+    assert.ok(treeRow(ui, 'src/a.js'));
+    await treeRow(ui, 'src').fire('click', keys);
+    assert.equal(ui.state.expanded.has('src'), false);
+    assert.deepEqual(opened, []);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+for (const mode of ['github', 'local']) {
+  test(`folder Viewed indicators aggregate ${mode} marks across collapsed and searched descendants`, t => {
+    const ui = sidebar(t);
+    ui.state.mode = 'changes';
+    ui.applyDiff(reviewDiff(mode, {'src/nested/a.js': 'VIEWED', 'src/b.js': 'VIEWED'}));
+    ui.state.expanded = new Set(['src']);
+    ui.clock.flush();
+    const label = `All listed files in src viewed ${mode === 'github' ? 'on GitHub' : 'locally'}`;
+    assert.equal(treeRow(ui, 'src').querySelector('.folder-viewed')?.getAttribute('aria-label'), label);
+    assert.ok(treeRow(ui, 'src/nested').querySelector('.folder-viewed'));
+    assert.equal(treeRow(ui, 'src/nested').querySelector('.viewed-checkbox'), null, 'folder marks are read-only');
+    assert.equal(treeRow(ui, 'other').querySelector('.folder-viewed'), null, 'unrelated files keep their own state');
+    ui.state.expanded = new Set();
+    ui.clock.flush();
+    assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'), 'collapsed parent retains its indicator');
+
+    ui.applyDiff(reviewDiff(mode, {'src/nested/a.js': 'VIEWED'}));
+    ui.state.query = 'a.js';
+    ui.clock.flush();
+    assert.ok(treeRow(ui, 'src/nested').querySelector('.folder-viewed'));
+    assert.equal(treeRow(ui, 'src').querySelector('.folder-viewed'), null, 'search cannot hide an unviewed sibling');
+    ui.applyDiff(reviewDiff(mode));
+    ui.clock.flush();
+    assert.equal(ui.view.spacer.querySelector('.folder-viewed'), null, 'fresh diff replaces old folder marks');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`folder Viewed indicators follow confirmed ${mode} changes and survive a rejected write`, async t => {
+    let reply = deferred();
+    const calls = [];
+    const ui = sidebar(t, (type, value) => {
+      calls.push({type, value});
+      return reply.promise;
+    });
+    ui.state.mode = 'changes';
+    ui.applyDiff(reviewDiff(mode, {'src/nested/a.js': 'VIEWED'}));
+    ui.state.expanded = new Set(['src']);
+    ui.clock.flush();
+    const mark = treeRow(ui, 'src/b.js').querySelector('.viewed-checkbox');
+    mark.checked = true;
+    const pending = mark.fire('change');
+    await Promise.resolve();
+    assert.equal(mark.disabled, true);
+    assert.equal(treeRow(ui, 'src').querySelector('.folder-viewed'), null, 'pending write cannot mark the folder');
+    reply.resolve({state: 'VIEWED'});
+    await pending;
+    ui.clock.flush();
+    assert.deepEqual(calls, [
+      {type: 'VIEWED', value: {context: ui.state.context, headSHA: 'a'.repeat(40), path: 'src/b.js', viewed: true}},
+    ]);
+    assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'));
+    assert.ok(treeRow(ui, 'src/nested').querySelector('.folder-viewed'));
+    entries(ui, ui.state.entries);
+    ui.state.query = 'a.js';
+    ui.clock.flush();
+    assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'), 'confirmed file marks survive rebuilding the tree');
+
+    reply = deferred();
+    const unmark = treeRow(ui, 'src/nested/a.js').querySelector('.viewed-checkbox');
+    unmark.checked = false;
+    const failed = unmark.fire('change');
+    await Promise.resolve();
+    assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'), 'pending unmark retains the confirmed indicator');
+    reply.reject(new Error('Viewed write failed'));
+    await failed;
+    ui.clock.flush();
+    assert.equal(unmark.checked, true);
+    assert.equal(unmark.disabled, false);
+    assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'));
+    assert.ok(treeRow(ui, 'src/nested').querySelector('.folder-viewed'));
+    assert.deepEqual(ui.errors, ['Viewed write failed']);
+
+    reply = deferred();
+    unmark.checked = false;
+    const success = unmark.fire('change');
+    reply.resolve({state: 'UNVIEWED'});
+    await success;
+    ui.clock.flush();
+    assert.equal(treeRow(ui, 'src').querySelector('.folder-viewed'), null);
+    assert.equal(treeRow(ui, 'src/nested').querySelector('.folder-viewed'), null);
+    assert.equal(ui.state.entries.find(entry => entry.path === 'src/nested/a.js').viewed, false);
+    assert.equal(calls.length, 3, 'folder aggregation never adds bulk Viewed writes');
+  });
+}
+
+test('folder Viewed aggregation does not mark empty or partially loaded folders', () => {
+  const tree = makeTree([
+    {path: 'empty', type: 'tree', viewed: true},
+    {path: 'pending', type: 'tree', loaded: false, viewed: true},
+    {path: 'pending/a.js', viewed: true},
+    {path: 'parent/nested', type: 'tree', loaded: false},
+    {path: 'parent/nested/a.js', viewed: true},
+    {path: 'parent/b.js', viewed: true},
+  ]);
+  for (const path of ['empty', 'pending', 'parent', 'parent/nested'])
+    assert.equal(Boolean(tree.nodes.get(path).viewed), false, `${path} cannot claim complete review`);
+});
+
+test('folder Viewed indicators are hidden in repository trees and when Viewed is unavailable', t => {
+  const ui = sidebar(t);
+  const diff = reviewDiff('local', {'src/nested/a.js': 'VIEWED', 'src/b.js': 'VIEWED'});
+  entries(
+    ui,
+    diff.files.map(file => ({path: file.filename, viewed: true})),
+  );
+  ui.clock.flush();
+  assert.equal(ui.view.spacer.querySelector('.folder-viewed'), null);
+  ui.state.mode = 'changes';
+  ui.applyDiff(diff);
+  ui.clock.flush();
+  assert.ok(treeRow(ui, 'src').querySelector('.folder-viewed'));
+  ui.applyDiff({...diff, viewedMode: 'none'});
+  ui.clock.flush();
+  assert.equal(ui.view.spacer.querySelector('.folder-viewed'), null);
+  assert.equal(ui.view.spacer.querySelector('.viewed-checkbox'), null);
+});
+
+for (const invalidate of ['revision', 'navigation', 'tree reload']) {
+  test(`folder Viewed indicators reject a late file acknowledgement after ${invalidate}`, async t => {
+    const reply = deferred();
+    const ui = sidebar(t, () => reply.promise);
+    ui.state.mode = 'changes';
+    ui.applyDiff(reviewDiff('local', {'src/nested/a.js': 'VIEWED'}));
+    ui.state.expanded = new Set(['src']);
+    ui.clock.flush();
+    const checkbox = treeRow(ui, 'src/b.js').querySelector('.viewed-checkbox');
+    checkbox.checked = true;
+    const pending = checkbox.fire('change');
+    await Promise.resolve();
+    const next = reviewDiff('local');
+    if (invalidate === 'revision') next.head = {sha: 'b'.repeat(40)};
+    else if (invalidate === 'navigation') ui.state.epoch++;
+    else ui.state.filesGeneration++;
+    ui.applyDiff(next);
+    ui.clock.flush();
+    reply.resolve({state: 'VIEWED'});
+    await pending;
+    ui.clock.flush();
+    assert.equal(ui.view.spacer.querySelector('.folder-viewed'), null);
+    assert.equal(treeRow(ui, 'src/b.js').querySelector('.viewed-checkbox').checked, false);
+    assert.equal(ui.state.entries.find(entry => entry.path === 'src/b.js').viewed, false);
+    assert.deepEqual(ui.errors, []);
   });
 }
 

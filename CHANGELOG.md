@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **ADDED**: Ctrl/Cmd-click opens a file or its native diff in a new tab
+- **ADDED**: changed-file folders show a Viewed indicator when all listed descendant files are viewed
+
 ## 0.4.1
 
 - **ADDED**: Generate token button in Settings opens token creation for the selected GitHub, GitLab or custom server in a new tab
