@@ -3,11 +3,11 @@
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * Branch switcher popover. Selecting a branch opens its repository root.
+ * Branch switcher popover. File pages keep their resolved path when switching branches.
  */
 
 import {icon} from '../../shared/icons.js';
-import {treeURL} from '../../shared/routes.js';
+import {blobURL, treeURL} from '../../shared/routes.js';
 import {el} from '../dom.js';
 
 /** Creates the branches feature: `closeBranches`, `toggleBranches` and `renderBranches`. */
@@ -50,7 +50,7 @@ export function createBranches(app) {
     }
   }
 
-  /** Renders the branches matching the popover search. */
+  /** Renders matching branches; file pages keep the broker-resolved path, other pages open the branch root. */
   function renderBranches() {
     const query = branchSearch.value.toLowerCase();
     const list = (state.branches || []).filter(branch => branch.name.toLowerCase().includes(query));
@@ -62,7 +62,8 @@ export function createBranches(app) {
           type: 'button',
           class: 'branch-item',
           onClick: () => {
-            location.assign(treeURL(state.context, branch.name));
+            const path = ['blob', 'blame', 'raw'].includes(state.context.kind) ? state.info?.path : '';
+            location.assign(path ? blobURL(state.context, branch.name, path) : treeURL(state.context, branch.name));
           },
         },
         [branch.name === state.info?.ref ? icon('check') : icon('branch'), el('span', {text: branch.name})],
