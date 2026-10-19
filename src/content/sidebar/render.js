@@ -54,6 +54,20 @@ export function createRender(app) {
   );
   const title = el('span', {class: 'toolbar-title'});
   const count = el('span', {class: 'count'});
+  const unviewedCheckbox = el('input', {type: 'checkbox', 'aria-label': 'Only unviewed files'});
+  const progress = el('span', {class: 'review-progress', role: 'status'});
+  const reviewControls = el('div', {class: 'review-controls'}, [
+    el('label', {class: 'unviewed-filter'}, [unviewedCheckbox, document.createTextNode('Only unviewed')]),
+    progress,
+  ]);
+  unviewedCheckbox.addEventListener(
+    'change',
+    run(() => {
+      state.focus = 0;
+      body.scrollTop = 0;
+      state.unviewedOnly = unviewedCheckbox.checked;
+    }),
+  );
   const collapse = button('collapse', 'Collapse folders', () => {
     state.expanded = new Set();
     app.rememberExpansion();
@@ -63,15 +77,25 @@ export function createRender(app) {
     'Refresh sidebar',
     run(() => app.refresh()),
   );
-  // Files matching the search, or every loaded file; both inputs are signals, so the count follows them directly.
+  const reviewAvailable = createMemo(
+    () => state.mode === 'changes' && ['github', 'local'].includes(state.diff?.viewedMode),
+  );
+  // Count all matching files, including collapsed descendants. Progress always uses the unfiltered entries.
   const fileCount = createMemo(
-    () =>
-      state.query
-        ? state.flat.filter(node => node.type !== 'tree').length
-        : state.entries.filter(entry => entry.type !== 'tree').length,
+    () => {
+      const query = state.query.trim().toLowerCase();
+      const unviewedOnly = reviewAvailable() && state.unviewedOnly;
+      return state.entries.filter(
+        entry => entry.type !== 'tree' && (!unviewedOnly || !entry.viewed) && entry.path.toLowerCase().includes(query),
+      ).length;
+    },
     undefined,
     {name: 'file count'},
   );
+  const reviewProgress = createMemo(() => {
+    const files = state.entries.filter(entry => entry.type !== 'tree');
+    return {viewed: files.filter(entry => entry.viewed).length, total: files.length};
+  });
   const pulls = createMemo(() => matchingPulls(state.pulls, state.query));
   const bookmarks = createMemo(() => matchingBookmarks(state.public?.bookmarks || [], state.query));
 
@@ -111,7 +135,13 @@ export function createRender(app) {
     on([() => state.tab, () => state.context?.kind], () => {
       toolbar.replaceChildren(
         ...(state.tab === 'files'
-          ? [['pull', 'commit'].includes(state.context?.kind) ? modeSelect : title, count, collapse, refresh]
+          ? [
+              ['pull', 'commit'].includes(state.context?.kind) ? modeSelect : title,
+              count,
+              collapse,
+              refresh,
+              reviewControls,
+            ]
           : state.tab === 'pulls'
             ? [filterSelect, count, refresh]
             : [title, count, refresh]),
@@ -127,6 +157,21 @@ export function createRender(app) {
     },
     undefined,
     {name: 'toolbar selection'},
+  );
+  createRenderEffect(
+    () => {
+      unviewedCheckbox.checked = state.unviewedOnly;
+      reviewControls.hidden =
+        state.tab !== 'files' || !reviewAvailable() || state.filesLoading || Boolean(state.filesError);
+      if (reviewControls.hidden) return;
+      const {viewed, total} = reviewProgress();
+      const scope = state.diff.viewedMode === 'github' ? 'on GitHub' : 'locally';
+      progress.textContent = `${viewed}/${total} viewed`;
+      progress.setAttribute('aria-label', `${viewed} of ${total} listed changed files viewed ${scope}`);
+      progress.title = `${viewed} of ${total} listed changed files viewed ${scope}`;
+    },
+    undefined,
+    {name: 'review controls'},
   );
   createRenderEffect(
     () => {
@@ -190,11 +235,22 @@ export function createRender(app) {
           ]),
         );
       else if (tab === 'files') {
+        const unviewedOnly = reviewAvailable() && state.unviewedOnly;
         if (!state.flat.length)
           body.replaceChildren(
             empty(
-              state.query ? 'No matching files' : 'No files',
-              state.query ? 'Try a different file or folder name.' : 'This repository has no files to display.',
+              unviewedOnly
+                ? state.query
+                  ? 'No matching unviewed files'
+                  : 'No unviewed files'
+                : state.query
+                  ? 'No matching files'
+                  : 'No files',
+              state.query
+                ? 'Try a different file or folder name.'
+                : unviewedOnly
+                  ? 'All listed changed files are viewed. Turn off Only unviewed to show them.'
+                  : 'This repository has no files to display.',
               'folder',
             ),
           );

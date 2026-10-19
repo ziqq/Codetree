@@ -172,6 +172,315 @@ function treeRow(ui, path) {
   return row;
 }
 
+/** Reads the persistent review controls so tests exercise their actual change handlers. */
+function reviewControls(ui) {
+  const filter = ui.view.toolbar.querySelector('[aria-label="Only unviewed files"]');
+  const progress = ui.view.toolbar.querySelector('.review-progress');
+  assert.ok(filter, 'Expected the Only unviewed checkbox');
+  assert.ok(progress, 'Expected the review progress counter');
+  return {filter, progress, container: filter.closest('.review-controls')};
+}
+
+/** Reads only attached tree rows; the detached virtual spacer can retain old rows in empty states. */
+function visibleTreePaths(ui) {
+  return ui.view.body.querySelectorAll('.tree-row').map(row => row.dataset.path);
+}
+
+for (const mode of ['github', 'local']) {
+  test(`Only unviewed combines ${mode} marks with search and collapsed folders without filtering progress`, async t => {
+    const calls = [];
+    const ui = sidebar(t, (...args) => calls.push(args));
+    ui.state.mode = 'changes';
+    ui.applyDiff({
+      ...reviewDiff(mode, {'src/nested/a.js': 'VIEWED', 'docs/README.md': 'VIEWED'}, [
+        'src/nested/a.js',
+        'src/nested/b.js',
+        'src/root.js',
+        'docs/README.md',
+      ]),
+      warnings: ['Only 4 of 5 changed files returned.'],
+    });
+    ui.state.expanded = new Set(['src']);
+    ui.clock.flush();
+    const {filter, progress, container} = reviewControls(ui);
+    assert.equal(container.hidden, false);
+    assert.equal(filter.checked, false);
+    assert.equal(progress.textContent, '2/4 viewed', 'folders do not count as reviewable files');
+    assert.equal(
+      progress.getAttribute('aria-label'),
+      `2 of 4 listed changed files viewed ${mode === 'github' ? 'on GitHub' : 'locally'}`,
+    );
+    assert.match(
+      ui.view.notice.textContent,
+      /Only 4 of 5 changed files returned/,
+      'partial response warnings stay visible',
+    );
+    ui.view.body.scrollTop = 150;
+    filter.focus();
+    filter.checked = true;
+    await filter.fire('change');
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/root.js']);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '2', 'collapsed unviewed descendants count too');
+    assert.equal(ui.view.body.scrollTop, 0);
+    assert.equal(globalThis.document.activeElement, filter);
+
+    ui.state.query = ' NESTED ';
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/nested/b.js']);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    assert.equal(progress.textContent, '2/4 viewed');
+    ui.state.query = 'a.js';
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), []);
+    assert.match(ui.view.body.textContent, /No matching unviewed files/);
+    assert.equal(progress.textContent, '2/4 viewed');
+    filter.checked = false;
+    await filter.fire('change');
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/nested/a.js']);
+    ui.state.query = '';
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['docs', 'src', 'src/nested', 'src/root.js']);
+    assert.deepEqual([...ui.state.expanded], ['src'], 'filtering and search preserve saved expansion');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '4');
+    assert.equal(reviewControls(ui).filter, filter, 'filtering never replaces the focused control');
+    assert.deepEqual(calls, [], 'filtering never requests provider data or writes marks');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`Only unviewed and review progress follow confirmed ${mode} marks and roll back failed writes`, async t => {
+    let reply = deferred();
+    const calls = [];
+    const ui = sidebar(t, (type, value) => {
+      calls.push({type, value});
+      return reply.promise;
+    });
+    ui.state.mode = 'changes';
+    ui.applyDiff(reviewDiff(mode, {'src/nested/a.js': 'VIEWED', 'other/c.js': 'VIEWED'}));
+    ui.state.expanded = new Set(['src', 'src/nested', 'other']);
+    ui.clock.flush();
+    const {filter, progress} = reviewControls(ui);
+    filter.checked = true;
+    await filter.fire('change');
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/b.js']);
+    const mark = treeRow(ui, 'src/b.js').querySelector('.viewed-checkbox');
+    mark.checked = true;
+    const failed = mark.fire('change');
+    await Promise.resolve();
+    assert.equal(mark.disabled, true);
+    assert.equal(progress.textContent, '2/3 viewed');
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/b.js'], 'pending writes do not hide the file');
+    reply.reject(new Error('Viewed write failed'));
+    await failed;
+    ui.clock.flush();
+    assert.equal(mark.checked, false);
+    assert.equal(mark.disabled, false);
+    assert.equal(progress.textContent, '2/3 viewed');
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/b.js']);
+
+    reply = deferred();
+    mark.checked = true;
+    const success = mark.fire('change');
+    reply.resolve({state: 'VIEWED'});
+    await success;
+    ui.clock.flush();
+    assert.equal(progress.textContent, '3/3 viewed');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '0');
+    assert.deepEqual(visibleTreePaths(ui), []);
+    assert.match(ui.view.body.textContent, /No unviewed files/);
+    assert.match(ui.view.body.textContent, /All listed changed files are viewed/);
+
+    filter.checked = false;
+    await filter.fire('change');
+    ui.clock.flush();
+    const unmark = treeRow(ui, 'src/nested/a.js').querySelector('.viewed-checkbox');
+    reply = deferred();
+    unmark.checked = false;
+    const failedUnmark = unmark.fire('change');
+    await Promise.resolve();
+    assert.equal(progress.textContent, '3/3 viewed');
+    reply.reject(new Error('Unmark failed'));
+    await failedUnmark;
+    assert.equal(unmark.checked, true);
+    assert.equal(progress.textContent, '3/3 viewed');
+    reply = deferred();
+    unmark.checked = false;
+    const successUnmark = unmark.fire('change');
+    reply.resolve({state: 'UNVIEWED'});
+    await successUnmark;
+    ui.clock.flush();
+    assert.equal(progress.textContent, '2/3 viewed');
+    filter.checked = true;
+    await filter.fire('change');
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/nested/a.js']);
+    assert.deepEqual(
+      calls.map(call => [call.type, call.value.path, call.value.viewed]),
+      [
+        ['VIEWED', 'src/b.js', true],
+        ['VIEWED', 'src/b.js', true],
+        ['VIEWED', 'src/nested/a.js', false],
+        ['VIEWED', 'src/nested/a.js', false],
+      ],
+    );
+    assert.deepEqual(ui.errors, ['Viewed write failed', 'Unmark failed']);
+  });
+
+  test(`Only unviewed and ${mode} progress are hidden outside ready review trees`, async t => {
+    const ui = sidebar(t);
+    ui.state.mode = 'changes';
+    const diff = reviewDiff(mode, {'src/nested/a.js': 'VIEWED'});
+    ui.applyDiff(diff);
+    ui.state.expanded = new Set(['src', 'src/nested', 'other']);
+    ui.clock.flush();
+    const {filter, progress, container} = reviewControls(ui);
+    filter.checked = true;
+    await filter.fire('change');
+    ui.state.filesLoading = true;
+    assert.equal(container.hidden, true);
+    ui.state.filesLoading = false;
+    ui.state.filesError = 'Diff unavailable';
+    assert.equal(container.hidden, true);
+    ui.state.filesError = '';
+    assert.equal(container.hidden, false);
+    assert.equal(filter.checked, true);
+    assert.equal(progress.textContent, '1/3 viewed');
+    ui.state.mode = 'files';
+    ui.clock.flush();
+    assert.equal(container.hidden, true);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '3');
+    assert.ok(visibleTreePaths(ui).includes('src/nested/a.js'), 'repository files ignore the review filter');
+    ui.state.mode = 'changes';
+    ui.applyDiff({...diff, viewedMode: 'none'});
+    ui.clock.flush();
+    assert.equal(container.hidden, true);
+    assert.ok(visibleTreePaths(ui).includes('src/nested/a.js'), 'unavailable Viewed cannot filter out files');
+    ui.applyDiff(diff);
+    ui.state.tab = 'bookmarks';
+    assert.equal(ui.view.toolbar.contains(container), false);
+    ui.state.tab = 'files';
+    ui.clock.flush();
+    assert.equal(reviewControls(ui).filter, filter);
+    assert.equal(container.hidden, false);
+    assert.equal(filter.checked, true);
+    assert.equal(progress.textContent, '1/3 viewed');
+    assert.equal(visibleTreePaths(ui).includes('src/nested/a.js'), false);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+test('review progress handles an empty changed-file response without counting folders', async t => {
+  const ui = sidebar(t);
+  ui.state.mode = 'changes';
+  ui.applyDiff(reviewDiff('local', {}, []));
+  ui.clock.flush();
+  const {filter, progress} = reviewControls(ui);
+  assert.equal(progress.textContent, '0/0 viewed');
+  filter.checked = true;
+  await filter.fire('change');
+  ui.applyDiff(reviewDiff('local', {}, ['src/nested/a.js']));
+  ui.clock.flush();
+  assert.equal(progress.textContent, '0/1 viewed');
+  assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+  assert.deepEqual(ui.errors, []);
+});
+
+for (const invalidate of ['revision', 'navigation', 'tree reload', 'page disposal']) {
+  test(`Only unviewed and progress ignore late Viewed replies after ${invalidate}`, async t => {
+    const reply = deferred();
+    const ui = sidebar(t, () => reply.promise);
+    let disposePage;
+    content.runWithOwner(ui.owner, () =>
+      createRoot(dispose => {
+        disposePage = dispose;
+        ui.pageAlive = content.createAlive();
+      }),
+    );
+    ui.state.mode = 'changes';
+    ui.applyDiff(reviewDiff('local', {'src/nested/a.js': 'VIEWED'}));
+    ui.state.expanded = new Set(['src', 'new']);
+    ui.clock.flush();
+    const {filter, progress} = reviewControls(ui);
+    filter.checked = true;
+    await filter.fire('change');
+    ui.clock.flush();
+    const checkbox = treeRow(ui, 'src/b.js').querySelector('.viewed-checkbox');
+    checkbox.checked = true;
+    const pending = checkbox.fire('change');
+    await Promise.resolve();
+    const next = reviewDiff('local', {}, ['new/next.js']);
+    if (invalidate === 'revision') next.head = {sha: 'b'.repeat(40)};
+    else if (invalidate === 'navigation') ui.state.epoch++;
+    else if (invalidate === 'tree reload') ui.state.filesGeneration++;
+    else disposePage();
+    ui.applyDiff(next);
+    ui.clock.flush();
+    reply.resolve({state: 'VIEWED'});
+    await pending;
+    ui.clock.flush();
+    assert.equal(progress.textContent, '0/1 viewed');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    assert.deepEqual(visibleTreePaths(ui), ['new', 'new/next.js']);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+test('Refresh preserves Only unviewed while replacing review progress with the new revision', async t => {
+  const reply = deferred();
+  const requested = deferred();
+  const ui = sidebar(t, type => {
+    if (type === 'DIFF') {
+      requested.resolve();
+      return reply.promise;
+    }
+    return Promise.resolve(type === 'INIT' ? ui.state.info : true);
+  });
+  ui.state.mode = 'changes';
+  ui.applyDiff(reviewDiff('github', {'src/nested/a.js': 'VIEWED'}));
+  ui.clock.flush();
+  const {filter, progress, container} = reviewControls(ui);
+  filter.checked = true;
+  await filter.fire('change');
+  const pending = ui.refresh();
+  await requested.promise;
+  assert.equal(container.hidden, true, 'previous progress is hidden while loading the new diff');
+  reply.resolve({...reviewDiff('github', {}, ['new/next.js']), head: {sha: 'b'.repeat(40)}});
+  await pending;
+  ui.clock.flush();
+  assert.equal(container.hidden, false);
+  assert.equal(filter.checked, true);
+  assert.equal(progress.textContent, '0/1 viewed');
+  assert.deepEqual(visibleTreePaths(ui), ['new', 'new/next.js']);
+  assert.deepEqual(ui.errors, []);
+});
+
+test('page navigation resets Only unviewed and does not reuse the previous review progress', async t => {
+  const reply = deferred();
+  const ui = sidebar(t, type => {
+    if (type === 'INIT') return reply.promise;
+    if (type === 'STATE') return Promise.resolve({...publicData, preferences: ui.state.preferences});
+    return Promise.resolve({entries: [{path: 'new.js', type: 'blob'}], lazy: false});
+  });
+  ui.state.mode = 'changes';
+  ui.applyDiff(reviewDiff('github', {'src/nested/a.js': 'VIEWED'}));
+  ui.clock.flush();
+  const {filter, container} = reviewControls(ui);
+  filter.checked = true;
+  await filter.fire('change');
+  globalThis.location = new URL(`${origin}/another/repo`);
+  const pending = ui.loadPage();
+  assert.equal(filter.checked, false);
+  assert.equal(container.hidden, true);
+  reply.resolve({ref: 'main', treeSHA: 'b'.repeat(40), repository: {}});
+  await pending;
+  ui.clock.flush();
+  assert.deepEqual(visibleTreePaths(ui), ['new.js']);
+  assert.equal(container.hidden, true);
+  assert.deepEqual(ui.errors, []);
+});
+
 for (const provider of ['github', 'gitlab']) {
   for (const kind of ['repository', 'pull', 'commit']) {
     for (const [modifier, keys] of [

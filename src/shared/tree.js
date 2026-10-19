@@ -105,20 +105,22 @@ export function makeTree(entries) {
  *
  * Without a query only children of expanded folders are visible. With a
  * query every matching node and all of its ancestors are visible,
- * regardless of expansion.
+ * regardless of expansion. The unviewed filter keeps only unviewed files
+ * and their ancestors, without changing the underlying tree or expansion.
  *
  * @param {{root: Object, nodes: Map<string, Object>}} tree A tree from [makeTree].
  * @param {Set<string>} expanded Paths of expanded folders.
  * @param {string} [query=''] Case-insensitive path search.
+ * @param {boolean} [unviewedOnly=false] Omit viewed files and folders without unviewed descendants.
  * @returns {Array<Object>}
  */
-export function flatten(tree, expanded, query = '') {
+export function flatten(tree, expanded, query = '', unviewedOnly = false) {
   const needle = query.trim().toLowerCase();
   let visible;
-  if (needle) {
+  if (needle || unviewedOnly) {
     visible = new Set();
     for (const node of tree.nodes.values()) {
-      if (node.path && node.search.includes(needle)) {
+      if (node.path && node.search.includes(needle) && (!unviewedOnly || (node.type !== 'tree' && !node.viewed))) {
         let path = node.path;
         while (path) {
           visible.add(path);

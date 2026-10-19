@@ -15,7 +15,7 @@ import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
-import {createMemo, createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
+import {batch, createMemo, createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
 import {requestFrame} from '../reactive-dom.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
@@ -182,19 +182,23 @@ export function createTree(app) {
                     state.diff?.head.sha !== headSHA
                   )
                     return;
-                  node.viewed = result.state === 'VIEWED';
-                  const entry = state.entries.find(entry => entry.path === node.path);
-                  if (entry) entry.viewed = node.viewed;
-                  // Only ancestors can change; search and collapsed rows do not affect the full tree.
-                  let path = node.path;
-                  state.tree.nodes.get(path).viewed = node.viewed;
-                  while (path.includes('/')) {
-                    path = path.slice(0, path.lastIndexOf('/'));
-                    const parent = state.tree.nodes.get(path);
-                    parent.viewed =
-                      parent.loaded && parent.children.length > 0 && parent.children.every(child => child.viewed);
-                  }
-                  requestTreeRender();
+                  batch(() => {
+                    node.viewed = result.state === 'VIEWED';
+                    // Publish file marks for progress/count bindings; pending or failed writes never reach them.
+                    state.entries = state.entries.map(entry =>
+                      entry.path === node.path ? {...entry, viewed: node.viewed} : entry,
+                    );
+                    // Only ancestors can change; search and collapsed rows do not affect the full tree.
+                    let path = node.path;
+                    state.tree.nodes.get(path).viewed = node.viewed;
+                    while (path.includes('/')) {
+                      path = path.slice(0, path.lastIndexOf('/'));
+                      const parent = state.tree.nodes.get(path);
+                      parent.viewed =
+                        parent.loaded && parent.children.length > 0 && parent.children.every(child => child.viewed);
+                    }
+                    updateTree();
+                  });
                 } catch (error) {
                   checkbox.checked = Boolean(node.viewed);
                   throw error;
@@ -329,11 +333,23 @@ export function createTree(app) {
     location.assign(url);
   }
   createRenderEffect(
-    on([treeVersion, () => state.expanded, () => state.query], () => {
-      state.flat = flatten(state.tree, state.expanded, state.query);
-      state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
-      spacer.style.height = `${state.flat.length * rowHeight}px`;
-    }),
+    on(
+      [
+        treeVersion,
+        () => state.expanded,
+        () => state.query,
+        () => state.unviewedOnly,
+        () => state.mode,
+        () => state.diff?.viewedMode,
+      ],
+      () => {
+        const unviewedOnly =
+          state.unviewedOnly && state.mode === 'changes' && ['github', 'local'].includes(state.diff?.viewedMode);
+        state.flat = flatten(state.tree, state.expanded, state.query, unviewedOnly);
+        state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
+        spacer.style.height = `${state.flat.length * rowHeight}px`;
+      },
+    ),
     undefined,
     {name: 'visible tree rows'},
   );

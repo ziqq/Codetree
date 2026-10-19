@@ -56,6 +56,7 @@ export function createNavigation(app) {
       state.expanded = new Set();
       state.searchText = '';
       state.query = '';
+      state.unviewedOnly = false;
       state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
       state.tab = 'files';
       state.selected = '';

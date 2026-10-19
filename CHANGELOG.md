@@ -4,6 +4,7 @@
 
 - **ADDED**: Ctrl/Cmd-click opens a file or its native diff in a new tab
 - **ADDED**: changed-file folders show a Viewed indicator when all listed descendant files are viewed
+- **ADDED**: Only unviewed filter and review progress for changed-file trees with available Viewed marks
 
 ## 0.4.1
 
