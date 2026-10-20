@@ -110,7 +110,7 @@ Requests go directly to the selected repository API. Tokens stay bound to its AP
 - PR/MR comparisons use the merge base and request head; commit comparisons use the first parent. Private fork requests need access to both source repositories.
 - GitLab review filters depend on supported reviewer/approvals endpoints, server states and token access. Unsupported endpoints report errors. Viewed is local on GitLab and falls back to local mode on GitHub when GraphQL is unavailable.
 - Native header integration depends on the provider's page structure. Layout changes may need an adapter update; the sidebar full-file action is also available.
-- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Browser Sync is optional and remains within the browser ecosystem; cross-browser account sync is not implemented. Browser-reserved shortcuts may take priority. Branch switching opens the branch root.
+- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Browser Sync is optional and remains within the browser ecosystem; cross-browser account sync is not implemented. Browser-reserved shortcuts may take priority. Branch switching preserves the resolved file path on file pages; other pages open the branch root. A file absent from the selected branch shows the provider's native not-found page.
 
 ## Project structure
 
