@@ -56,6 +56,7 @@ export function createNavigation(app) {
       state.expanded = new Set();
       state.searchText = '';
       state.query = '';
+      state.searchRegex = false;
       state.unviewedOnly = false;
       state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
       state.tab = 'files';
@@ -145,6 +146,7 @@ export function createNavigation(app) {
       state.tab = tab;
       state.searchText = '';
       state.query = '';
+      state.searchRegex = false;
       state.viewError = '';
       state.viewLoading = tab === 'bookmarks';
       state.focus = 0;

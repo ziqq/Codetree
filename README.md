@@ -52,6 +52,8 @@ After updating, click **Reload** on the extension card and refresh repository ta
 
 The edge tab opens the sidebar. Use **Files**, **Pull requests / Merge requests** and **Bookmarks** to switch sections. PR/MR and commit pages initially show changed files; the selector above the tree also provides the repository tree.
 
+In **Files**, toggle `.*` to search full paths with a case-insensitive regular expression, for example `\.(dart|swift)$` or `^src/`. Enter the pattern without `/` delimiters or flags. Invalid patterns show an error. Search includes loaded entries and combines with **Only unviewed**; the mode resets when navigating or switching tabs.
+
 Click a changed file to jump to its native diff. Use **View full** in its page header or the tree's full-diff action to see the whole file. Previous/next controls navigate all changed files, independently of sidebar search.
 
 | Shortcut | Action |

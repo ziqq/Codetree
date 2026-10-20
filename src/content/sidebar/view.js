@@ -14,7 +14,7 @@
 import {icon} from '../../shared/icons.js';
 import {button, el} from '../dom.js';
 import {fontFaces} from './file-icons.js';
-import {onCleanup, withOwner} from '../reactive.js';
+import {batch, onCleanup, withOwner} from '../reactive.js';
 
 /**
  * Creates the sidebar elements.
@@ -95,7 +95,23 @@ export function createView(app) {
   }
   const search = el('input', {type: 'search', placeholder: 'Find a file…', 'aria-label': 'Search files and folders'});
   const searchHint = el('span', {class: 'keyhint'});
-  const searchbar = el('div', {class: 'searchbar'}, [icon('search'), search, searchHint]);
+  const regexButton = el('button', {
+    type: 'button',
+    class: 'regex-button',
+    text: '.*',
+    title: 'Use regular expression',
+    'aria-label': 'Use regular expression for file paths',
+    'aria-pressed': 'false',
+    onClick: run(() => {
+      batch(() => {
+        state.focus = 0;
+        body.scrollTop = 0;
+        state.query = state.searchText;
+        state.searchRegex = !state.searchRegex;
+      });
+    }),
+  });
+  const searchbar = el('div', {class: 'searchbar'}, [icon('search'), search, regexButton, searchHint]);
   const toolbar = el('div', {class: 'toolbar'});
   const notice = el('div', {class: 'notice', role: 'status', 'aria-live': 'polite'});
   const body = el('div', {class: 'body', role: 'tabpanel', 'aria-label': 'Files'});
@@ -253,6 +269,7 @@ export function createView(app) {
     tabButtons,
     search,
     searchHint,
+    regexButton,
     toolbar,
     notice,
     body,
