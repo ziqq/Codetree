@@ -53,7 +53,7 @@ The viewer does not submit reviews/comments or replace the provider's review edi
 
 ## Current boundaries
 
-GitHub device flow and GitLab PKCE/refresh are prepared, but this build has no registered client IDs and cannot complete live OAuth sign-in yet. See [OAuth setup](OAUTH.md). Optional browser Sync covers preferences and bookmarks within one browser ecosystem. Cross-browser sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
+GitHub device flow and GitLab PKCE are enabled with registered public client IDs; actual account sign-in and refresh remain pending live verification. GitLab callbacks cover the published Chrome extension and the maintainer's current development build; other unpacked IDs require an additional registered callback. See [OAuth setup](OAUTH.md). Optional browser Sync covers preferences and bookmarks within one browser ecosystem. Cross-browser sync and GitLab native Viewed synchronization are absent. Named fonts are not downloaded. The lexical highlighter does not claim full grammar parity. These boundaries are also listed in README.
 
 ## Feature coverage
 
@@ -72,4 +72,4 @@ Reviewed on 2026-10-02. Codetree is a working beta covering ten common repositor
 | Multiple accounts | PAT accounts and automatic/manual selection are implemented; real multi-account verification remains pending. |
 | GitHub Enterprise | HTTPS custom-host support is implemented; a live Enterprise Server has not been verified. |
 
-Configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache are also implemented. OAuth is prepared pending registration and live verification. GitLab repository/MR support is an additional provider implementation, with the differences above.
+Configurable shortcuts, pinning per browser window, page-display/hide patterns, folder click preferences and a persistent tree cache are also implemented. OAuth is configured for both providers; live account verification remains pending. GitLab repository/MR support is an additional provider implementation, with the differences above.
