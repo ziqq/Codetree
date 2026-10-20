@@ -348,6 +348,20 @@ button:disabled {
   outline: 0;
   padding: 5px 0;
 }
+.regex-button {
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 1px 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: monospace;
+  cursor: pointer;
+}
+.regex-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .keyhint {
   white-space: nowrap;
   border: 1px solid var(--border);

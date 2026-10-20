@@ -101,6 +101,29 @@ export function makeTree(entries) {
 }
 
 /**
+ * Compiles a case-insensitive path filter. Invalid expressions match nothing and expose an error for the UI.
+ * Patterns are entered without delimiters or flags; literal search keeps its existing whitespace trimming.
+ *
+ * @param {string} [query=''] A literal path fragment or regular expression.
+ * @param {boolean} [regex=false] Interpret the query as a regular expression.
+ * @returns {{active: boolean, error: string, matches: function(string): boolean}}
+ */
+export function pathFilter(query = '', regex = false) {
+  const pattern = regex ? query : query.trim();
+  try {
+    const expression = regex ? new RegExp(pattern, 'i') : null;
+    const needle = pattern.toLowerCase();
+    return {
+      active: Boolean(pattern),
+      error: '',
+      matches: path => (expression ? expression.test(path) : path.toLowerCase().includes(needle)),
+    };
+  } catch {
+    return {active: true, error: 'Invalid regular expression.', matches: () => false};
+  }
+}
+
+/**
  * Returns the visible rows of [tree] in display order.
  *
  * Without a query only children of expanded folders are visible. With a
@@ -112,15 +135,16 @@ export function makeTree(entries) {
  * @param {Set<string>} expanded Paths of expanded folders.
  * @param {string} [query=''] Case-insensitive path search.
  * @param {boolean} [unviewedOnly=false] Omit viewed files and folders without unviewed descendants.
+ * @param {boolean} [regex=false] Interpret the query as a regular expression over the full path.
  * @returns {Array<Object>}
  */
-export function flatten(tree, expanded, query = '', unviewedOnly = false) {
-  const needle = query.trim().toLowerCase();
+export function flatten(tree, expanded, query = '', unviewedOnly = false, regex = false) {
+  const filter = pathFilter(query, regex);
   let visible;
-  if (needle || unviewedOnly) {
+  if (filter.active || unviewedOnly) {
     visible = new Set();
     for (const node of tree.nodes.values()) {
-      if (node.path && node.search.includes(needle) && (!unviewedOnly || (node.type !== 'tree' && !node.viewed))) {
+      if (node.path && filter.matches(node.path) && (!unviewedOnly || (node.type !== 'tree' && !node.viewed))) {
         let path = node.path;
         while (path) {
           visible.add(path);
@@ -136,7 +160,7 @@ export function flatten(tree, expanded, query = '', unviewedOnly = false) {
     const node = stack.pop();
     if (visible && !visible.has(node.path)) continue;
     output.push(node);
-    if (node.type === 'tree' && (needle || expanded.has(node.path))) {
+    if (node.type === 'tree' && (filter.active || expanded.has(node.path))) {
       for (let i = node.children.length - 1; i >= 0; i--) stack.push(node.children[i]);
     }
   }

@@ -5,6 +5,7 @@
 - **ADDED**: Ctrl/Cmd-click opens a file or its native diff in a new tab
 - **ADDED**: changed-file folders show a Viewed indicator when all listed descendant files are viewed
 - **ADDED**: Only unviewed filter and review progress for changed-file trees with available Viewed marks
+- **ADDED**: optional regular-expression search over file paths, with invalid-pattern feedback
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 
 ## 0.4.1

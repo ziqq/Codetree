@@ -7,6 +7,7 @@
  * Rendering stays imperative; hidden tabs do not subscribe to their data.
  */
 
+import {pathFilter} from '../../shared/tree.js';
 import {button, el, empty} from '../dom.js';
 import {providerName, requestName} from '../page.js';
 import {batch, createMemo, createRenderEffect, on} from '../reactive.js';
@@ -16,7 +17,7 @@ import {matchingPulls} from './pulls.js';
 /** Creates bindings once; filter/mode controls survive data and query changes. */
 export function createRender(app) {
   const {state, run} = app;
-  const {tabButtons, body, spacer, search, toolbar, notice} = app.view;
+  const {tabButtons, body, spacer, search, regexButton, toolbar, notice} = app.view;
   const changesOption = el('option', {value: 'changes'});
   const modeSelect = el('select', {'aria-label': 'File tree mode'}, [
     el('option', {value: 'files', text: 'Repository files'}),
@@ -80,13 +81,14 @@ export function createRender(app) {
   const reviewAvailable = createMemo(
     () => state.mode === 'changes' && ['github', 'local'].includes(state.diff?.viewedMode),
   );
+  const fileSearch = createMemo(() => pathFilter(state.query, state.searchRegex));
   // Count all matching files, including collapsed descendants. Progress always uses the unfiltered entries.
   const fileCount = createMemo(
     () => {
-      const query = state.query.trim().toLowerCase();
+      const filter = fileSearch();
       const unviewedOnly = reviewAvailable() && state.unviewedOnly;
       return state.entries.filter(
-        entry => entry.type !== 'tree' && (!unviewedOnly || !entry.viewed) && entry.path.toLowerCase().includes(query),
+        entry => entry.type !== 'tree' && (!unviewedOnly || !entry.viewed) && filter.matches(entry.path),
       ).length;
     },
     undefined,
@@ -109,7 +111,13 @@ export function createRender(app) {
         tab === 'pulls' ? `${providerName(state.context)} ${name}s` : tab === 'bookmarks' ? 'Bookmarks' : 'Files',
       );
       search.placeholder =
-        tab === 'pulls' ? `Find a ${name}…` : tab === 'bookmarks' ? 'Find a bookmark…' : 'Find a file…';
+        tab === 'pulls'
+          ? `Find a ${name}…`
+          : tab === 'bookmarks'
+            ? 'Find a bookmark…'
+            : state.searchRegex
+              ? 'Find a path by regex…'
+              : 'Find a file…';
       search.setAttribute(
         'aria-label',
         tab === 'pulls' ? `Search ${name}s` : tab === 'bookmarks' ? 'Search bookmarks' : 'Search files and folders',
@@ -117,6 +125,15 @@ export function createRender(app) {
     },
     undefined,
     {name: 'tab chrome'},
+  );
+  createRenderEffect(
+    () => {
+      regexButton.hidden = state.tab !== 'files';
+      regexButton.setAttribute('aria-pressed', String(state.searchRegex));
+      search.setAttribute('aria-invalid', String(state.tab === 'files' && Boolean(fileSearch().error)));
+    },
+    undefined,
+    {name: 'file search mode'},
   );
   createRenderEffect(
     () => {
@@ -236,7 +253,11 @@ export function createRender(app) {
         );
       else if (tab === 'files') {
         const unviewedOnly = reviewAvailable() && state.unviewedOnly;
-        if (!state.flat.length)
+        if (fileSearch().error)
+          body.replaceChildren(
+            empty('Invalid regular expression', 'Check the pattern, for example \\.(dart|swift)$.', 'search'),
+          );
+        else if (!state.flat.length)
           body.replaceChildren(
             empty(
               unviewedOnly

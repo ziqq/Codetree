@@ -100,7 +100,7 @@ export function createTree(app) {
         );
       } else row.append(el('span', {class: 'spacer'}));
       row.append(nodeIcon(node, folder));
-      row.append(highlight(node.name, state.query));
+      row.append(highlight(node.name, state.searchRegex ? '' : state.query));
       if (state.mode === 'changes') {
         if (node.status)
           row.append(
@@ -338,6 +338,7 @@ export function createTree(app) {
         treeVersion,
         () => state.expanded,
         () => state.query,
+        () => state.searchRegex,
         () => state.unviewedOnly,
         () => state.mode,
         () => state.diff?.viewedMode,
@@ -345,7 +346,7 @@ export function createTree(app) {
       () => {
         const unviewedOnly =
           state.unviewedOnly && state.mode === 'changes' && ['github', 'local'].includes(state.diff?.viewedMode);
-        state.flat = flatten(state.tree, state.expanded, state.query, unviewedOnly);
+        state.flat = flatten(state.tree, state.expanded, state.query, unviewedOnly, state.searchRegex);
         state.focus = Math.min(state.focus, Math.max(0, state.flat.length - 1));
         spacer.style.height = `${state.flat.length * rowHeight}px`;
       },

@@ -186,6 +186,253 @@ function visibleTreePaths(ui) {
   return ui.view.body.querySelectorAll('.tree-row').map(row => row.dataset.path);
 }
 
+test('regex search toggle immediately applies pending input and preserves controls and expansion', async t => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const calls = [];
+  const ui = sidebar(t, (...args) => calls.push(args));
+  entries(ui, [
+    {path: 'src/main.dart', type: 'blob'},
+    {path: 'src/Screen.SWIFT', type: 'blob'},
+    {path: 'docs/file[1].md', type: 'blob'},
+  ]);
+  const {search, regexButton, body} = ui.view;
+  assert.ok(regexButton, 'Files offers a regex toggle');
+  assert.equal(regexButton.getAttribute('aria-pressed'), 'false');
+  assert.equal(regexButton.hidden, false);
+  search.value = '\\.(dart|swift)$';
+  search.focus();
+  await search.fire('input');
+  assert.equal(ui.state.query, '', 'typing retains the existing debounce');
+  body.scrollTop = 150;
+  ui.state.focus = 2;
+  await regexButton.fire('click');
+  ui.clock.flush();
+  assert.equal(ui.state.query, '\\.(dart|swift)$', 'toggling uses the latest input immediately');
+  assert.equal(regexButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(search.placeholder, 'Find a path by regex…');
+  assert.deepEqual(visibleTreePaths(ui), ['src', 'src/main.dart', 'src/Screen.SWIFT']);
+  assert.equal(ui.view.toolbar.querySelector('.count').textContent, '2');
+  assert.equal(body.scrollTop, 0);
+  assert.equal(ui.state.focus, 0);
+  assert.deepEqual([...ui.state.expanded], []);
+  assert.equal(ui.view.search, search);
+  assert.equal(globalThis.document.activeElement, search);
+  await regexButton.fire('click');
+  t.mock.timers.tick(200);
+  ui.clock.flush();
+  assert.deepEqual(visibleTreePaths(ui), [], 'the same expression is a literal when regex is off');
+  assert.equal(search.placeholder, 'Find a file…');
+  assert.equal(regexButton.getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(calls, [], 'search does not fetch or persist anything');
+  assert.deepEqual(ui.errors, []);
+});
+
+for (const [invalid, literalPath] of [
+  ['[', 'docs/file[1].md'],
+  ['(', 'docs/file(1).md'],
+  ['\\', 'docs/file\\name.md'],
+]) {
+  test(`regex search reports invalid ${invalid} and recovers after correction or switching to literal mode`, async t => {
+    t.mock.timers.enable({apis: ['setTimeout']});
+    const ui = sidebar(t);
+    entries(ui, [
+      {path: literalPath, type: 'blob'},
+      {path: 'src/main.dart', type: 'blob'},
+    ]);
+    const {search, regexButton} = ui.view;
+    assert.ok(regexButton, 'Files offers a regex toggle');
+    await regexButton.fire('click');
+    search.value = invalid;
+    search.focus();
+    await search.fire('input');
+    t.mock.timers.tick(100);
+    ui.clock.flush();
+    assert.equal(search.getAttribute('aria-invalid'), 'true');
+    assert.match(ui.view.body.textContent, /Invalid regular expression/);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '0');
+    assert.deepEqual(visibleTreePaths(ui), []);
+    assert.equal(globalThis.document.activeElement, search);
+    search.value = '^src/.*\\.dart$';
+    await search.fire('input');
+    t.mock.timers.tick(100);
+    ui.clock.flush();
+    assert.equal(search.getAttribute('aria-invalid'), 'false');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/main.dart']);
+    search.value = invalid;
+    await search.fire('input');
+    await regexButton.fire('click');
+    ui.clock.flush();
+    assert.equal(search.getAttribute('aria-invalid'), 'false');
+    assert.deepEqual(visibleTreePaths(ui), ['docs', literalPath]);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    assert.deepEqual(ui.errors, [], 'invalid patterns are handled in the search UI without throwing');
+  });
+}
+
+for (const mode of ['github', 'local']) {
+  test(`regex search combines ${mode} Viewed marks with counts and confirmed or failed writes`, async t => {
+    let reply = deferred();
+    const ui = sidebar(t, () => reply.promise);
+    ui.state.mode = 'changes';
+    ui.applyDiff(
+      reviewDiff(mode, {'src/Screen.SWIFT': 'VIEWED', 'docs/README.md': 'VIEWED'}, [
+        'src/nested/main.dart',
+        'src/Screen.SWIFT',
+        'test/main_test.dart',
+        'docs/README.md',
+      ]),
+    );
+    batch(() => {
+      ui.state.expanded = new Set();
+      ui.state.searchRegex = true;
+      ui.state.query = '\\.(dart|swift)$';
+    });
+    ui.clock.flush();
+    const {filter, progress} = reviewControls(ui);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '3');
+    assert.equal(progress.textContent, '2/4 viewed');
+    filter.checked = true;
+    await filter.fire('change');
+    ui.state.query = '^src/.*\\.(dart|swift)$';
+    ui.clock.flush();
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/nested/main.dart']);
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    const mark = treeRow(ui, 'src/nested/main.dart').querySelector('.viewed-checkbox');
+    mark.checked = true;
+    const failed = mark.fire('change');
+    await Promise.resolve();
+    assert.equal(progress.textContent, '2/4 viewed');
+    reply.reject(new Error('Viewed write failed'));
+    await failed;
+    ui.clock.flush();
+    assert.equal(mark.checked, false);
+    assert.deepEqual(visibleTreePaths(ui), ['src', 'src/nested', 'src/nested/main.dart']);
+    reply = deferred();
+    mark.checked = true;
+    const success = mark.fire('change');
+    reply.resolve({state: 'VIEWED'});
+    await success;
+    ui.clock.flush();
+    assert.equal(progress.textContent, '3/4 viewed', 'progress counts even files excluded by the regex');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '0');
+    assert.deepEqual(visibleTreePaths(ui), []);
+    assert.match(ui.view.body.textContent, /No matching unviewed files/);
+    filter.checked = false;
+    await filter.fire('change');
+    ui.clock.flush();
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '2');
+    assert.equal(progress.textContent, '3/4 viewed');
+    assert.deepEqual([...ui.state.expanded], []);
+    assert.deepEqual(ui.errors, ['Viewed write failed']);
+  });
+}
+
+for (const tab of ['pulls', 'bookmarks']) {
+  test(`regex search resets on the ${tab} tab without leaking into its literal search`, async t => {
+    t.mock.timers.enable({apis: ['setTimeout']});
+    const ui = sidebar(t, type =>
+      Promise.resolve(
+        type === 'STATE'
+          ? {
+              ...publicData,
+              bookmarks: [{id: 'a', title: 'Fix[1]', url: `${origin}/sample/repo`}],
+            }
+          : {pulls: [{number: 42, title: 'Fix[1]', user: {login: 'alice'}}], total: 1},
+      ),
+    );
+    const {search, regexButton} = ui.view;
+    assert.ok(regexButton, 'Files offers a regex toggle');
+    await regexButton.fire('click');
+    search.value = '^old/';
+    await search.fire('input');
+    await ui.selectTab(tab);
+    assert.equal(ui.state.searchRegex, false);
+    assert.equal(regexButton.hidden, true);
+    assert.equal(regexButton.getAttribute('aria-pressed'), 'false');
+    assert.equal(search.value, '');
+    t.mock.timers.tick(200);
+    assert.equal(ui.state.query, '', 'old debounced input cannot reappear after the tab switch');
+    search.value = 'FIX[';
+    await search.fire('input');
+    t.mock.timers.tick(100);
+    assert.equal(search.getAttribute('aria-invalid'), 'false');
+    assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+    assert.match(ui.view.body.textContent, /Fix\[1\]/);
+    await ui.selectTab('files');
+    assert.equal(regexButton.hidden, false);
+    assert.equal(regexButton.getAttribute('aria-pressed'), 'false');
+    assert.equal(search.value, '');
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+test('regex search and pending input reset on page navigation before new metadata arrives', async t => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const reply = deferred();
+  const ui = sidebar(t, type => {
+    if (type === 'INIT') return reply.promise;
+    if (type === 'STATE') return Promise.resolve({...publicData, preferences: ui.state.preferences});
+    return Promise.resolve({
+      entries: [
+        {path: 'new.js', type: 'blob'},
+        {path: 'new.dart', type: 'blob'},
+      ],
+      lazy: false,
+    });
+  });
+  batch(() => {
+    ui.state.searchRegex = true;
+    ui.state.query = '[';
+  });
+  assert.equal(ui.view.search.getAttribute('aria-invalid'), 'true');
+  ui.view.search.value = '^old/';
+  await ui.view.search.fire('input');
+  globalThis.location = new URL(`${origin}/another/repo`);
+  const pending = ui.loadPage();
+  assert.equal(ui.state.searchRegex, false);
+  assert.equal(ui.view.search.getAttribute('aria-invalid'), 'false');
+  assert.equal(ui.view.search.value, '');
+  reply.resolve({ref: 'main', treeSHA: 'b'.repeat(40), repository: {}});
+  await pending;
+  t.mock.timers.tick(200);
+  ui.clock.flush();
+  assert.equal(ui.state.query, '');
+  assert.deepEqual(visibleTreePaths(ui), ['new.dart', 'new.js']);
+  assert.equal(ui.view.toolbar.querySelector('.count').textContent, '2');
+  assert.deepEqual(ui.errors, []);
+});
+
+test('regex search updates loaded-file results after a lazy folder reply without fetching on search', async t => {
+  const calls = [];
+  const ui = sidebar(t, (type, value) => {
+    calls.push({type, value});
+    return Promise.resolve({
+      entries: [
+        {path: 'main.dart', type: 'blob'},
+        {path: 'helper.js', type: 'blob'},
+      ],
+    });
+  });
+  entries(ui, [{path: 'src', type: 'tree', loaded: false, sha: 'c'.repeat(40)}]);
+  batch(() => {
+    ui.state.lazy = true;
+    ui.state.searchRegex = true;
+    ui.state.query = '\\.dart$';
+  });
+  assert.equal(ui.view.toolbar.querySelector('.count').textContent, '0');
+  assert.deepEqual(calls, []);
+  assert.match(ui.view.notice.textContent, /Search currently includes loaded files/);
+  await ui.loadFolder(ui.state.tree.nodes.get('src'));
+  ui.clock.flush();
+  assert.deepEqual(visibleTreePaths(ui), ['src', 'src/main.dart']);
+  assert.equal(ui.view.toolbar.querySelector('.count').textContent, '1');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].type, 'TREE');
+  assert.equal(calls[0].value.path, 'src');
+  assert.deepEqual(ui.errors, []);
+});
+
 for (const mode of ['github', 'local']) {
   test(`Only unviewed combines ${mode} marks with search and collapsed folders without filtering progress`, async t => {
     const calls = [];
