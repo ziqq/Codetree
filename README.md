@@ -69,7 +69,7 @@ These are the defaults; change toggle/search bindings in **Settings → Navigati
 
 Public repositories work without a token. Open **Settings** to connect an account for private repositories, review filters and authenticated API limits. Being signed in on the website does not authenticate the extension's API requests. A native **View full** button remains visible when API access is unavailable and offers account connection/retry guidance.
 
-GitHub device-flow and GitLab PKCE sign-in are implemented without a backend or client secret. This build leaves their public client IDs empty, so OAuth buttons remain disabled until the maintainer supplies registered IDs. PAT connections remain available. See [OAuth setup](docs/OAUTH.md).
+GitHub device-flow and GitLab PKCE sign-in are enabled with Codetree's registered public client IDs, without a backend or client secret. GitLab callbacks cover the published Chrome extension and the maintainer's current development build; other unpacked extension IDs need their own registered callback. Actual account sign-in and token refresh still need live verification. PAT connections remain available. See [OAuth setup](docs/OAUTH.md).
 
 | Provider | Permissions | Server API |
 | --- | --- | --- |

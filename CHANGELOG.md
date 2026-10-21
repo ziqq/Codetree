@@ -7,6 +7,7 @@
 - **ADDED**: Only unviewed filter and review progress for changed-file trees with available Viewed marks
 - **ADDED**: optional regular-expression search over file paths, with invalid-pattern feedback
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
+- **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 
 ## 0.4.1
 
