@@ -133,7 +133,8 @@ export function shortcutMatches(value, event) {
  *
  * The toggle and search shortcuts must not overlap (with `Mod` checked
  * against both Ctrl and Cmd), and URL exclusions are limited to 64
- * non-empty lines within 16,384 characters.
+ * non-empty lines within 16,384 characters. Lines prefixed with `regex:`
+ * must contain valid, non-empty JavaScript regular expressions.
  *
  * @param {Object} value Preferences with `toggleShortcut`, `searchShortcut` and `hidePatterns`.
  * @throws {Error} If the values cannot be saved.
@@ -160,6 +161,27 @@ export function validateNavigation(value) {
   ) {
     throw new Error('Use at most 64 URL patterns, one per line, within 16,384 characters.');
   }
+  for (const [index, pattern] of value.hidePatterns.split('\n').entries()) {
+    try {
+      hideExpression(pattern.trim());
+    } catch {
+      throw new Error(`Invalid regular expression on URL pattern line ${index + 1}. Enter a pattern after regex:.`);
+    }
+  }
+}
+
+/**
+ * Compiles a `regex:` URL rule without delimiters or flags; returns `null` for a wildcard rule.
+ *
+ * @param {string} pattern A trimmed exclusion rule.
+ * @returns {?RegExp} A case-sensitive expression, or `null`.
+ * @throws {Error} If the expression is empty or malformed.
+ */
+function hideExpression(pattern) {
+  if (!pattern.startsWith('regex:')) return null;
+  const source = pattern.slice(6).trim();
+  if (!source) throw new Error('The regular expression is empty.');
+  return new RegExp(source);
 }
 
 /**
@@ -192,7 +214,9 @@ function globMatch(pattern, text) {
 /**
  * Whether Codetree should appear on a page.
  *
- * Pages matching an exclusion pattern are hidden. With the `code` page
+ * Pages matching a wildcard or `regex:` exclusion rule are hidden; both
+ * match the full URL without its fragment. Malformed stored expressions
+ * are ignored so one bad rule cannot break navigation. With the `code` page
  * scope, repository pages are limited to the repository root, request
  * lists and commit lists; trees, files, requests and commits stay visible.
  *
@@ -204,10 +228,18 @@ function globMatch(pattern, text) {
 export function pageVisible(url, context, value) {
   if (!context) return false;
   const parsed = new URL(url);
+  const pageURL = parsed.href.split('#')[0];
   if (
-    value.hidePatterns
-      .split('\n')
-      .some(pattern => pattern.trim() && globMatch(pattern.trim(), parsed.href.split('#')[0]))
+    value.hidePatterns.split('\n').some(pattern => {
+      pattern = pattern.trim();
+      if (!pattern) return false;
+      try {
+        const expression = hideExpression(pattern);
+        return expression ? expression.test(pageURL) : globMatch(pattern, pageURL);
+      } catch {
+        return false;
+      }
+    })
   )
     return false;
   if (value.pageScope !== 'code' || context.kind !== 'repo') return true;

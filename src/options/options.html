@@ -88,11 +88,13 @@
               name="hidePatterns"
               rows="3"
               maxlength="16384"
-              placeholder="https://github.com/*/*/issues*&#10;https://gitlab.com/*/-/issues*"
+              placeholder="https://github.com/*/*/issues*&#10;regex:/(issues|discussions)(/|\?|$)"
+              spellcheck="false"
             ></textarea
             ><small
-              >One pattern per line. * matches any characters. Matching pages hide the sidebar and View full
-              controls.</small
+              >Up to 64 rules, one per line. * matches any characters. Start a line with regex: for a JavaScript regular
+              expression, without / delimiters or flags. Rules are case-sensitive and match the full URL without its #
+              fragment. A matching rule hides the sidebar and View full controls.</small
             ></label
           >
           <label class="checkbox wide"

@@ -89,7 +89,7 @@ Render effects update tab chrome, persistent toolbar controls, the active body, 
 
 ## Build and package
 
-1. `npm run build` runs `scripts/build.mjs`: esbuild bundles the three entry points (`format: iife`, `target: chrome116`, unminified) and copies the manifest, Settings page, icons and file-icons fonts into `build/`. `scripts/styles.mjs` compiles SCSS with Sass: sidebar and Settings CSS are written to `build/`, while native-control CSS is embedded in the content bundle. Provider palettes keep runtime CSS variables for live site theme changes.
+1. `npm run build` runs `scripts/build.mjs`: esbuild bundles the three entry points (`format: iife`, `target: chrome140`, unminified) and copies the manifest, Settings page, icons and file-icons fonts into `build/`. Chrome 140 is required for trusted-only local and Sync storage access. `scripts/styles.mjs` compiles SCSS with Sass: sidebar and Settings CSS are written to `build/`, while native-control CSS is embedded in the content bundle. Provider palettes keep runtime CSS variables for live site theme changes.
 2. During bundling, `scripts/file-icons.mjs` generates `virtual:file-icons` from `vendor/file-icons/`: rules, glyph metrics and theme colours evaluated from Atom's Less sources.
 3. `scripts/package.py` packages `build/` with `PRIVACY.md`, `THIRD_PARTY_NOTICES.md` and `LICENSE` into a reproducible `dist/codetree-<version>.zip`.
 4. `scripts/check.mjs` validates the manifest and assets against a fresh bundle, plus repository consistency.
@@ -102,6 +102,7 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 
 - `core.test.mjs`: full-file diff validation.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
+- `hide-rules.test.mjs`: regex and wildcard URL exclusions, validation, persisted rules, URL query/fragment boundaries and code-only scope.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
 - `window-pins.test.mjs`: the default pin edited by Settings and per-window pins chosen with the pin button, through the bundled service worker.
 - `content-races.test.mjs`, `navigation-races.test.mjs`: request generations through the content factories with controlled reply order.

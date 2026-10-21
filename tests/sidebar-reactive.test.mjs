@@ -25,6 +25,52 @@ const {batch, createRoot, createState, getOwner, makeTree, onCleanup, untrackAct
 const origin = 'https://github.com';
 const publicData = {accounts: [], selectedAccounts: {}, bookmarks: []};
 
+for (const [provider, root, path] of [
+  ['github', 'https://github.com/sample/repo', '/pull/42/files'],
+  ['gitlab', 'https://gitlab.com/team/nested/repo', '/-/merge_requests/42/diffs'],
+]) {
+  test(`regex-hidden ${provider} navigation clears native buttons and resumes on an allowed page`, async t => {
+    const ui = sidebar(t);
+    const requests = [];
+    let loads = 0;
+    ui.state.preferences = {...ui.state.preferences, hidePatterns: 'regex:/(pull|merge_requests)/42/'};
+    ui.rpc = async type => {
+      requests.push(type);
+      if (type === 'STATE') return {...publicData, preferences: ui.state.preferences};
+      if (type === 'INIT') return {ref: 'main', repository: {}};
+      throw new Error(`Unexpected request: ${type}`);
+    };
+    ui.loadFiles = async () => {
+      loads++;
+    };
+    ui.clearHeaderButtons = content.createHeaderButtons(ui).clearHeaderButtons;
+    install(t, {location: new URL(root)});
+    await ui.loadPage();
+    requests.length = 0;
+    loads = 0;
+    const button = globalThis.document.createElement('button');
+    button.className = 'codetree-view-full';
+    globalThis.document.body.append(button);
+    globalThis.location = new URL(root + path);
+
+    await ui.loadPage();
+    assert.equal(ui.state.context, null, 'hidden pages have no sidebar context');
+    assert.equal(ui.view.branchButton.disabled, true);
+    assert.equal(globalThis.document.querySelector('.codetree-view-full'), null);
+    assert.deepEqual(requests, []);
+    assert.equal(loads, 0);
+
+    globalThis.location = new URL(root);
+    await ui.loadPage();
+    assert.equal(ui.state.context.provider, provider);
+    assert.equal(ui.state.context.repo, 'repo');
+    assert.equal(ui.view.branchButton.disabled, false);
+    assert.deepEqual(requests, ['STATE', 'INIT']);
+    assert.equal(loads, 1);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
 /** A controllable reply used to reproduce request completion races. */
 function deferred() {
   let resolve;

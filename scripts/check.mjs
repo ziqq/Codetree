@@ -108,8 +108,8 @@ requireValue(
   'Unexpected extension permissions.',
 );
 requireValue(
-  JSON.stringify(manifest.optional_permissions) === '["identity"]' && manifest.minimum_chrome_version === '116',
-  'Expected optional OAuth identity permission and Chrome 116 lifecycle support.',
+  JSON.stringify(manifest.optional_permissions) === '["identity"]' && manifest.minimum_chrome_version === '140',
+  'Expected optional OAuth identity permission and Chrome 140 trusted local/sync storage support.',
 );
 requireValue(
   manifest.host_permissions.every(value =>

@@ -174,3 +174,11 @@ The maintainer's Dart screenshots exposed missing type tokens and an incorrect f
 Current GitHub tokens and GitLab light/dark code stylesheets were inspected read-only on public pages. The production viewer/layout factories rendered the screenshot fragment in a local browser fixture using those captured native styles. Colors, italics and weights matched native tokens in GitHub dark and GitLab light/dark; switching back to GitHub cleared GitLab's copied styles. A live GitHub token change propagated while the dialog stayed open, and virtualized rows retained their colors. Captured browser error logs were empty. This is local fixture proof, not a reload of the installed extension or authenticated API validation.
 
 The existing 81 approved regressions, formatting, lint, static checks and runtime packaging passed. No tracked regression tests were added or edited for this syntax/theme correction before main-implementation approval.
+
+## Regex URL hide rules and Chrome minimum — 2026-10-21
+
+After implementation approval, 23 regression scenarios were added for regex URL matching on GitHub/GitLab and custom hosts, wildcard compatibility, case sensitivity, query/fragment boundaries, persisted values, malformed rules, existing limits, Settings rejection/recovery and navigation away from/back to an allowed page. Navigation checks use the production content factories and native-button cleanup with synthetic DOM/RPC data.
+
+The same three test files were run in an isolated archive of pre-feature commit `b2370c2`: 22 scenarios failed on missing regex matching/validation and 75 checks passed, including the existing limit control. The working source was not replaced. Full `npm run verify` on Node.js 24.21.0 passed all 183 tests, formatting, lint, static checks, build and packaging. Archive inspection confirmed 17 runtime files, minimum Chrome 140 and no test fixtures or logs.
+
+The manifest, bundling targets and current setup documentation require Chrome/Chromium 140 for trusted-only local and Sync storage. Storage access restrictions remain unchanged. These checks do not establish installed-browser behavior or an actual Chrome 140 installation.

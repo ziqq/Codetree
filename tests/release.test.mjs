@@ -114,7 +114,7 @@ test('release notes combine the changelog, commits since the previous tag, detai
       manifest_version: 3,
       version: '1.0.0',
       description: 'Synthetic description.',
-      minimum_chrome_version: '116',
+      minimum_chrome_version: '140',
     }),
   );
   writeFileSync(
@@ -141,7 +141,7 @@ test('release notes combine the changelog, commits since the previous tag, detai
   assert.doesNotMatch(text, /old change/);
   assert.match(
     text,
-    /\| Version \| 1\.0\.0 \|\n\| Minimum Chrome \| 116 \|\n\| Manifest \| V3 \|\n\| Archive size \| 2\.0 KiB \|/,
+    /\| Version \| 1\.0\.0 \|\n\| Minimum Chrome \| 140 \|\n\| Manifest \| V3 \|\n\| Archive size \| 2\.0 KiB \|/,
   );
   assert.match(text, new RegExp(`\`\`\`\\n${'b'.repeat(64)}  codetree-1\\.0\\.0\\.zip\\n\`\`\``));
   assert.doesNotMatch(text, /Chrome Web Store/);
