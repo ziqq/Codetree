@@ -7,6 +7,7 @@
 - **ADDED**: Only unviewed filter and review progress for changed-file trees with available Viewed marks
 - **ADDED**: optional regular-expression search over file paths, with invalid-pattern feedback
 - **ADDED**: `regex:` URL hide rules alongside existing wildcards, with validation before saving
+- **ADDED**: in-page file tabs with branch-specific scroll positions, separate PR/MR/commit workspaces and trusted session-only metadata
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access

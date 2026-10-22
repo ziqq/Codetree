@@ -1059,6 +1059,70 @@ button:disabled {
 .viewer-bottom .flex {
   flex: 1;
 }
+.file-workspace {
+  margin: 16px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.file-tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--muted-bg);
+  border-bottom: 1px solid var(--border);
+}
+.file-tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-width: 0;
+  max-width: 280px;
+  border-right: 1px solid var(--border);
+  border-bottom: 2px solid transparent;
+}
+.file-tab.active {
+  background: var(--bg);
+  border-bottom-color: var(--accent);
+}
+.file-tab.unavailable .file-tab-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.file-tab-name {
+  min-width: 0;
+  padding: 10px 8px 10px 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.file-tab-close {
+  flex-shrink: 0;
+  margin-right: 5px;
+}
+.file-tab-body {
+  height: clamp(260px, 55vh, 620px);
+  background: var(--code-bg);
+  color: var(--code-text);
+}
+.file-workspace .viewer-bottom {
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+@media (max-width: 600px) {
+  .file-workspace {
+    margin: 8px;
+  }
+  .file-workspace .viewer-header {
+    flex-wrap: wrap;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

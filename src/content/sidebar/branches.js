@@ -61,10 +61,12 @@ export function createBranches(app) {
         {
           type: 'button',
           class: 'branch-item',
-          onClick: () => {
-            const path = ['blob', 'blame', 'raw'].includes(state.context.kind) ? state.info?.path : '';
-            location.assign(path ? blobURL(state.context, branch.name, path) : treeURL(state.context, branch.name));
-          },
+          onClick: app.selectFileBranch
+            ? app.run(() => app.selectFileBranch(branch.name))
+            : () => {
+                const path = ['blob', 'blame', 'raw'].includes(state.context.kind) ? state.info?.path : '';
+                location.assign(path ? blobURL(state.context, branch.name, path) : treeURL(state.context, branch.name));
+              },
         },
         [branch.name === state.info?.ref ? icon('check') : icon('branch'), el('span', {text: branch.name})],
       );

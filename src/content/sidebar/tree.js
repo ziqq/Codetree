@@ -302,6 +302,10 @@ export function createTree(app) {
    * @param {boolean} [newTab=false] Open a separate tab without an opener.
    */
   async function openFile(node, newTab = false) {
+    if (!newTab && node.type !== 'commit' && app.openFileTab) {
+      await app.openFileTab(node);
+      return;
+    }
     const changes = state.mode === 'changes';
     const epoch = state.epoch;
     const generation = state.filesGeneration;

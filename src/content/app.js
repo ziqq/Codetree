@@ -24,6 +24,7 @@ import {createTree} from './sidebar/tree.js';
 import {createView} from './sidebar/view.js';
 import {createState} from './state.js';
 import {createViewer} from './viewer/viewer.js';
+import {createFileTabs} from './viewer/file-tabs.js';
 import {
   batch,
   catchError,
@@ -64,8 +65,12 @@ export function mount() {
          */
         app.rpc = async (type, value = {}) => {
           const response = await chrome.runtime.sendMessage({type, context: state.context, ...value});
-          if (!response?.ok)
-            throw new Error(response?.error || 'The extension was reloaded. Refresh this repository page.');
+          if (!response?.ok) {
+            const error = new Error(response?.error || 'The extension was reloaded. Refresh this repository page.');
+            if (Number.isInteger(response?.status) && response.status >= 400 && response.status <= 599)
+              error.status = response.status;
+            throw error;
+          }
           return response.value;
         };
 
@@ -105,6 +110,7 @@ export function mount() {
           createNavigation,
           createViewer,
           createHeaderButtons,
+          createFileTabs,
         ]) {
           Object.assign(app, untrackActions(factory(app)));
         }
@@ -155,7 +161,10 @@ export function mount() {
           });
         if (document.body) {
           themeObserver.observe(document.body, {attributes: true, attributeFilter: ['class']});
-          const headersObserver = new MutationObserver(app.scheduleHeaderButtons);
+          const headersObserver = new MutationObserver(() => {
+            app.scheduleHeaderButtons();
+            app.mountFileTabs();
+          });
           headersObserver.observe(document.body, {childList: true, subtree: true});
           onCleanup(() => headersObserver.disconnect());
         }
@@ -166,6 +175,7 @@ export function mount() {
           () => {
             app.positionHandle();
             app.requestTreeRender();
+            app.updateFileTabTheme();
           },
           {passive: true},
         );

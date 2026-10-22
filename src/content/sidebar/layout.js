@@ -86,6 +86,7 @@ export function createLayout(app) {
       ${pageStyles}`;
     if (pageStyle.textContent !== text) pageStyle.textContent = text;
     app.requestTreeRender?.();
+    app.updateFileTabTheme?.();
   }
 
   /**
@@ -150,6 +151,7 @@ export function createLayout(app) {
       }
     } finally {
       probe?.remove();
+      app.updateFileTabTheme?.();
     }
   }
 

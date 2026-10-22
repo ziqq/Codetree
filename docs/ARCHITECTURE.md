@@ -20,13 +20,14 @@ flowchart LR
 
 ## Messages
 
-Pages and Settings send `{type, context?, …}` to the worker and receive `{ok: true, value}` or `{ok: false, error}`. The broker checks every message against its sender before doing anything:
+Pages and Settings send `{type, context?, …}` to the worker and receive `{ok: true, value}` or `{ok: false, error, status?}`. Errors remain redacted; an optional integer HTTP status (400–599) lets file tabs distinguish missing files from other preview failures. The broker checks every message against its sender before doing anything:
 
 | Type | Sender | Purpose |
 | --- | --- | --- |
 | `STATE` | page, Settings | Public state: preferences, accounts without tokens, hosts, account selections, bookmarks; Sync status for Settings. |
 | `PREFERENCES` | page, Settings | Save preferences. Pages may not change the default pin state. |
 | `WINDOW_PIN` | page | Pin the sidebar in the sender's window and notify that window's tabs. |
+| `FILE_TABS` | page (own host) | Read/save session-only file-workspace metadata, isolated by browser tab, account and repository/review scope. |
 | `BOOKMARK` | page | Add or remove a bookmark on an enabled host. |
 | `SELECT_ACCOUNT` | page (own host), Settings | Choose the account for a host, or `auto`. |
 | `OPTIONS` | page, Settings | Open Settings. |
@@ -43,6 +44,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | --- | --- |
 | `index.js` | Message router, sender checks, error redaction, lifecycle listeners. |
 | `storage.js` | Trusted local storage (`TRUSTED_CONTEXTS`), serialized writes, window pins (session storage), local Viewed marks. |
+| `file-tabs.js` | Validated, bounded session metadata for in-page file workspaces; serialized reads/writes and stale-account save checks. |
 | `cache.js` | Memory cache (80 entries / 12 MiB) with request deduplication; persisted tree cache (48 entries / 4 MiB / 24 h). Clears use generations so stale replies are never cached. |
 | `http.js` | Streaming body limits and list budgets (10,000 items / 32 MiB). |
 | `client.js` | Host-bound API client: token header, `credentials: 'omit'`, `redirect: 'error'`, 25 s timeout, pagination, GraphQL, OAuth refresh. |
@@ -60,6 +62,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | local | `treeCache` | Persisted trees by account, host, repository and revision. |
 | local | `syncSettings` | This device's Sync state. |
 | session | `windowPins`, `oauthDevice` | Pins chosen with the window pin button (other windows follow the default); pending GitHub device authorization. |
+| session | `fileTabs` | Open file paths, active path, opaque native-route identity and branch/revision scroll positions; no text/comments and no Sync. |
 | sync | `codetreeSyncSnapshot` | Only when Sync is enabled: preferences and bookmark URLs/titles/dates. |
 
 ## Content script
@@ -77,9 +80,12 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | `sidebar/file-icons.js` | file-icons rule matching and glyph rendering. |
 | `sidebar/branches.js`, `pulls.js`, `bookmarks.js` | Branch popover, request list and filters, bookmarks. |
 | `viewer/` | Full-file diff and comments dialog; lexical highlighting. |
+| `viewer/file-tabs.js`, `viewer/file-content.js` | In-page workspace lifecycle/metadata and shared bounded, virtualized text/diff rendering. |
 | `native/header-buttons.js` | View full buttons in native diff headers. |
 
 Every asynchronous reply is applied only if the generations captured at its start still match, so navigation, Refresh, tab or filter changes cannot be overwritten by an older reply. The race regressions in `tests/` exercise these rules through the factories.
+
+In-page file tabs use `FILE_TABS` with `scope: 'code'|'review'` and an optional complete metadata `value`. Reads return paths, active path, positions, opaque page identity and a broker-derived `accountID`; saves echo that account ID and reject mismatches, including account changes while queued. Storage keys derive the sender's browser tab ID and selected account, provider, origin, owner/repository and scope. Code shares paths across branches; review adds its validated PR/MR number or commit SHA. Positions are keyed by branch or exact review revisions. `src/shared/file-tabs.js` shares the 32-file/256-position limits; the broker also bounds storage to 50 workspaces and 64 KiB per entry, validates saved metadata on read and never persists text. Session operations do not touch other keys. New workspace behavior still requires installed-browser verification.
 
 View fields in `state.js` are signal-backed accessors, so factories keep the `state.x = value` syntax. `expanded` is replaced with a new Set and compared by contents. Generations, tree entries, the tree model and keyboard focus stay plain fields. `updateTree()` invalidates one tree derivation after structural changes; expansion and the debounced search invalidate it directly. Multi-field updates use `batch`. Files status is stored once; the visible `loading`/`error` accessors choose between Files and list status without copying on tab switches.
 

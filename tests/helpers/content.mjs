@@ -17,6 +17,7 @@ export * from './src/content/reactive-dom.js';
 export * from './src/content/state.js';
 export * from './src/content/sidebar/view.js';
 export * from './src/content/sidebar/tree.js';
+export * from './src/content/sidebar/branches.js';
 export * from './src/content/sidebar/files.js';
 export * from './src/content/sidebar/pulls.js';
 export * from './src/content/sidebar/bookmarks.js';
@@ -28,9 +29,12 @@ export * from './src/shared/tree.js';
 `;
 
 /** Builds a browser-compatible module without altering source files or runtime dependencies. */
-export async function bundle() {
+export async function bundle({fileTabs = false} = {}) {
   const result = await build({
-    stdin: {contents: source, resolveDir: root},
+    stdin: {
+      contents: source + (fileTabs ? "export * from './src/content/viewer/file-tabs.js';" : ''),
+      resolveDir: root,
+    },
     bundle: true,
     write: false,
     format: 'esm',

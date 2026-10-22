@@ -19,6 +19,7 @@ These screenshots show Codetree 0.3.1 installed from a local build on public pag
 ## Description
 
 - Repository file tree with file/folder search, keyboard navigation and branch switching.
+- In-page file tabs with saved branch/review positions and separate PR/MR/commit workspaces.
 - Changed-file tree for PRs, MRs and commits, with additions/deletions aggregated by folder.
 - Inline review comments with authors and links to their discussions.
 - **View full** in native file headers: complete UTF-8 text, highlighted changes and both revision line numbers. Works with a closed sidebar, collapsed files, additions, deletions and unchanged renames.
@@ -54,7 +55,11 @@ The edge tab opens the sidebar. Use **Files**, **Pull requests / Merge requests*
 
 In **Files**, toggle `.*` to search full paths with a case-insensitive regular expression, for example `\.(dart|swift)$` or `^src/`. Enter the pattern without `/` delimiters or flags. Invalid patterns show an error. Search includes loaded entries and combines with **Only unviewed**; the mode resets when navigating or switching tabs.
 
-Click a changed file to jump to its native diff. Use **View full** in its page header or the tree's full-diff action to see the whole file. Previous/next controls navigate all changed files, independently of sidebar search.
+Click a tree file to open it in Codetree's in-page workspace; clicking it again activates the existing tab. Changed files show full-file diffs. Close tabs with their close buttons, or use Left/Right and Home/End while a file-tab button has focus. Ctrl/Cmd-click still opens the file or native diff in a new browser tab; submodules retain their native navigation. Native comments and review controls remain available below the workspace. **View full** in a native header or the tree's full-diff action still opens the separate dialog, whose previous/next controls cover all changed files independently of sidebar search.
+
+Switching branches keeps Code's open paths and active file while loading the selected branch; each branch has separate scroll positions. A missing file stays open with Retry and, when available, an action to open it on the default branch. Each PR, MR and commit has a separate workspace; returning restores its tabs and positions. Selecting a branch from a review exits to Code and restores Code's workspace. Reloading the same native route preserves the selected inline tab; navigating to another native file selects that file.
+
+Workspace metadata belongs to the current browser tab, selected account, host and repository. It resets on extension/browser restart and is excluded from Sync. Limits are 32 open files, 256 saved positions and 50 workspaces, with 64 KiB per entry; file text is never stored with this metadata. In-page tabs are new beta behavior; installed-browser smoke verification is pending.
 
 | Shortcut | Action |
 | --- | --- |
@@ -101,7 +106,7 @@ Search covers loaded files until **Load all folders for search** finishes; the s
 
 ## Privacy
 
-Preferences, accounts, tokens, bookmarks, local Viewed marks and the tree cache live in `chrome.storage.local` for the browser profile. Pinning per window and pending device sign-in use trusted session storage. Token storage is restricted to trusted extension contexts. Page/content scripts receive no tokens. Browser Sync sends only preferences/bookmark metadata after explicit opt-in; bookmark URLs/titles can contain private repository names.
+Preferences, accounts, tokens, bookmarks, local Viewed marks and the tree cache live in `chrome.storage.local` for the browser profile. Pinning per window, pending device sign-in and file-tab workspace metadata use trusted session storage. Workspace metadata includes file paths, active tab, route identity and scroll positions; it contains no file text and is not synced. Token storage is restricted to trusted extension contexts. Page/content scripts receive no tokens. Browser Sync sends only preferences/bookmark metadata after explicit opt-in; bookmark URLs/titles can contain private repository names.
 
 Requests go directly to the selected repository API. Tokens stay bound to its API host; redirects and cookie credentials are disabled. There is no analytics, external font download or third-party runtime dependency. See [Privacy](PRIVACY.md).
 
@@ -114,7 +119,7 @@ Requests go directly to the selected repository API. Tokens stay bound to its AP
 - PR/MR comparisons use the merge base and request head; commit comparisons use the first parent. Private fork requests need access to both source repositories.
 - GitLab review filters depend on supported reviewer/approvals endpoints, server states and token access. Unsupported endpoints report errors. Viewed is local on GitLab and falls back to local mode on GitHub when GraphQL is unavailable.
 - Native header integration depends on the provider's page structure. Layout changes may need an adapter update; the sidebar full-file action is also available.
-- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Browser Sync is optional and remains within the browser ecosystem; cross-browser account sync is not implemented. Browser-reserved shortcuts may take priority. Branch switching preserves the resolved file path on file pages; other pages open the branch root. A file absent from the selected branch shows the provider's native not-found page.
+- OAuth requires registered public client IDs and live verification before it is ready to use. Custom servers use PATs. Browser Sync is optional and remains within the browser ecosystem; cross-browser account sync is not implemented. Browser-reserved shortcuts may take priority. In-page tabs are read-only and keep native review controls available; installed-browser verification of the new workspace remains pending.
 
 ## Project structure
 
@@ -128,7 +133,7 @@ src/
     sync.js              Opt-in browser Sync for preferences and bookmarks
   content/               Content script: Shadow DOM sidebar
     sidebar/             View, layout, file tree, branches, requests, bookmarks
-    viewer/              Full-file diff viewer and lexical syntax highlighting
+    viewer/              In-page file tabs, full-file diff dialog and syntax highlighting
     native/              View full buttons in native diff headers
   options/               Settings and account management
   icons/                 Original extension icons
