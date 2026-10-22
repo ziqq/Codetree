@@ -20,11 +20,21 @@ export class Node {
       setProperty(key, value) {
         this[key] = value;
       },
+      getPropertyValue(key) {
+        return this[key] || '';
+      },
+      removeProperty(key) {
+        delete this[key];
+      },
+      *[Symbol.iterator]() {
+        yield* Object.keys(this).filter(key => typeof this[key] !== 'function');
+      },
     };
     this.value = '';
     this.hidden = false;
     this.disabled = false;
     this.scrollTop = 0;
+    this.scrollLeft = 0;
     this.clientHeight = 290;
     this.className = '';
     this.classList = {
@@ -65,6 +75,20 @@ export class Node {
   /** Reads a stored attribute. */
   getAttribute(key) {
     return this.attributes.get(key) ?? null;
+  }
+  /** Removes an attribute and the reflected property used by the fixture. */
+  removeAttribute(key) {
+    this.attributes.delete(key);
+    if (['hidden', 'disabled'].includes(key)) this[key] = false;
+    else if (['id', 'type', 'title', 'href'].includes(key)) delete this[key];
+  }
+  /** Returns the containing element, without exposing the shadow host as an ordinary parent. */
+  get parentElement() {
+    return this.parent || null;
+  }
+  /** Whether this node belongs to the document or to a connected shadow host. */
+  get isConnected() {
+    return this === this.document.body || Boolean(this.parent?.isConnected || this.host?.isConnected);
   }
 
   /** Moves nodes, expanding document fragments like the browser. */
@@ -161,6 +185,7 @@ export class Node {
   /** Creates the shadow-root fixture; focus is observable by tree renderers. */
   attachShadow() {
     const shadow = new Node(this.document, '#shadow');
+    shadow.host = this;
     Object.defineProperty(shadow, 'activeElement', {get: () => this.document.activeElement});
     return shadow;
   }

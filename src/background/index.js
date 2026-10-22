@@ -21,6 +21,7 @@ import {normalizeOrigin} from '../shared/routes.js';
 import {publicState, registerEnterpriseScripts, removeAccount, saveAccount} from './accounts.js';
 import {clearCache} from './cache.js';
 import {client} from './client.js';
+import {fileTabs} from './file-tabs.js';
 import {enabledBookmarks, origins, validateContext} from './hosts.js';
 import {oauthConfig} from './oauth/config.js';
 import * as oauth from './oauth/flow.js';
@@ -158,6 +159,7 @@ async function handle(message, sender) {
   }
   const context = validateContext(message.context, store);
   if (context.origin !== senderOrigin) throw new Error('A page can only request its own repository host.');
+  if (message.type === 'FILE_TABS') return fileTabs(message, context, sender, store);
   const api = client(context, store);
   return (context.provider === 'gitlab' ? gitlab : github).handle(message, context, api, store);
 }
@@ -187,7 +189,14 @@ async function redact(text) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handle(message, sender).then(
     value => sendResponse({ok: true, value}),
-    async error => sendResponse({ok: false, error: await redact(String(error?.message || 'Request failed.'))}),
+    async error =>
+      sendResponse({
+        ok: false,
+        error: await redact(String(error?.message || 'Request failed.')),
+        ...(Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+          ? {status: error.status}
+          : {}),
+      }),
   );
   return true;
 });

@@ -102,6 +102,7 @@ export function createFiles(app) {
       }
       if (state.tab === 'files') app.view.body.scrollTop = 0;
       state.filesLoading = false;
+      if (app.loadFileTabs) await app.loadFileTabs().catch(error => app.toast(error.message));
     } catch (error) {
       if (current()) {
         batch(() => {

@@ -189,6 +189,7 @@ export function createView(app) {
       const epoch = state.epoch;
       const context = state.context;
       try {
+        await app.rememberFileTabs?.();
         await app.rpc('SELECT_ACCOUNT', {origin: context.origin, id: accountSelect.value});
         if (epoch === state.epoch) await app.loadPage(true);
       } catch (error) {

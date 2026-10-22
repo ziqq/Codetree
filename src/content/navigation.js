@@ -38,6 +38,7 @@ export function createNavigation(app) {
         onCleanup(() => app.closeBranches());
         onCleanup(() => app.clearHeaderButtons());
         onCleanup(() => app.closeViewer());
+        onCleanup(() => app.suspendFileTabs?.());
       }),
     );
     const alive = app.pageAlive;

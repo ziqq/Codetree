@@ -9,12 +9,11 @@
  * another file or navigating invalidates replies for the previous view.
  */
 
-import {lines, fullDiff} from '../../shared/diff.js';
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
-import {tokenize} from './syntax.js';
+import {renderDiffFile} from './file-content.js';
 import {createAlive, createRoot, getOwner, onCleanup, runWithOwner} from '../reactive.js';
-import {listen, requestFrame} from '../reactive-dom.js';
+import {listen} from '../reactive-dom.js';
 
 /** Converts a diff file to a tree node shape used by the viewer. */
 export function diffNode(file) {
@@ -131,85 +130,7 @@ export function createViewer(app) {
       next,
     );
     try {
-      const [before, after] = await Promise.all([
-        node.status === 'added' || !diff.base.sha
-          ? ''
-          : app.rpc('FILE', {source: diff.base, path: node.previous_filename || node.path}),
-        node.status === 'removed' ? '' : app.rpc('FILE', {source: diff.head, path: node.path}),
-      ]);
-      if (!isCurrent(shell)) return;
-      if (lines(before).length + lines(after).length > 100000)
-        throw new Error(
-          `This file exceeds the 100,000 combined line text-preview limit. Open it on ${providerName(state.context)}.`,
-        );
-      const rows = fullDiff(before, after, node.patch);
-      const current = () => isCurrent(shell);
-      const [oldSyntax, newSyntax] = await Promise.all([
-        tokenize(before, node.previous_filename || node.path, current),
-        tokenize(after, node.path, current),
-      ]);
-      if (!current()) return;
-      if (oldSyntax.limited || newSyntax.limited) {
-        oldSyntax.lines = [];
-        newSyntax.lines = [];
-      }
-      const rowHeight = Math.max(22, state.preferences.fontSize + 8);
-      const code = el('div', {class: 'code-spacer'});
-      code.style.height = `${rows.length * rowHeight}px`;
-      const maxLength = rows.reduce((max, row) => Math.max(max, row.text.length), 0);
-      code.style.width = `${Math.max(600, 128 + Math.min(4000, maxLength) * state.preferences.fontSize * 0.65)}px`;
-      let frame = 0;
-      const draw = () => {
-        frame = 0;
-        if (!isCurrent(shell)) return;
-        const start = Math.max(0, Math.floor(shell.body.scrollTop / rowHeight) - 6);
-        const end = Math.min(rows.length, start + Math.ceil(shell.body.clientHeight / rowHeight) + 14);
-        const fragment = document.createDocumentFragment();
-        for (let index = start; index < end; index++) {
-          const row = rows[index];
-          const text = el('span', {class: 'line-text'});
-          let position = 0;
-          const tokens = row.type === 'removed' ? oldSyntax.lines[row.oldLine - 1] : newSyntax.lines[row.newLine - 1];
-          for (const token of tokens || []) {
-            text.append(
-              document.createTextNode(row.text.slice(position, token.start)),
-              el('span', {class: `syntax-${token.type}`, text: row.text.slice(token.start, token.end)}),
-            );
-            position = token.end;
-          }
-          text.append(document.createTextNode(row.text.slice(position)));
-          const element = el('div', {class: `code-row ${row.type}`}, [
-            el('span', {class: 'line-number', text: row.oldLine || ''}),
-            el('span', {class: 'line-number', text: row.newLine || ''}),
-            el('span', {class: 'line-sign', text: row.type === 'added' ? '+' : row.type === 'removed' ? '−' : ' '}),
-            text,
-          ]);
-          element.style.top = `${index * rowHeight}px`;
-          fragment.append(element);
-        }
-        code.replaceChildren(fragment);
-      };
-      shell.body.replaceChildren(code);
-      runWithOwner(shell.owner, () =>
-        listen(
-          shell.body,
-          'scroll',
-          () => {
-            if (!frame) frame = requestFrame(draw);
-          },
-          {passive: true},
-        ),
-      );
-      shell.bottom.prepend(
-        el('span', {class: 'adds', text: `+${node.adds}`}),
-        el('span', {class: 'dels', text: `−${node.dels}`}),
-        el('span', {text: `${rows.length} lines · UTF-8`}),
-      );
-      if (oldSyntax.limited || newSyntax.limited)
-        shell.bottom.append(el('span', {text: 'Syntax limit reached · plain text'}));
-      if (before.endsWith('\n') !== after.endsWith('\n') || before.includes('\r\n') !== after.includes('\r\n'))
-        shell.bottom.append(el('span', {text: 'Line-ending / final newline changed'}));
-      draw();
+      await renderDiffFile(app, shell, node, diff, () => isCurrent(shell));
     } catch (error) {
       if (isCurrent(shell)) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff'));
     }
