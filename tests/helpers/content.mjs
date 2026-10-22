@@ -34,7 +34,7 @@ export async function bundle() {
     bundle: true,
     write: false,
     format: 'esm',
-    target: 'chrome116',
+    target: 'chrome140',
     plugins: [
       {
         name: 'fixture-icons',

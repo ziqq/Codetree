@@ -14,7 +14,7 @@ Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository
 
 ## Environment setup
 
-Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in Chrome/Chromium 116+. Rebuild, reload the extension and refresh repository tabs after changes. Use Node.js 24 and Python 3 for the full development/packaging checks; users loading a release ZIP need neither.
+Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in Chrome/Chromium 140+. Chrome 140 is required to restrict local and Sync storage to trusted contexts. Rebuild, reload the extension and refresh repository tabs after changes. Use Node.js 24 and Python 3 for the full development/packaging checks; users loading a release ZIP need neither.
 
 ## Project structure
 

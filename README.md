@@ -2,7 +2,7 @@
 
 A browser extension for exploring and reviewing **GitHub and GitLab** repositories from a code tree.
 
-**Version 0.4.1 · Chrome / Chromium 116+ · Manifest V3**
+**Version 0.4.1 · Chrome / Chromium 140+ · Manifest V3**
 
 Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Codetree runs locally and talks directly to your repository host. No Codetree account, subscription or backend is required.
 
@@ -64,6 +64,8 @@ Click a changed file to jump to its native diff. Use **View full** in its page h
 | `Enter` | Open a file or toggle a folder |
 
 These are the defaults; change toggle/search bindings in **Settings → Navigation**, or leave a binding blank to disable it. Shortcuts do not run while editing an input or contenteditable element.
+
+In **Settings → Navigation → Hide on these URLs**, enter up to 64 rules, one per line. Existing URL patterns use `*` for any characters. Prefix a rule with `regex:` for a JavaScript regular expression, for example `regex:/(issues|discussions)(/|\?|$)`. Expressions have no `/` delimiters or flags. Both kinds of rule are case-sensitive and match the full URL, including query parameters but excluding the `#` fragment. Any matching rule hides the sidebar and native **View full** controls. Invalid expressions prevent saving and identify the line to fix. Rules are included in optional browser Sync.
 
 ### Accounts
 

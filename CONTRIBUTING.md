@@ -13,7 +13,7 @@
 
 ## Environment setup
 
-Chrome/Chromium 116+ is the target. The extension has no runtime dependencies; esbuild bundles the ES modules in `src/` into `build/`. Use Node.js 24, locked npm development tools and Python 3 for CI and packaging.
+Chrome/Chromium 140+ is the target, including trusted-only access to local and Sync storage. The extension has no runtime dependencies; esbuild bundles the ES modules in `src/` into `build/`. Use Node.js 24, locked npm development tools and Python 3 for CI and packaging.
 
 Run `npm run build` and load `build/` through **Load unpacked** in `chrome://extensions`. After edits, rebuild, reload the extension and refresh the tab. Inspect its service worker through the Chrome extension card when debugging API/storage behavior.
 

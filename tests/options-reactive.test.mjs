@@ -18,7 +18,7 @@ const built = await build({
   bundle: true,
   write: false,
   format: 'iife',
-  target: 'chrome116',
+  target: 'chrome140',
 });
 const script = built.outputFiles[0].text;
 
@@ -196,6 +196,31 @@ test('navigation save displays the broker-normalized values', async t => {
   assert.equal(navigation.elements.searchShortcut.value, 'shift + s');
   assert.match(ui.element('navigation-status').textContent, /Saved/);
 });
+
+for (const source of ['', '[', '(', '\\', 'a{2,1}']) {
+  test(`Settings rejects regex ${JSON.stringify(source)} without saving and recovers after correction`, async t => {
+    const ui = await settings(t);
+    const navigation = ui.element('navigation-form');
+    const field = navigation.elements.hidePatterns;
+    const invalid = `https://github.com/*/*/wiki*\n\nregex:${source}`;
+    field.value = invalid;
+    field.focus();
+    await navigation.fire('submit');
+    assert.equal(ui.requests.filter(message => message.type === 'PREFERENCES').length, 0);
+    assert.equal(ui.requests.filter(message => message.type === 'SYNC_SETTINGS').length, 0);
+    assert.match(ui.element('navigation-status').textContent, /Invalid regular expression on URL pattern line 3/);
+    assert.equal(field.value, invalid);
+    assert.equal(ui.document.activeElement, field);
+
+    field.value = '  https://github.com/*/*/wiki*  \n\n regex:/(issues|discussions)(/|\\?|$) ';
+    await navigation.fire('submit');
+    const saves = ui.requests.filter(message => message.type === 'PREFERENCES');
+    assert.equal(saves.length, 1);
+    assert.equal(field.value, 'https://github.com/*/*/wiki*\nregex:/(issues|discussions)(/|\\?|$)');
+    assert.equal(preferences(saves[0].value).hidePatterns, field.value);
+    assert.match(ui.element('navigation-status').textContent, /Saved/);
+  });
+}
 
 test('an equal account/Sync snapshot preserves unsaved appearance fields and focus', async t => {
   const ui = await settings(t);

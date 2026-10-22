@@ -3,7 +3,7 @@
   "name": "Codetree",
   "version": "0.4.1",
   "description": "Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks.",
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "140",
   "permissions": ["storage", "scripting"],
   "host_permissions": ["https://github.com/*", "https://api.github.com/*", "https://gitlab.com/*"],
   "optional_host_permissions": ["https://*/*"],

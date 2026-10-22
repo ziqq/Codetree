@@ -70,7 +70,7 @@ export async function buildExtension(outdir = resolve(root, 'build')) {
     bundle: true,
     format: 'iife',
     platform: 'browser',
-    target: 'chrome116',
+    target: 'chrome140',
     charset: 'utf8',
     legalComments: 'none',
     banner: {
