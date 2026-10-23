@@ -28,12 +28,10 @@ export function createFileTabs(app) {
   const heading = el('strong');
   const revision = el('small');
   const native = el('a', {target: '_blank', rel: 'noopener noreferrer'});
+  const actions = el('div', {class: 'viewer-actions'}, [native]);
   const frame = el('section', {class: 'file-workspace', 'aria-label': 'Codetree file workspace'}, [
     tabs,
-    el('div', {class: 'viewer-header'}, [
-      el('div', {class: 'viewer-heading'}, [heading, revision]),
-      el('div', {class: 'viewer-actions'}, [native]),
-    ]),
+    el('div', {class: 'viewer-header'}, [el('div', {class: 'viewer-heading'}, [heading, revision]), actions]),
   ]);
   shadow.append(frame);
   let sheet;
@@ -119,9 +117,10 @@ export function createFileTabs(app) {
     )
       return;
     const {positions} = snapshot.value;
+    const position = shell.readPosition?.() || {top: shell.body.scrollTop, left: shell.body.scrollLeft};
     snapshot.value.positions = positions
       .filter(position => position.path !== renderedPath || position.ref !== positionRef)
-      .concat({ref: positionRef, path: renderedPath, top: shell.body.scrollTop, left: shell.body.scrollLeft})
+      .concat({ref: positionRef, path: renderedPath, ...position})
       .slice(-maxFileTabPositions);
   }
 
@@ -358,7 +357,7 @@ export function createFileTabs(app) {
             tabindex: '0',
           });
           const bottom = el('div', {class: 'viewer-bottom'});
-          return {body, bottom, owner: getOwner()};
+          return {actions, body, bottom, owner: getOwner()};
         }),
       );
       for (const node of Array.from(frame.children))
@@ -402,28 +401,29 @@ export function createFileTabs(app) {
       const position = snapshot.value.positions.find(
         position => position.path === path && position.ref === positionRef,
       );
-      shell.body.scrollTop = position?.top || 0;
-      shell.body.scrollLeft = position?.left || 0;
+      const savedPosition = {top: position?.top || 0, left: position?.left || 0};
+      if (shell.restorePosition) shell.restorePosition(savedPosition);
+      else {
+        shell.body.scrollTop = savedPosition.top;
+        shell.body.scrollLeft = savedPosition.left;
+      }
       shell.relayout?.();
-      runWithOwner(shell.owner, () =>
-        listen(
-          shell.body,
-          'scroll',
-          () => {
-            capturePosition();
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(
-              withOwner(() =>
-                rememberFileTabs().catch(error => {
-                  if (current()) app.toast(error.message);
-                }),
-              ),
-              150,
-            );
-          },
-          {passive: true},
-        ),
+      shell.onScroll = runWithOwner(shell.owner, () =>
+        withOwner(() => {
+          if (!current()) return;
+          capturePosition();
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(
+            withOwner(() =>
+              rememberFileTabs().catch(error => {
+                if (current()) app.toast(error.message);
+              }),
+            ),
+            150,
+          );
+        }),
       );
+      runWithOwner(shell.owner, () => listen(shell.body, 'scroll', shell.onScroll, {passive: true}));
       renderTabs();
     } catch (error) {
       if (!current()) return;

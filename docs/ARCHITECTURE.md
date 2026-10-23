@@ -87,6 +87,8 @@ Every asynchronous reply is applied only if the generations captured at its star
 
 In-page file tabs use `FILE_TABS` with `scope: 'code'|'review'` and an optional complete metadata `value`. Reads return paths, active path, positions, opaque page identity and a broker-derived `accountID`; saves echo that account ID and reject mismatches, including account changes while queued. Storage keys derive the sender's browser tab ID and selected account, provider, origin, owner/repository and scope. Code shares paths across branches; review adds its validated PR/MR number or commit SHA. Positions are keyed by branch or exact review revisions. `src/shared/file-tabs.js` shares the 32-file/256-position limits; the broker also bounds storage to 50 workspaces and 64 KiB per entry, validates saved metadata on read and never persists text. Session operations do not touch other keys. New workspace behavior still requires installed-browser verification.
 
+`file-content.js` projects validated unified diff rows into paired old/new rows without re-fetching revisions or re-running highlighting. Both split panes virtualize the same row range and synchronize scrolling. The page-local `diffLayout` signal updates tabs and dialogs together; it is not a stored preference. Viewport adapters translate saved tab positions to/from unified row coordinates, keeping the existing `FILE_TABS` schema.
+
 View fields in `state.js` are signal-backed accessors, so factories keep the `state.x = value` syntax. `expanded` is replaced with a new Set and compared by contents. Generations, tree entries, the tree model and keyboard focus stay plain fields. `updateTree()` invalidates one tree derivation after structural changes; expansion and the debounced search invalidate it directly. Multi-field updates use `batch`. Files status is stored once; the visible `loading`/`error` accessors choose between Files and list status without copying on tab switches.
 
 The app root owns sidebar bindings and global listeners. Each navigation disposes its page root, closes its viewer and branch popover, removes native buttons and clears pending folder requests. Page liveness checks complement request generations. Each viewer shell owns its scroll listener and frames, and releases them on close or replacement. `catchError` on the app root reports computation errors as a toast; feature actions run untracked. Settings uses the same primitives with separate preference, account, OAuth and Sync bindings and listens for stored preference changes.
@@ -107,6 +109,8 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 `npm test` runs Node.js regressions without a browser:
 
 - `core.test.mjs`: full-file diff validation.
+- `split-diff.test.mjs`: View full layout controls, aligned old/new rows, synchronized/clamped scrolling, source-line positions, font/viewport changes and disposal through the production viewer with synthetic geometry.
+- `file-tabs.test.mjs`: file navigation and session restoration, including Split diff positions across file/review switches, Refresh and page reload, plus independent inline/dialog scrolling with a shared layout.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `hide-rules.test.mjs`: regex and wildcard URL exclusions, validation, persisted rules, URL query/fragment boundaries and code-only scope.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.
