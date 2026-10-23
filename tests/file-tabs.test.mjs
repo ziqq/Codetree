@@ -18,6 +18,7 @@ import {pathToFileURL} from 'node:url';
 import {bundle} from './helpers/content.mjs';
 import {dom, frames, install} from './helpers/dom.mjs';
 import {installDiffViewport} from './helpers/diff-viewport.mjs';
+import {installViewerSearchDOM, keyEvent} from './helpers/viewer-search.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'codetree-file-tabs-'));
 const modulePath = join(directory, 'content.mjs');
@@ -54,9 +55,10 @@ async function turn() {
 }
 
 /** Composes real navigation, tree, branch and workspace factories around a metadata-only RPC fixture. */
-function fixture(t, provider, reviewDiff) {
+function fixture(t, provider, reviewDiff, {search = false} = {}) {
   const {document, window} = dom();
-  if (reviewDiff) installDiffViewport(document);
+  if (reviewDiff || search) installDiffViewport(document);
+  if (search) installViewerSearchDOM(document);
   const clock = frames();
   const gitlab = provider === 'gitlab';
   const root = gitlab ? 'https://gitlab.com/team/nested/repo' : 'https://github.com/sample/repo';
@@ -75,7 +77,7 @@ function fixture(t, provider, reviewDiff) {
   const createElement = document.createElement.bind(document);
   document.createElement = tag => {
     const node = createElement(tag);
-    if (reviewDiff) {
+    if (reviewDiff || search) {
       Object.defineProperty(node, 'firstChild', {get: () => node.children[0] || null});
       if (tag === 'dialog') {
         node.showModal = () => {
@@ -245,7 +247,7 @@ function fixture(t, provider, reviewDiff) {
         content.createTree,
         content.createBranches,
         content.createNavigation,
-        ...(reviewDiff ? [content.createViewer] : []),
+        ...(reviewDiff || search ? [content.createViewer] : []),
         content.createFileTabs,
       ].filter(Boolean))
         Object.assign(app, untrackActions(factory(app)));
@@ -398,6 +400,8 @@ function fixture(t, provider, reviewDiff) {
       return app;
     },
     root,
+    document,
+    window,
     clock,
     files,
     errors,
@@ -872,6 +876,243 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual([...ui.metadata], stored, 'Detached controls preserve the current workspace metadata.');
     assert.equal(ui.selection().active, paths[1]);
     assert.ok(diffPanes(ui.body()).every(pane => pane.querySelectorAll('.code-row').length < 50));
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+/** Returns visible find controls through their accessible labels and status text. */
+function findControls(scope) {
+  const bar = scope.querySelector('.viewer-find');
+  assert.ok(bar, 'A loaded file exposes its owned search controls.');
+  const input = bar.querySelector('input');
+  assert.equal(input?.getAttribute('aria-label'), 'Find in file');
+  const control = label => {
+    const button = bar.querySelectorAll('button').find(node => node.getAttribute('aria-label') === label);
+    assert.ok(button, `Expected ${label} search control`);
+    return button;
+  };
+  return {
+    bar,
+    input,
+    count: bar.querySelector('[role="status"]'),
+    previous: control('Previous match'),
+    next: control('Next match'),
+    close: control('Close file search'),
+  };
+}
+
+/** Opens find using the production window capture handler rather than invoking search internals. */
+async function openFind(ui, scope, body, modifiers = {ctrlKey: true}) {
+  body.focus();
+  const event = keyEvent(body, 'f', modifiers);
+  await ui.window.fire('keydown', event);
+  assert.equal(event.defaultPrevented, true, 'The active viewer handles its find shortcut.');
+  const controls = findControls(scope);
+  assert.equal(controls.bar.hidden, false);
+  assert.equal(ui.document.activeElement, controls.input);
+  return controls;
+}
+
+/** Advances only the input debounce, after file loading and stylesheet work have completed. */
+async function findText(t, ui, controls, query) {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  try {
+    controls.input.value = query;
+    await controls.input.fire('input');
+    t.mock.timers.tick(120);
+    await Promise.resolve();
+    ui.clock.flush();
+  } finally {
+    t.mock.timers.reset();
+  }
+  assert.equal(controls.input.getAttribute('aria-busy'), 'false', 'The completed query publishes its visible count.');
+}
+
+/** Dispatches Enter and Escape through the same active-viewer shortcut handler. */
+async function findKey(ui, controls, key, modifiers) {
+  const event = keyEvent(controls.input, key, modifiers);
+  await ui.window.fire('keydown', event);
+  ui.clock.flush();
+  assert.equal(event.defaultPrevented, true);
+}
+
+/** Counts removed, added and distant context hits without counting shared context twice. */
+function searchRevision() {
+  const before = Array.from({length: 220}, (_, index) => `export const source${index + 1} = ${index + 1};`);
+  before[20] = "const oldOnly = 'search beacon';";
+  before[21] = "const oldPair = 'old branch';";
+  before[22] = "const removedOnly = 'gone';";
+  before[180] = '// search beacon in shared context';
+  const added = ["const newOnly = 'search beacon';", "const newPair = 'new branch';"];
+  return {
+    before: before.join('\n'),
+    after: [...before.slice(0, 20), ...added, ...before.slice(23)].join('\n'),
+    file: {
+      status: 'modified',
+      additions: 2,
+      deletions: 3,
+      patch: [
+        '@@ -21,3 +21,2 @@',
+        ...before.slice(20, 23).map(line => '-' + line),
+        ...added.map(line => '+' + line),
+      ].join('\n'),
+    },
+  };
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} file search finds literal offscreen text and retains its revealed position across tabs`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    const lines = longText.split('\n');
+    lines[5] = '// needle without literal punctuation';
+    lines[180] = '// ' + 'wide prefix '.repeat(15) + '[Needle].*';
+    lines[195] = '// [needle].*';
+    ui.app.fileReply = message => (message.path === paths[0] ? lines.join('\n') : longText);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    assert.equal(ui.body().querySelectorAll('.file-match').length, 0);
+    assert.doesNotMatch(ui.body().textContent, /\[Needle\]/, 'The distant source row starts outside the virtual DOM.');
+    const controls = await openFind(ui, ui.workspace(), ui.body());
+    const requests = ui.files.length;
+    await findText(t, ui, controls, '[needle].*');
+    assert.equal(controls.count.textContent, '1 / 2', 'Punctuation is literal and matching is case insensitive.');
+    assert.equal(
+      ui
+        .body()
+        .querySelectorAll('.file-match.active')
+        .map(node => node.textContent)
+        .join(''),
+      '[Needle].*',
+    );
+    assert.equal(ui.body().scrollTop, 180 * 22);
+    assert.ok(ui.body().scrollLeft > 0, 'A match beyond the visible columns is revealed horizontally.');
+    await findKey(ui, controls, 'Enter');
+    assert.equal(controls.count.textContent, '2 / 2');
+    assert.equal(ui.body().scrollTop, 195 * 22);
+    await findKey(ui, controls, 'Enter', {shiftKey: true});
+    assert.equal(controls.count.textContent, '1 / 2');
+    const revealed = {top: ui.body().scrollTop, left: ui.body().scrollLeft};
+    assert.equal(ui.files.length, requests, 'Searching the complete source does not refetch the file.');
+    await ui.open(paths[1]);
+    assert.equal(
+      findControls(ui.workspace()).bar.hidden,
+      true,
+      'A newly loaded file starts with its own closed search.',
+    );
+    await ui.open(paths[0]);
+    assert.deepEqual({top: ui.body().scrollTop, left: ui.body().scrollLeft}, revealed);
+    assert.doesNotMatch(
+      JSON.stringify([...ui.metadata]),
+      /needle/i,
+      'Session metadata retains positions, not search text.',
+    );
+    assert.ok(ui.body().querySelectorAll('.code-row').length < 50);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} file search retains its diff query and active source across Unified and Side-by-side`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const controls = await openFind(ui, ui.workspace(), ui.body(), {metaKey: true});
+    const requests = ui.files.length;
+    await findText(t, ui, controls, 'search beacon');
+    assert.equal(controls.count.textContent, '1 / 3');
+    assert.match(ui.body().querySelector('.file-match.active').closest('.code-row').textContent, /oldOnly/);
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    assert.equal(controls.input.value, 'search beacon');
+    assert.equal(controls.count.textContent, '1 / 3');
+    const [oldPane, newPane] = diffPanes(ui.body());
+    assert.match(oldPane.querySelector('.file-match.active').closest('.code-row').textContent, /oldOnly/);
+    assert.equal(newPane.querySelectorAll('.file-match.active').length, 0);
+    await findKey(ui, controls, 'Enter');
+    assert.equal(controls.count.textContent, '2 / 3');
+    assert.match(newPane.querySelector('.file-match.active').closest('.code-row').textContent, /newOnly/);
+    assert.equal(oldPane.querySelectorAll('.file-match.active').length, 0);
+    await findKey(ui, controls, 'Enter');
+    assert.equal(
+      controls.count.textContent,
+      '3 / 3',
+      'Shared context contributes one result, despite two rendered panes.',
+    );
+    for (const pane of [oldPane, newPane]) {
+      assert.match(pane.querySelector('.file-match.active').closest('.code-row').textContent, /shared context/);
+      assert.ok(pane.scrollTop > 3000);
+    }
+    assert.equal(oldPane.scrollTop, newPane.scrollTop);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(controls.count.textContent, '3 / 3');
+    assert.match(ui.body().querySelector('.file-match.active').closest('.code-row').textContent, /shared context/);
+    assert.equal(ui.files.length, requests);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} file search gives actual View full shortcut priority and keeps its query separate from inline`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const inline = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, inline, 'source110');
+    assert.equal(inline.count.textContent, '1 / 1');
+    const inlineTop = ui.body().scrollTop;
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    const modalBody = modal.querySelector('.viewer-body');
+    const full = await openFind(ui, modal, modalBody, {metaKey: true});
+    assert.equal(full.input.value, '', 'View full starts its own query.');
+    assert.equal(inline.input.value, 'source110');
+    await findText(t, ui, full, 'newOnly');
+    assert.equal(full.count.textContent, '1 / 1');
+    assert.equal(inline.count.textContent, '1 / 1');
+    assert.equal(ui.body().scrollTop, inlineTop, 'A modal match does not move the inline file.');
+    await findKey(ui, full, 'Escape');
+    assert.equal(full.bar.hidden, true);
+    assert.equal(modal.open, true, 'The first Escape closes find before the underlying diff dialog.');
+    assert.equal(ui.document.activeElement, modalBody);
+    ui.app.closeViewer();
+    const reopened = await openFind(ui, ui.workspace(), ui.body(), {metaKey: true});
+    assert.equal(reopened.input, inline.input);
+    assert.equal(reopened.input.value, 'source110');
+    assert.equal(reopened.input.selectionStart, 0);
+    assert.equal(reopened.input.selectionEnd, 'source110'.length);
+    assert.equal(ui.body().scrollTop, inlineTop);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} file search drops pending queries and detached controls when files or reviews change`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const old = await openFind(ui, ui.workspace(), ui.body());
+    const listenerCount = ui.window.listeners.get('keydown').length;
+    old.input.value = 'source220';
+    await old.input.fire('input'); // Leave a real debounce pending while a different file disposes this search.
+    await ui.open(paths[1]);
+    const current = await openFind(ui, ui.workspace(), ui.body(), {metaKey: true});
+    await findText(t, ui, current, 'newOnly');
+    await new Promise(resolve => setTimeout(resolve, 140));
+    ui.clock.flush();
+    assert.equal(current.input.value, 'newOnly');
+    assert.equal(current.count.textContent, '1 / 1');
+    assert.equal(old.bar.isConnected, false);
+    await ui.app.rememberFileTabs();
+    const stored = structuredClone([...ui.metadata]);
+    const top = ui.body().scrollTop;
+    await old.next.fire('click');
+    await old.close.fire('click');
+    old.input.value = 'source180';
+    await old.input.fire('input');
+    assert.equal(current.bar.hidden, false);
+    assert.equal(ui.body().scrollTop, top);
+    assert.deepEqual([...ui.metadata], stored, 'Detached controls cannot save another file position.');
+    await ui.navigate(ui.review(42));
+    const nextReview = await openFind(ui, ui.workspace(), ui.body());
+    assert.equal(nextReview.input.value, '', 'A different PR/MR has an independent active file search.');
+    assert.equal(nextReview.count.textContent, '');
+    assert.equal(ui.body().querySelectorAll('.file-match').length, 0);
+    assert.equal(
+      ui.window.listeners.get('keydown').length,
+      listenerCount,
+      'Replacing views removes their key listeners.',
+    );
     assert.deepEqual(ui.errors, []);
   });
 }

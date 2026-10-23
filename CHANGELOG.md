@@ -9,6 +9,7 @@
 - **ADDED**: `regex:` URL hide rules alongside existing wildcards, with validation before saving
 - **ADDED**: in-page file tabs with branch-specific scroll positions, separate PR/MR/commit workspaces and trusted session-only metadata
 - **ADDED**: Unified / Side-by-side full-file diffs in file tabs and View full, with synchronized panes and preserved source-line positions
+- **ADDED**: Ctrl/Cmd+F literal search in open files and full-file diffs, with match highlights, counts and previous/next navigation across virtualized rows
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access

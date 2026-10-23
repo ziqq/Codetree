@@ -89,6 +89,8 @@ In-page file tabs use `FILE_TABS` with `scope: 'code'|'review'` and an optional 
 
 `file-content.js` projects validated unified diff rows into paired old/new rows without re-fetching revisions or re-running highlighting. Both split panes virtualize the same row range and synchronize scrolling. The page-local `diffLayout` signal updates tabs and dialogs together; it is not a stored preference. Viewport adapters translate saved tab positions to/from unified row coordinates, keeping the existing `FILE_TABS` schema.
 
+`viewer/file-search.js` owns the current file's find controls and capture-phase keyboard listener. It scans the complete validated row list with escaped, case-insensitive Unicode matching, retaining at most 10,000 source-offset ranges. Debounced scans yield between chunks and reject replies after query changes or disposal. Ranges are keyed by the original row objects, so split context is counted once and painted in both panes. `file-content.js` splits syntax text nodes at match boundaries and translates result navigation through the existing unified-coordinate viewport adapter. Queries and match metadata stay in the owned viewer, with no broker, storage or Sync changes.
+
 View fields in `state.js` are signal-backed accessors, so factories keep the `state.x = value` syntax. `expanded` is replaced with a new Set and compared by contents. Generations, tree entries, the tree model and keyboard focus stay plain fields. `updateTree()` invalidates one tree derivation after structural changes; expansion and the debounced search invalidate it directly. Multi-field updates use `batch`. Files status is stored once; the visible `loading`/`error` accessors choose between Files and list status without copying on tab switches.
 
 The app root owns sidebar bindings and global listeners. Each navigation disposes its page root, closes its viewer and branch popover, removes native buttons and clears pending folder requests. Page liveness checks complement request generations. Each viewer shell owns its scroll listener and frames, and releases them on close or replacement. `catchError` on the app root reports computation errors as a toast; feature actions run untracked. Settings uses the same primitives with separate preference, account, OAuth and Sync bindings and listens for stored preference changes.
@@ -110,6 +112,7 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 
 - `core.test.mjs`: full-file diff validation.
 - `split-diff.test.mjs`: View full layout controls, aligned old/new rows, synchronized/clamped scrolling, source-line positions, font/viewport changes and disposal through the production viewer with synthetic geometry.
+- `viewer-search.test.mjs`: file-search controls and shortcuts, literal/Unicode ranges across syntax tokens, complete virtualized-file navigation, result limits and stale-scan/disposal checks through the production viewer.
 - `file-tabs.test.mjs`: file navigation and session restoration, including Split diff positions across file/review switches, Refresh and page reload, plus independent inline/dialog scrolling with a shared layout.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `hide-rules.test.mjs`: regex and wildcard URL exclusions, validation, persisted rules, URL query/fragment boundaries and code-only scope.
