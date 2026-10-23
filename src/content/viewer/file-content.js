@@ -17,6 +17,7 @@ import {createRenderEffect, on, onCleanup, runWithOwner} from '../reactive.js';
 import {listen, requestFrame} from '../reactive-dom.js';
 import {tokenize} from './syntax.js';
 import {createFileSearch} from './file-search.js';
+import {createFileChanges} from './file-changes.js';
 
 /**
  * Loads and renders both exact revisions of a changed file.
@@ -181,6 +182,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
   let splitAnchor;
   let frame = 0;
   let search;
+  let changes;
   const code = el('div', {class: 'code-spacer'});
   const oldCode = el('div', {class: 'code-spacer'});
   const newCode = el('div', {class: 'code-spacer'});
@@ -246,6 +248,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
       oldCode.style.width = `${overflow + oldPane.clientWidth}px`;
       newCode.style.width = `${overflow + newPane.clientWidth}px`;
     }
+    changes?.update();
   }
 
   /** Keeps paired panes equally wide so horizontal and vertical scroll ranges match. */
@@ -320,6 +323,25 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
       );
     }
     if (!diff) return;
+    changes = createFileChanges(
+      shell,
+      rows,
+      {
+        range: () => {
+          const viewport = split ? oldPane : shell.body;
+          return {
+            start: viewport.scrollTop / rowHeight,
+            end: (viewport.scrollTop + viewport.clientHeight) / rowHeight,
+          };
+        },
+        project: index => (split ? (projection.unifiedToSplit[index] ?? projection.pairs.length) : index),
+        reveal: row => {
+          restorePosition({top: row * rowHeight, left: readPosition().left});
+          shell.onScroll?.();
+        },
+      },
+      current,
+    );
     listen(window, 'resize', relayout);
     createRenderEffect(on(() => app.state.preferences.fontSize, relayout));
     const controls = el('div', {class: 'diff-layout', role: 'group', 'aria-label': 'Diff layout'});

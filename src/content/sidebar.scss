@@ -969,6 +969,40 @@ button:disabled {
   background: var(--selected);
   color: var(--accent);
 }
+.diff-changes {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted-bg);
+}
+.diff-changes .icon-button {
+  width: 24px;
+  height: 24px;
+}
+.diff-changes-label {
+  padding-left: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.diff-changes-count {
+  min-width: 38px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+.diff-changes-previous .icon {
+  transform: rotate(-90deg);
+}
+.diff-changes-next .icon {
+  transform: rotate(90deg);
+}
 .viewer-find {
   display: flex;
   flex-wrap: wrap;

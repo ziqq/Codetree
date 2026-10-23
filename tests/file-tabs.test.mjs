@@ -102,6 +102,7 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
     };
     if (tag === 'div') {
       let top = 0;
+      const boundedTop = Object.getOwnPropertyDescriptor(node, 'scrollTop');
       // Only the workspace viewport models CSS-dependent geometry. Without its
       // linked stylesheet the block has auto height, so scroll restoration is
       // clamped to zero; with CSS it is a bounded viewport. This reproduces the
@@ -118,12 +119,14 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
       Object.defineProperty(node, 'scrollTop', {
         configurable: true,
         get() {
+          if (!this.classList.contains('file-tab-body')) return boundedTop?.get?.call(this) ?? top;
           if (this.classList.contains('file-tab-body') && !this.isConnected) return 0;
           return top;
         },
         set(value) {
           if (!this.classList.contains('file-tab-body')) {
-            top = value;
+            if (boundedTop?.set) boundedTop.set.call(this, value);
+            else top = value;
             return;
           }
           const height = Number.parseFloat(this.querySelector('.code-spacer')?.style.height) || 0;
@@ -705,6 +708,261 @@ async function paneScroll(ui, pane, top, left) {
 function panePositions(scope) {
   // Fractional row-coordinate conversions may differ by a few floating-point ULPs.
   return diffPanes(scope).map(pane => ({top: Math.round(pane.scrollTop * 1e6) / 1e6, left: pane.scrollLeft}));
+}
+
+/** One complete patch contains four distinct runs, including one-sided blocks and a clamped final block. */
+function changeRevision() {
+  const before = Array.from({length: 260}, (_, index) => `export const source${index + 1} = ${index + 1};`);
+  before[100] = '// ' + 'wide source '.repeat(90);
+  const edits = [
+    {start: 20, remove: 2, add: ['export const firstReplacement = true;']},
+    {start: 79, remove: 0, add: ['export const secondAddedA = true;', 'export const secondAddedB = false;']},
+    {start: 159, remove: 3, add: []},
+    {
+      start: 258,
+      remove: 1,
+      add: ['export const finalAddedA = true;', 'export const finalAddedB = false;', 'export const finalAddedC = 3;'],
+    },
+  ];
+  const after = [];
+  const patch = [];
+  let cursor = 0;
+  for (const edit of edits) {
+    const context = before.slice(cursor, edit.start);
+    after.push(...context, ...edit.add);
+    patch.push(...context.map(line => ' ' + line));
+    patch.push(...before.slice(edit.start, edit.start + edit.remove).map(line => '-' + line));
+    patch.push(...edit.add.map(line => '+' + line));
+    cursor = edit.start + edit.remove;
+  }
+  after.push(...before.slice(cursor));
+  patch.push(...before.slice(cursor).map(line => ' ' + line));
+  return {
+    before: before.join('\n'),
+    after: after.join('\n'),
+    file: {
+      status: 'modified',
+      additions: 6,
+      deletions: 6,
+      patch: [`@@ -1,${before.length} +1,${after.length} @@`, ...patch].join('\n'),
+    },
+  };
+}
+
+/** Reads the visible, accessible feature so the same tests fail against the pre-feature production bundle. */
+function changeControls(scope) {
+  const group = scope.querySelector('.diff-changes');
+  assert.ok(group, 'A loaded diff exposes change-block navigation.');
+  assert.equal(group.getAttribute('role'), 'group');
+  assert.equal(group.getAttribute('aria-label'), 'Change blocks');
+  const control = label => {
+    const node = group.querySelectorAll('button').find(button => button.getAttribute('aria-label') === label);
+    assert.ok(node, `Expected ${label} control`);
+    assert.ok(node.classList.contains('icon-button'), 'Change navigation uses the shared icon-button component.');
+    assert.ok(node.querySelector('svg'), 'Change navigation uses an original SVG icon.');
+    return node;
+  };
+  const count = group.querySelector('[role="status"]');
+  assert.ok(count, 'The current block and total are exposed as a status.');
+  return {
+    group,
+    count,
+    previous: control('Previous change block'),
+    next: control('Next change block'),
+  };
+}
+
+/** Clicks an owned change navigation button and finishes its scheduled viewport update. */
+async function changeStep(ui, controls, direction = 'next') {
+  await ui.settle(controls[direction].fire('click'));
+  await ui.drain(1);
+}
+
+for (const provider of ['github', 'gitlab']) {
+  for (const layout of ['Unified', 'Side-by-side']) {
+    test(`${provider} ${layout} change-block navigation counts runs, reveals offscreen rows and cycles`, async t => {
+      const ui = fixture(t, provider, changeRevision());
+      await ui.navigate(ui.review(41));
+      const controls = changeControls(ui.workspace());
+      await diffLayout(ui, ui.workspace(), layout);
+      assert.equal(controls.count.textContent, '0 / 4', 'No change block is initially visible.');
+      assert.equal(controls.previous.disabled, false);
+      assert.equal(controls.next.disabled, false);
+      assert.doesNotMatch(ui.body().textContent, /secondAddedA|finalAddedA/);
+      const requests = ui.files.length;
+      const split = layout === 'Side-by-side';
+      const starts = split ? [20, 79, 161, 260] : [20, 80, 162, 261];
+      const end = (split ? 264 : 266) * 22 - 290;
+      const markers = [/firstReplacement/, /secondAddedA/, /source160/, /finalAddedA/];
+      for (let index = 0; index < starts.length; index++) {
+        await changeStep(ui, controls);
+        assert.equal(controls.count.textContent, `${index + 1} / 4`);
+        assert.equal(controls.count.getAttribute('aria-label'), `Change block ${index + 1} of 4`);
+        const expectedTop = Math.min(starts[index] * 22, end);
+        if (split)
+          assert.deepEqual(panePositions(ui.body()), [
+            {top: expectedTop, left: 0},
+            {top: expectedTop, left: 0},
+          ]);
+        else assert.equal(ui.body().scrollTop, expectedTop);
+        assert.match(ui.body().textContent, markers[index], 'The selected source block enters the virtual DOM.');
+        const viewports = split ? diffPanes(ui.body()) : [ui.body()];
+        for (const viewport of viewports) assert.ok(viewport.querySelectorAll('.code-row').length < 50);
+      }
+      await changeStep(ui, controls);
+      assert.equal(controls.count.textContent, '1 / 4', 'Next wraps from the last block to the first.');
+      await changeStep(ui, controls, 'previous');
+      assert.equal(controls.count.textContent, '4 / 4', 'Previous wraps to the final block despite scroll clamping.');
+      if (split) await paneScroll(ui, diffPanes(ui.body())[1], 100 * 22, 85);
+      else {
+        await ui.scroll(100 * 22, 85);
+        await ui.drain(1);
+      }
+      assert.equal(controls.count.textContent, '2 / 4', 'Manual scrolling follows the preceding change block.');
+      await changeStep(ui, controls);
+      assert.equal(controls.count.textContent, '3 / 4');
+      if (split)
+        assert.deepEqual(panePositions(ui.body()), [
+          {top: 161 * 22, left: 85},
+          {top: 161 * 22, left: 85},
+        ]);
+      else assert.deepEqual({top: ui.body().scrollTop, left: ui.body().scrollLeft}, {top: 162 * 22, left: 85});
+      assert.equal(ui.files.length, requests, 'Block navigation reuses the loaded revisions.');
+      assert.deepEqual(ui.errors, []);
+    });
+  }
+
+  test(`${provider} change-block counters follow saved source positions across tabs, layouts and PR/MR workspaces`, async t => {
+    const ui = fixture(t, provider, changeRevision());
+    await ui.navigate(ui.review(41));
+    let controls = changeControls(ui.workspace());
+    await changeStep(ui, controls);
+    await changeStep(ui, controls);
+    assert.equal(controls.count.textContent, '2 / 4');
+    await ui.open(paths[1]);
+    controls = changeControls(ui.workspace());
+    assert.equal(controls.count.textContent, '0 / 4', 'A newly opened file starts at its own source position.');
+    for (let index = 0; index < 3; index++) await changeStep(ui, controls);
+    assert.equal(controls.count.textContent, '3 / 4');
+    await ui.open(paths[0]);
+    assert.equal(changeControls(ui.workspace()).count.textContent, '2 / 4');
+    assert.equal(ui.body().scrollTop, 80 * 22);
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    assert.equal(changeControls(ui.workspace()).count.textContent, '2 / 4');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 79 * 22, left: 0},
+      {top: 79 * 22, left: 0},
+    ]);
+    await ui.navigate(ui.review(42));
+    controls = changeControls(ui.workspace());
+    assert.equal(controls.count.textContent, '0 / 4', 'A separate PR/MR has an independent saved source position.');
+    for (let index = 0; index < 3; index++) await changeStep(ui, controls);
+    await ui.navigate(ui.review(41));
+    assert.equal(changeControls(ui.workspace()).count.textContent, '2 / 4');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 79 * 22, left: 0},
+      {top: 79 * 22, left: 0},
+    ]);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(changeControls(ui.workspace()).count.textContent, '2 / 4');
+    assert.equal(ui.body().scrollTop, 80 * 22);
+    await ui.open(paths[1]);
+    assert.equal(changeControls(ui.workspace()).count.textContent, '3 / 4');
+    assert.equal(ui.body().scrollTop, 162 * 22);
+    await ui.navigate(ui.review(42));
+    assert.equal(changeControls(ui.workspace()).count.textContent, '3 / 4');
+    assert.equal(ui.body().scrollTop, 162 * 22);
+    await ui.branch('main');
+    await ui.open(paths[0]);
+    assert.equal(
+      ui.workspace().querySelector('.diff-changes'),
+      null,
+      'Plain Code files have no change-block controls.',
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} change-block counters and positions stay independent in inline tabs and actual View full`, async t => {
+    const ui = fixture(t, provider, changeRevision());
+    await ui.navigate(ui.review(41));
+    const inline = changeControls(ui.workspace());
+    await changeStep(ui, inline);
+    await changeStep(ui, inline);
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    const full = changeControls(modal);
+    assert.equal(full.count.textContent, '0 / 4');
+    for (let index = 0; index < 3; index++) await changeStep(ui, full);
+    assert.equal(full.count.textContent, '3 / 4');
+    assert.equal(inline.count.textContent, '2 / 4');
+    assert.equal(ui.body().scrollTop, 80 * 22);
+    const requests = ui.files.length;
+    await diffLayout(ui, modal, 'Side-by-side');
+    assert.equal(full.count.textContent, '3 / 4');
+    assert.equal(inline.count.textContent, '2 / 4');
+    assert.deepEqual(panePositions(modal), [
+      {top: 161 * 22, left: 0},
+      {top: 161 * 22, left: 0},
+    ]);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 79 * 22, left: 0},
+      {top: 79 * 22, left: 0},
+    ]);
+    await changeStep(ui, inline, 'previous');
+    assert.equal(inline.count.textContent, '1 / 4');
+    assert.equal(full.count.textContent, '3 / 4', 'An inline jump does not change the modal counter.');
+    await changeStep(ui, full);
+    assert.equal(full.count.textContent, '4 / 4');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 20 * 22, left: 0},
+      {top: 20 * 22, left: 0},
+    ]);
+    assert.equal(ui.files.length, requests);
+    ui.app.closeViewer();
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.equal(changeControls(ui.workspace()).count.textContent, '1 / 4');
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(ui.body().scrollTop, 20 * 22, 'View full cannot overwrite the inline navigation position.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} change-block controls disposed by tab or PR/MR changes cannot move another file`, async t => {
+    const ui = fixture(t, provider, changeRevision());
+    await ui.navigate(ui.review(41));
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    const old = changeControls(ui.workspace());
+    const oldPane = diffPanes(ui.body())[0];
+    await changeStep(ui, old);
+    await ui.open(paths[1]);
+    const current = changeControls(ui.workspace());
+    await changeStep(ui, current);
+    await changeStep(ui, current);
+    await ui.app.rememberFileTabs();
+    const stored = structuredClone([...ui.metadata]);
+    assert.equal(old.group.isConnected, false);
+    await changeStep(ui, old);
+    await changeStep(ui, old, 'previous');
+    await paneScroll(ui, oldPane, 200 * 22, 95);
+    assert.equal(current.count.textContent, '2 / 4');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 79 * 22, left: 0},
+      {top: 79 * 22, left: 0},
+    ]);
+    assert.deepEqual([...ui.metadata], stored, 'Detached controls cannot save another active file position.');
+    await ui.navigate(ui.review(42));
+    const review = changeControls(ui.workspace());
+    assert.equal(review.count.textContent, '0 / 4');
+    await changeStep(ui, current);
+    await changeStep(ui, current, 'previous');
+    assert.equal(review.count.textContent, '0 / 4');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 0, left: 0},
+      {top: 0, left: 0},
+    ]);
+    assert.deepEqual(ui.errors, []);
+  });
 }
 
 for (const provider of ['github', 'gitlab']) {
