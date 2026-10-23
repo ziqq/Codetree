@@ -28,6 +28,8 @@ Both providers require a token for review-state filters. GitLab reviewer/approva
 
 The native button is inserted into a changed file's header. A rerendered header gets one button; a route change clears the old bindings. The sidebar can stay closed. Headers with a native file path receive the button even when API access fails; clicking offers account connection/retry guidance. Website sign-in and extension API authentication are separate. Text previews include all unchanged context, additions and removals, old/new line numbers and previous/next file navigation.
 
+The **Unified / Side-by-side** switch is available in file tabs and **View full**. Unified is the default; the selected layout is shared by both viewers until the page reloads. Side-by-side shows the old revision on the left and the new revision on the right, with aligned change blocks, empty gaps for unmatched additions/removals and synchronized scrolling. Switching reuses the loaded revisions and preserves the top source line. Saved tab positions use unified coordinates so reopening a file in either layout restores the same source location. Ordinary repository text and comments do not show this switch.
+
 An unchanged rename loads the previous path at the base revision and the new path at the head revision. Added/deleted files use an empty opposite revision. Known binary extensions have disabled native buttons; encoding, binary content and size checks also run in the broker.
 
 Changed text must have a complete patch that matches both source revisions. Missing/truncated or incompatible patches show an error with a native diff link. There is no fallback that presents an incomplete file diff as complete.

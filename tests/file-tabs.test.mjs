@@ -17,6 +17,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {bundle} from './helpers/content.mjs';
 import {dom, frames, install} from './helpers/dom.mjs';
+import {installDiffViewport} from './helpers/diff-viewport.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'codetree-file-tabs-'));
 const modulePath = join(directory, 'content.mjs');
@@ -47,14 +48,15 @@ function deferred() {
   return {promise, resolve, reject};
 }
 
-/** Advances promise continuations without consuming the fixture's explicit stylesheet events. */
+/** Gives asynchronous viewer work a timer/I/O turn without consuming explicit stylesheet events. */
 async function turn() {
-  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setTimeout(resolve, 0));
 }
 
 /** Composes real navigation, tree, branch and workspace factories around a metadata-only RPC fixture. */
-function fixture(t, provider) {
+function fixture(t, provider, reviewDiff) {
   const {document, window} = dom();
+  if (reviewDiff) installDiffViewport(document);
   const clock = frames();
   const gitlab = provider === 'gitlab';
   const root = gitlab ? 'https://gitlab.com/team/nested/repo' : 'https://github.com/sample/repo';
@@ -73,6 +75,18 @@ function fixture(t, provider) {
   const createElement = document.createElement.bind(document);
   document.createElement = tag => {
     const node = createElement(tag);
+    if (reviewDiff) {
+      Object.defineProperty(node, 'firstChild', {get: () => node.children[0] || null});
+      if (tag === 'dialog') {
+        node.showModal = () => {
+          node.open = true;
+        };
+        node.close = () => {
+          node.open = false;
+          return node.fire('close');
+        };
+      }
+    }
     const attachShadow = node.attachShadow.bind(node);
     node.attachShadow = () => {
       const shadow = attachShadow();
@@ -162,9 +176,10 @@ function fixture(t, provider) {
       return {
         base: source(baseSHA),
         head: source(reviewSHA),
-        files: paths
-          .slice(0, 2)
-          .map(filename => ({filename, status: 'added', additions: 220, deletions: 0, patch: ''})),
+        files: paths.slice(0, 2).map(filename => ({
+          filename,
+          ...(reviewDiff?.file || {status: 'added', additions: 220, deletions: 0, patch: ''}),
+        })),
         comments: [],
         viewed: {},
         viewedMode: 'none',
@@ -192,6 +207,8 @@ function fixture(t, provider) {
         error.status = 404;
         throw error;
       }
+      if (reviewDiff && context.kind === 'pull')
+        return message.source.sha === baseSHA ? reviewDiff.before : reviewDiff.after;
       return longText;
     }
     throw new Error(`Unexpected request: ${type}`);
@@ -228,6 +245,7 @@ function fixture(t, provider) {
         content.createTree,
         content.createBranches,
         content.createNavigation,
+        ...(reviewDiff ? [content.createViewer] : []),
         content.createFileTabs,
       ].filter(Boolean))
         Object.assign(app, untrackActions(factory(app)));
@@ -257,6 +275,8 @@ function fixture(t, provider) {
     for (let index = 0; index < count; index++) {
       if (styles) await loadStyles();
       clock.flush();
+      // An immediate-only loop can exhaust its turns before highlighting timers
+      // or native URL hashing finish under parallel load, in either viewer layout.
       await turn();
     }
   }
@@ -378,6 +398,7 @@ function fixture(t, provider) {
       return app;
     },
     root,
+    clock,
     files,
     errors,
     metadata,
@@ -620,6 +641,237 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(ui.selection().active, paths[0]);
     assert.match(ui.body().textContent, /export const line/);
     assert.ok(ui.body().querySelectorAll('.code-row').length < 50);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+/** Unequal replacement makes post-change unified and split coordinates observably different. */
+function splitRevision() {
+  const before = Array.from({length: 220}, (_, index) => `export const source${index + 1} = ${index + 1};`);
+  before[100] = '// ' + 'wide source '.repeat(90);
+  const added = ['export const replacementA = true;', 'export const replacementB = false;'];
+  return {
+    before: before.join('\n'),
+    after: [...before.slice(0, 4), ...added, ...before.slice(9)].join('\n'),
+    file: {
+      status: 'modified',
+      additions: 2,
+      deletions: 5,
+      patch: ['@@ -5,5 +5,2 @@', ...before.slice(4, 9).map(line => '-' + line), ...added.map(line => '+' + line)].join(
+        '\n',
+      ),
+    },
+  };
+}
+
+/** Clicks the visible layout control, requiring the feature rather than assigning internal state. */
+async function diffLayout(ui, scope, label) {
+  const controls = scope.querySelector('.diff-layout');
+  assert.ok(controls, 'Changed files expose the Unified / Side-by-side layout control.');
+  const target = controls.querySelectorAll('button').find(button => button.textContent === label);
+  assert.ok(target, `Expected ${label} layout control`);
+  await ui.settle(target.fire('click'));
+  assert.equal(target.getAttribute('aria-pressed'), 'true');
+  assert.equal(
+    controls.querySelectorAll('button').filter(button => button.getAttribute('aria-pressed') === 'true').length,
+    1,
+  );
+}
+
+/** Returns the two visible revision viewports in their Old/New order. */
+function diffPanes(scope) {
+  const panes = scope.querySelectorAll('.split-diff-pane');
+  assert.equal(panes.length, 2, 'Side-by-side displays both source revisions.');
+  assert.deepEqual(
+    panes.map(pane => pane.getAttribute('aria-label')),
+    ['Old revision', 'New revision'],
+  );
+  return panes;
+}
+
+/** Delivers a real pane scroll event and drains the renderer's owned frame. */
+async function paneScroll(ui, pane, top, left) {
+  pane.scrollTop = top;
+  pane.scrollLeft = left;
+  await pane.fire('scroll');
+  await ui.drain();
+}
+
+/** Visible coordinates of both panes, without reading renderer or projection state. */
+function panePositions(scope) {
+  // Fractional row-coordinate conversions may differ by a few floating-point ULPs.
+  return diffPanes(scope).map(pane => ({top: Math.round(pane.scrollTop * 1e6) / 1e6, left: pane.scrollLeft}));
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} Split diff switches inline layout without refetching and keeps post-change position`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    const initialControls = ui.workspace().querySelector('.diff-layout');
+    assert.ok(initialControls, 'Changed files expose their layout controls.');
+    assert.equal(initialControls.querySelectorAll('button')[0].getAttribute('aria-pressed'), 'true');
+    await ui.scroll(1107, 75); // unified row 50 + 7px; split removes two added-only rows above it.
+    const requests = ui.files.length;
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await diffLayout(ui, ui.workspace(), 'Side-by-side');
+      assert.deepEqual(panePositions(ui.body()), [
+        {top: 1063, left: 75},
+        {top: 1063, left: 75},
+      ]);
+      await diffLayout(ui, ui.workspace(), 'Unified');
+      assert.equal(ui.body().scrollTop, 1107);
+      assert.equal(ui.body().scrollLeft, 75);
+    }
+    assert.equal(ui.files.length, requests, 'Layout changes reuse both already-loaded revisions.');
+    assert.equal(ui.workspace().querySelectorAll('.viewer-bottom').length, 1);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Split diff preserves the added source line through pairing and a fresh page reload`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    await ui.scroll(227, 41); // second added row: unified index 10, split pair index 5, fractional offset 7.
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 117, left: 41},
+      {top: 117, left: 41},
+    ]);
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 117, left: 41},
+      {top: 117, left: 41},
+    ]);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(
+      Math.round(ui.body().scrollTop * 1e6) / 1e6,
+      227,
+      'An added line does not silently become the paired removed line.',
+    );
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    await ui.reload();
+    assert.equal(ui.body().querySelectorAll('.split-diff-pane').length, 0, 'A fresh page defaults to Unified.');
+    assert.equal(
+      Math.round(ui.body().scrollTop * 1e6) / 1e6,
+      227,
+      'Session metadata stores the source position, not split pixels.',
+    );
+    assert.equal(ui.body().scrollLeft, 41);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Split diff restores each file after pane scrolling, Refresh and reload`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    await paneScroll(ui, diffPanes(ui.body())[1], 1063, 125);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1063, left: 125},
+      {top: 1063, left: 125},
+    ]);
+    await ui.open(paths[1]);
+    await paneScroll(ui, diffPanes(ui.body())[0], 1503, 85);
+    await ui.open(paths[0]);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1063, left: 125},
+      {top: 1063, left: 125},
+    ]);
+    await ui.settle(ui.app.refresh());
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1063, left: 125},
+      {top: 1063, left: 125},
+    ]);
+    await ui.reload();
+    assert.equal(ui.body().scrollTop, 1107);
+    assert.equal(ui.body().scrollLeft, 125);
+    await ui.open(paths[1]);
+    assert.equal(ui.body().scrollTop, 1547);
+    assert.equal(ui.body().scrollLeft, 85);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Split diff keeps independent inline and View full positions while sharing the layout`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    await ui.scroll(1107, 75);
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    const modalBody = modal.querySelector('.viewer-body');
+    modalBody.scrollTop = 1547;
+    modalBody.scrollLeft = 155;
+    await modalBody.fire('scroll');
+    const requests = ui.files.length;
+    await diffLayout(ui, modal, 'Side-by-side');
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1063, left: 75},
+      {top: 1063, left: 75},
+    ]);
+    assert.deepEqual(panePositions(modal), [
+      {top: 1503, left: 155},
+      {top: 1503, left: 155},
+    ]);
+    await paneScroll(ui, diffPanes(modal)[1], 1943, 195);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(modalBody.scrollTop, 1987);
+    assert.equal(modalBody.scrollLeft, 195);
+    assert.equal(ui.body().scrollTop, 1107, 'Scrolling View full does not move the inline workspace.');
+    assert.equal(ui.files.length, requests);
+    ui.app.closeViewer();
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.equal(ui.body().scrollTop, 1107, 'Closing View full cannot overwrite the inline saved position.');
+    assert.equal(ui.body().scrollLeft, 75);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Split diff review positions remain isolated across PR/MR workspaces and Code`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    await paneScroll(ui, diffPanes(ui.body())[0], 1063, 125);
+    await ui.navigate(ui.review(42));
+    await paneScroll(ui, diffPanes(ui.body())[1], 1503, 85);
+    await ui.branch('main');
+    await ui.open(paths[0]);
+    assert.equal(ui.workspace().querySelectorAll('.diff-layout').length, 0, 'Plain Code files have no diff layout.');
+    await ui.scroll(220, 0);
+    await ui.navigate(ui.review(41));
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1063, left: 125},
+      {top: 1063, left: 125},
+    ]);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    await ui.navigate(ui.review(42));
+    assert.equal(ui.body().scrollTop, 1547);
+    assert.equal(ui.body().scrollLeft, 85);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Split diff disposed file controls preserve the active position and metadata`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.review(41));
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    const oldPanes = diffPanes(ui.body());
+    const oldUnified = ui.workspace().querySelector('.diff-layout').querySelectorAll('button')[0];
+    await paneScroll(ui, oldPanes[0], 1063, 125);
+    const opening = ui.app.openFileTab({path: paths[1]});
+    await oldPanes[0].fire('scroll'); // queue a frame while replacement is waiting for its metadata save.
+    await ui.settle(opening);
+    for (const pane of oldPanes) assert.equal(pane.listeners.get('scroll').length, 0);
+    assert.equal(oldUnified.listeners.get('click').length, 0);
+    await paneScroll(ui, diffPanes(ui.body())[0], 1503, 85);
+    await ui.app.rememberFileTabs(); // Flush the active file's own pending save before probing stale callbacks.
+    const stored = structuredClone([...ui.metadata]);
+    await oldUnified.fire('click');
+    await paneScroll(ui, oldPanes[1], 2200, 250);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 1503, left: 85},
+      {top: 1503, left: 85},
+    ]);
+    assert.deepEqual([...ui.metadata], stored, 'Detached controls preserve the current workspace metadata.');
+    assert.equal(ui.selection().active, paths[1]);
+    assert.ok(diffPanes(ui.body()).every(pane => pane.querySelectorAll('.code-row').length < 50));
     assert.deepEqual(ui.errors, []);
   });
 }
