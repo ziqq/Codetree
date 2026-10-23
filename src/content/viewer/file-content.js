@@ -16,6 +16,7 @@ import {providerName} from '../page.js';
 import {createRenderEffect, on, onCleanup, runWithOwner} from '../reactive.js';
 import {listen, requestFrame} from '../reactive-dom.js';
 import {tokenize} from './syntax.js';
+import {createFileSearch} from './file-search.js';
 
 /**
  * Loads and renders both exact revisions of a changed file.
@@ -128,20 +129,42 @@ function splitRows(rows) {
 }
 
 /** Creates one source row or an empty alignment gap, rendering syntax as text nodes only. */
-function codeRow(row, side, oldSyntax, newSyntax) {
+function codeRow(row, side, oldSyntax, newSyntax, search) {
   if (!row) return el('div', {class: 'code-row diff-gap', 'aria-hidden': 'true'});
   const text = el('span', {class: 'line-text'});
   const old = side === 'old' || (side === 'unified' && row.type === 'removed');
   const tokens = old ? oldSyntax.lines[row.oldLine - 1] : newSyntax.lines[row.newLine - 1];
+  const ranges = search.ranges(row);
+  let rangeIndex = 0;
+  /** Preserves token spans while splitting only their text at original match boundaries. */
+  function append(parent, start, end) {
+    while (start < end) {
+      while (rangeIndex < ranges.length && ranges[rangeIndex].end <= start) rangeIndex++;
+      const range = ranges[rangeIndex];
+      if (!range || range.start >= end) {
+        parent.append(document.createTextNode(row.text.slice(start, end)));
+        return;
+      }
+      if (range.start > start) parent.append(document.createTextNode(row.text.slice(start, range.start)));
+      const finish = Math.min(end, range.end);
+      parent.append(
+        el('mark', {
+          class: `file-match${range === search.active() ? ' active' : ''}`,
+          text: row.text.slice(Math.max(start, range.start), finish),
+        }),
+      );
+      start = finish;
+    }
+  }
   let position = 0;
   for (const token of tokens || []) {
-    text.append(
-      document.createTextNode(row.text.slice(position, token.start)),
-      el('span', {class: `syntax-${token.type}`, text: row.text.slice(token.start, token.end)}),
-    );
+    append(text, position, token.start);
+    const syntax = el('span', {class: `syntax-${token.type}`});
+    append(syntax, token.start, token.end);
+    text.append(syntax);
     position = token.end;
   }
-  text.append(document.createTextNode(row.text.slice(position)));
+  append(text, position, row.text.length);
   const numbers = side === 'unified' ? [row.oldLine, row.newLine] : [old ? row.oldLine : row.newLine];
   return el('div', {class: `code-row ${row.type}`}, [
     ...numbers.map(number => el('span', {class: 'line-number', text: number || ''})),
@@ -157,6 +180,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
   let projection;
   let splitAnchor;
   let frame = 0;
+  let search;
   const code = el('div', {class: 'code-spacer'});
   const oldCode = el('div', {class: 'code-spacer'});
   const newCode = el('div', {class: 'code-spacer'});
@@ -210,7 +234,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
       const fragment = document.createDocumentFragment();
       for (let index = start; index < end; index++) {
         const row = split ? projection.pairs[index][side === 'old' ? 0 : 1] : rows[index];
-        const element = codeRow(row, side, oldSyntax, newSyntax);
+        const element = codeRow(row, side, oldSyntax, newSyntax, search);
         element.style.top = `${index * rowHeight}px`;
         fragment.append(element);
       }
@@ -246,11 +270,38 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
     restorePosition({top: line * rowHeight, left: position.left});
   }
 
+  /** Reveals a search hit even when its row is not rendered, keeping split panes and tab metadata in sync. */
+  function reveal(match) {
+    restorePosition({top: match.row * rowHeight, left: readPosition().left});
+    const viewport = split ? (rows[match.row].type === 'removed' ? oldPane : newPane) : shell.body;
+    const marks = Array.from(viewport.querySelectorAll('.file-match.active'));
+    if (marks.length) {
+      // One match can span several syntax tokens; reveal their combined range.
+      const rects = marks.map(mark => mark.getBoundingClientRect());
+      const leftEdge = Math.min(...rects.map(rect => rect.left));
+      const rightEdge = Math.max(...rects.map(rect => rect.right));
+      const bounds = viewport.getBoundingClientRect();
+      if (leftEdge < bounds.left || rightEdge > bounds.right) {
+        const margin = Math.max(0, (viewport.clientWidth - (rightEdge - leftEdge)) / 2);
+        const left = Math.max(0, viewport.scrollLeft + leftEdge - bounds.left - margin);
+        for (const pane of split ? [oldPane, newPane] : [shell.body]) pane.scrollLeft = left;
+      }
+    }
+    shell.onScroll?.();
+  }
+
   shell.readPosition = readPosition;
   shell.restorePosition = restorePosition;
   shell.relayout = relayout;
   shell.body.replaceChildren(code);
   runWithOwner(shell.owner, () => {
+    search = createFileSearch(
+      app,
+      shell,
+      rows,
+      {draw, reveal, row: () => Math.floor(readPosition().top / rowHeight)},
+      current,
+    );
     for (const viewport of [shell.body, oldPane, newPane]) {
       listen(
         viewport,

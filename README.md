@@ -59,6 +59,8 @@ Click a tree file to open it in Codetree's in-page workspace; clicking it again 
 
 Switching branches keeps Code's open paths and active file while loading the selected branch; each branch has separate scroll positions. A missing file stays open with Retry and, when available, an action to open it on the default branch. Each PR, MR and commit has a separate workspace; returning restores its tabs and positions. Selecting a branch from a review exits to Code and restores Code's workspace. Reloading the same native route preserves the selected inline tab; navigating to another native file selects that file.
 
+Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without case sensitivity in the open file or diff. The search covers the complete loaded text, including virtualized rows. **Enter / Shift+Enter** and the arrow buttons cycle through matches; **Escape** closes search before closing View full. Diff search includes old and new lines, counting shared context once. Tabs and View full have separate searches, cleared when their file changes; queries stay in page memory. At most 10,000 matches are listed, with a `+` count when more exist. Native text editors keep their normal find shortcut.
+
 Workspace metadata belongs to the current browser tab, selected account, host and repository. It resets on extension/browser restart and is excluded from Sync. Limits are 32 open files, 256 saved positions and 50 workspaces, with 64 KiB per entry; file text is never stored with this metadata. In-page tabs are new beta behavior; installed-browser smoke verification is pending.
 
 | Shortcut | Action |
