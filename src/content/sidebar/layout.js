@@ -9,7 +9,7 @@
 import pageStyles from 'virtual:page-styles';
 import {fontFamilies, preferences} from '../../shared/preferences.js';
 import {isDark} from '../page.js';
-import {createRenderEffect, on, onCleanup} from '../reactive.js';
+import {createRenderEffect, on} from '../reactive.js';
 import {listen} from '../reactive-dom.js';
 
 /** Native Rouge token classes in GitLab's active code-theme stylesheet. */
@@ -30,13 +30,10 @@ const gitlabTokens = {
   punctuation: 'p',
 };
 
-/** Creates the layout feature: `layout`, `updateTheme`, `positionHandle`, `setPreferences` and `updateCodeColors`. */
+/** Creates the layout feature: `layout`, `updateTheme`, `setPreferences` and `updateCodeColors`. */
 export function createLayout(app) {
   const {state} = app;
   const {host, pageStyle, panel, handle, resize, toastBox, pinButton, closeButton, searchHint} = app.view;
-  let nativeSidebar = null;
-  const nativeSidebarObserver = new ResizeObserver(positionHandle);
-  onCleanup(() => nativeSidebarObserver.disconnect());
   listen(
     document,
     'load',
@@ -70,7 +67,6 @@ export function createLayout(app) {
     panel.hidden = !available || !prefs.open;
     handle.hidden = !available || prefs.open;
     resize.hidden = !available || !prefs.open;
-    positionHandle();
     pinButton.classList.toggle('active', prefs.pinned);
     pinButton.setAttribute('aria-pressed', String(prefs.pinned));
     const closeLabel = `Close sidebar${prefs.toggleShortcut ? ` · ${prefs.toggleShortcut}` : ''}`;
@@ -155,28 +151,6 @@ export function createLayout(app) {
     }
   }
 
-  /** Moves the collapsed edge handle beside GitHub's left navigation drawer when it is open. */
-  function positionHandle() {
-    const sidebar =
-      state.context?.provider === 'github' ? document.querySelector('[aria-label="Issues sidebar navigation"]') : null;
-    if (sidebar !== nativeSidebar) {
-      if (nativeSidebar) nativeSidebarObserver.unobserve(nativeSidebar);
-      nativeSidebar = sidebar;
-      if (sidebar) nativeSidebarObserver.observe(sidebar);
-    }
-    const rect = sidebar?.getBoundingClientRect();
-    const offset =
-      state.preferences.dock === 'left' &&
-      rect?.width > 0 &&
-      rect.height > 0 &&
-      rect.left >= -1 &&
-      rect.left < Math.max(1, handle.getBoundingClientRect().width) &&
-      rect.right < innerWidth / 2
-        ? Math.ceil(Math.max(0, rect.right))
-        : 0;
-    host.style.setProperty('--handle-offset', `${offset}px`);
-  }
-
   /**
    * Applies preferences immediately and saves them in the service worker.
    *
@@ -194,5 +168,5 @@ export function createLayout(app) {
     undefined,
     {name: 'native code colors'},
   );
-  return {layout, positionHandle, setPreferences, updateTheme, updateCodeColors};
+  return {layout, setPreferences, updateTheme, updateCodeColors};
 }

@@ -796,34 +796,34 @@ button:disabled {
 }
 .handle {
   position: fixed;
-  top: 35%;
+  bottom: 17%;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 13px;
-  width: 34px;
-  padding: 12px 6px;
+  gap: 8px;
+  width: 26px;
+  padding: 8px 4px;
   background: var(--muted-bg);
   color: var(--text);
   border: 0;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1;
   box-shadow: 1px 1px 8px #0001;
 
   &[data-dock='left'] {
-    left: var(--handle-offset, 0px);
-    border-radius: 0 9px 9px 0;
+    left: 0;
+    border-radius: 0 7px 7px 0;
   }
   &[data-dock='right'] {
     right: 0;
-    border-radius: 9px 0 0 9px;
+    border-radius: 7px 0 0 7px;
   }
   & .icon {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     color: var(--muted);
   }
   &:hover {
@@ -1306,8 +1306,8 @@ button:disabled {
 .handle-grip {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  width: 14px;
+  gap: 2px;
+  width: 10px;
   color: var(--muted);
 }
 .handle-grip::before,

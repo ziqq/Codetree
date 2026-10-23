@@ -14,6 +14,7 @@
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access
+- **FIXED**: collapsed sidebar handle stays at the window edge and sits lower, independently of GitHub's native navigation
 
 ## 0.4.1
 
