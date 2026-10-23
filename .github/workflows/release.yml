@@ -30,6 +30,7 @@ jobs:
   publish:
     name: Publish validated ZIP
     needs: verify
+    environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -141,6 +142,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          tag_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq .ref)"
+          if [ "$tag_ref" != "refs/tags/$RELEASE_TAG" ]; then
+            echo "::error::The remote release tag does not exist."
+            exit 1
+          fi
+          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$RELEASE_TAG" --jq .sha)"
+          if [ "$tag_commit" != "$GITHUB_SHA" ]; then
+            echo "::error::The remote release tag no longer points to the verified commit."
+            exit 1
+          fi
           gh release create "$RELEASE_TAG" \
             "dist/codetree-${RELEASE_TAG#v}.zip" \
             "dist/codetree-${RELEASE_TAG#v}.sha256" \
@@ -152,6 +164,7 @@ jobs:
   chrome-web-store:
     name: Submit to Chrome Web Store
     needs: publish
+    environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

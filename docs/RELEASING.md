@@ -40,8 +40,11 @@ No extension signing key is used; the Chrome Web Store signs submitted packages.
 - The tag version equals `src/manifest.json`, development metadata and the newest changelog version.
 - A maintainer-approved `LICENSE` exists.
 - The downloaded CI ZIP still matches the tagged source and its checksum.
+- Immediately before publication, the remote `refs/tags/vX.Y.Z` exists and resolves to the commit verified by this workflow run.
 
-Only the publication job receives `contents: write`. External actions are pinned to verified commit SHAs. A manual run first creates the annotated tag on the verified commit through the API; an existing tag fails the run. The job then creates a GitHub Release with the ZIP and SHA-256. Its notes contain installation steps, the matching changelog section, commits since the previous tag, version/Chrome/archive details and the checksum. An existing release is not overwritten automatically.
+Only the publication job receives `contents: write`. External actions are pinned to verified commit SHAs. A manual run first creates the annotated tag on the verified commit through the API; an existing tag fails the run. The job then creates a GitHub Release with the ZIP and SHA-256. `gh release create --verify-tag` prevents it from automatically recreating a missing tag. Its notes contain installation steps, the matching changelog section, commits since the previous tag, version/Chrome/archive details and the checksum. An existing release is not overwritten automatically.
+
+Both `publish` and `chrome-web-store` use the `release` environment and follow its configured protection rules before starting. Required reviewers, deployment branch/tag policies and tag rulesets must be configured separately in repository settings after the workflow change is merged and the maintainer approves that setup. Referencing an environment does not configure its protection rules; GitHub creates an unprotected environment if a workflow runs before it exists. Allow the default branch for manual releases and the intended release tags for tag-triggered runs. Protect release tags against updates and deletion: the pre-publication check cannot prevent a tag from changing after that check.
 
 After the GitHub Release, the `chrome-web-store` job verifies the same ZIP again and submits it through the Chrome Web Store API v2: it uploads the package, waits for processing, checks the accepted version and requests publication with the default review flow. The job is skipped with a warning until the store is configured:
 
