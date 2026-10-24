@@ -173,7 +173,6 @@ export function mount() {
           window,
           'resize',
           () => {
-            app.positionHandle();
             app.requestTreeRender();
             app.updateFileTabTheme();
           },

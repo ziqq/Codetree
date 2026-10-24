@@ -61,6 +61,8 @@ Switching branches keeps Code's open paths and active file while loading the sel
 
 Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without case sensitivity in the open file or diff. The search covers the complete loaded text, including virtualized rows. **Enter / Shift+Enter** and the arrow buttons cycle through matches; **Escape** closes search before closing View full. Diff search includes old and new lines, counting shared context once. Tabs and View full have separate searches, cleared when their file changes; queries stay in page memory. At most 10,000 matches are listed, with a `+` count when more exist. Native text editors keep their normal find shortcut.
 
+In diffs, the **Changes** counter and its arrow buttons cycle through blocks of additions/removals separated by unchanged lines. They work in file tabs and **View full**, in both layouts, revealing off-screen blocks without reloading the file. The counter follows scrolling and keeps the selected block current while it remains visible. Diffs without changed lines show `0 / 0` with disabled arrows.
+
 Workspace metadata belongs to the current browser tab, selected account, host and repository. It resets on extension/browser restart and is excluded from Sync. Limits are 32 open files, 256 saved positions and 50 workspaces, with 64 KiB per entry; file text is never stored with this metadata. In-page tabs are new beta behavior; installed-browser smoke verification is pending.
 
 | Shortcut | Action |

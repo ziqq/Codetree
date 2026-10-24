@@ -182,7 +182,6 @@ export function createHeaderButtons(app) {
     if (!headerFrame)
       headerFrame = requestFrame(() => {
         headerFrame = null;
-        app.positionHandle();
         if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
       });
   });
