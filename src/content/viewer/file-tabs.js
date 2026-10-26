@@ -43,6 +43,7 @@ export function createFileTabs(app) {
   let disposeContent;
   let generation = 0;
   let opening = 0;
+  let pendingOpen;
   let contentReady = false;
   let waitingForMount = false;
   let saveTimer;
@@ -130,8 +131,11 @@ export function createFileTabs(app) {
   async function rememberFileTabs() {
     clearTimeout(saveTimer);
     capturePosition();
-    if (!snapshot) return;
-    const {context, scope, accountID, value} = snapshot;
+    const saved = snapshot;
+    if (!saved) return;
+    // A scroll save must follow an in-flight open's publication, not overwrite it with the old active path.
+    while (pendingOpen && snapshot === saved) await pendingOpen;
+    const {context, scope, accountID, value} = saved;
     await app.rpc('FILE_TABS', {context, scope, accountID, value: structuredClone(value)});
   }
 
@@ -259,18 +263,28 @@ export function createFileTabs(app) {
       throw new Error(`Close a file tab before opening another (maximum ${maxFileTabs}).`);
     const value = {...previous, paths: existing ? paths : [...paths, node.path], active: node.path};
     clearTimeout(saveTimer);
-    // Keep the rendered tab current if saving fails, so its review action can report and retry navigation.
-    await app.rpc('FILE_TABS', {...currentSnapshot, value: structuredClone(value)});
-    if (
-      snapshot !== currentSnapshot ||
-      epoch !== state.epoch ||
-      request !== opening ||
-      render !== generation ||
-      snapshot.value !== previous ||
-      previous.paths !== paths
-    )
-      return;
-    snapshot.value = {...value, positions: previous.positions};
+    let completeOpen;
+    const pending = new Promise(resolve => {
+      completeOpen = resolve;
+    });
+    pendingOpen = pending;
+    try {
+      // Keep the rendered tab current if saving fails, so its review action can report and retry navigation.
+      await app.rpc('FILE_TABS', {...currentSnapshot, value: structuredClone(value)});
+      if (
+        snapshot !== currentSnapshot ||
+        epoch !== state.epoch ||
+        request !== opening ||
+        render !== generation ||
+        snapshot.value !== previous ||
+        previous.paths !== paths
+      )
+        return;
+      snapshot.value = {...value, positions: previous.positions};
+    } finally {
+      if (pendingOpen === pending) pendingOpen = null;
+      completeOpen();
+    }
     state.selected = node.path;
     renderTabs();
     await renderActiveFile();

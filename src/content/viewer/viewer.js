@@ -46,7 +46,7 @@ export function createViewer(app) {
 
   /** Whether [shell] is still the open view. */
   function isCurrent(shell) {
-    return shell.alive() && shell.generation === generation;
+    return viewer.open && shell.alive() && shell.generation === generation;
   }
 
   /**

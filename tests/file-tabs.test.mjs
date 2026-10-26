@@ -55,7 +55,7 @@ async function turn() {
 }
 
 /** Composes real navigation, tree, branch and workspace factories around a metadata-only RPC fixture. */
-function fixture(t, provider, reviewDiff, {search = false} = {}) {
+function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
   const {document, window} = dom();
   if (reviewDiff || search) installDiffViewport(document);
   if (search) installViewerSearchDOM(document);
@@ -69,6 +69,7 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
   const assigned = [];
   const opened = [];
   const files = [];
+  const viewedRequests = [];
   const errors = [];
   let app;
   t.after(() => app?.dispose());
@@ -180,18 +181,23 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
     if (type === 'DIFF')
       return {
         base: source(baseSHA),
-        head: source(reviewSHA),
-        files: paths.slice(0, 2).map(filename => ({
+        head: source(review.headSHA || reviewSHA),
+        files: (review.paths || paths.slice(0, 2)).map(filename => ({
           filename,
           ...(reviewDiff?.file || {status: 'added', additions: 220, deletions: 0, patch: ''}),
         })),
         comments: [],
-        viewed: {},
-        viewedMode: 'none',
+        viewed: {...review.viewed},
+        viewedMode: review.mode || 'none',
         warnings: [],
       };
     if (type === 'BRANCHES') return [{name: 'main'}, {name: 'feature'}];
     if (type === 'REFRESH') return null;
+    if (type === 'VIEWED') {
+      viewedRequests.push({...message});
+      const controlled = app.viewedReply?.(message);
+      return controlled === undefined ? {state: message.viewed ? 'VIEWED' : 'UNVIEWED', mode: review.mode} : controlled;
+    }
     if (type === 'FILE_TABS') {
       const key = JSON.stringify([
         context.origin,
@@ -200,7 +206,10 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
         message.scope,
         message.scope === 'review' ? context.number : '',
       ]);
-      if (message.value) metadata.set(key, structuredClone(message.value));
+      if (message.value) {
+        if (app.fileTabsReply) await app.fileTabsReply(message, context);
+        metadata.set(key, structuredClone(message.value));
+      }
       return {...structuredClone(metadata.get(key) || {paths: [], active: '', positions: [], page: ''}), accountID: ''};
     }
     if (type === 'FILE') {
@@ -407,6 +416,7 @@ function fixture(t, provider, reviewDiff, {search = false} = {}) {
     window,
     clock,
     files,
+    viewedRequests,
     errors,
     metadata,
     assigned,
@@ -1216,6 +1226,265 @@ function searchRevision() {
       ].join('\n'),
     },
   };
+}
+
+/** Reads the inline review action through its visible label and accessible status. */
+function fileReviewControls(ui) {
+  const group = ui.workspace().querySelector('.file-review');
+  assert.ok(group, 'A loaded review file exposes Viewed and next-unviewed navigation.');
+  assert.equal(group.getAttribute('aria-label'), 'File review');
+  const button = group.querySelector('button');
+  const status = group.querySelector('[role="status"]');
+  assert.ok(button?.classList.contains('small-button'), 'Review navigation uses the shared button component.');
+  assert.ok(button.querySelector('svg'), 'The action retains its original check icon.');
+  assert.equal(status?.getAttribute('aria-live'), 'polite');
+  return {group, button, status};
+}
+
+for (const provider of ['github', 'gitlab']) {
+  const mode = provider === 'github' ? 'github' : 'local';
+
+  test(`${provider} Viewed waits for confirmation and wraps through the full list despite sidebar filters`, async t => {
+    const reviewPaths = [paths[0], 'src/viewed.js', paths[1], 'src/also-viewed.js'];
+    const ui = fixture(t, provider, splitRevision(), {
+      review: {mode, paths: reviewPaths, viewed: {[reviewPaths[1]]: 'VIEWED', [reviewPaths[3]]: 'VIEWED'}},
+    });
+    await ui.navigate(ui.review(41));
+    await ui.open(paths[1]);
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    ui.app.state.query = 'also-viewed.js';
+    ui.app.state.unviewedOnly = true;
+    await ui.drain(1);
+    assert.equal(ui.app.state.flat.filter(node => node.type === 'blob').length, 0);
+    const controls = fileReviewControls(ui);
+    const pending = deferred();
+    ui.app.viewedReply = () => pending.promise;
+    assert.equal(controls.button.textContent, 'Viewed & next');
+    const saving = controls.button.fire('click');
+    await ui.drain(1);
+    assert.equal(controls.button.disabled, true);
+    assert.equal(controls.button.textContent, 'Saving…');
+    assert.equal(ui.selection().active, paths[1]);
+    assert.equal(
+      ui.app.state.diff.viewed[paths[1]],
+      undefined,
+      'An unconfirmed write is not published optimistically.',
+    );
+    assert.equal(ui.viewedRequests.length, 1);
+    await controls.button.fire('click');
+    assert.equal(ui.viewedRequests.length, 1, 'A pending action cannot send a duplicate mark.');
+    assert.deepEqual(ui.viewedRequests[0], {
+      context: ui.app.state.context,
+      headSHA: reviewSHA,
+      path: paths[1],
+      viewed: true,
+    });
+    pending.resolve({state: 'VIEWED', mode});
+    await ui.settle(saving);
+    assert.equal(
+      ui.selection().active,
+      paths[0],
+      'Navigation skips viewed files and wraps to the earlier unviewed file.',
+    );
+    assert.equal(ui.app.state.diff.viewed[paths[1]], 'VIEWED');
+    assert.equal(
+      ui.body().querySelectorAll('.split-diff-pane').length,
+      2,
+      'The chosen diff layout survives navigation.',
+    );
+    assert.equal(controls.group.isConnected, false, 'The previous file releases its review control.');
+    assert.equal(fileReviewControls(ui).button.textContent, 'Viewed & next');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} a failed Viewed write stays on the file, retries and completes the listed review`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
+    await ui.navigate(ui.review(41));
+    const controls = fileReviewControls(ui);
+    ui.app.viewedReply = () => Promise.reject(new Error('Viewed could not be saved.'));
+    await ui.settle(controls.button.fire('click'));
+    assert.equal(ui.selection().active, paths[0]);
+    assert.equal(ui.app.state.diff.viewed[paths[0]], undefined);
+    assert.equal(controls.button.disabled, false);
+    assert.equal(controls.button.textContent, 'Viewed & next');
+    assert.equal(controls.status.textContent, 'Viewed could not be saved.');
+    assert.ok(controls.status.classList.contains('error'));
+    ui.app.viewedReply = undefined;
+    await ui.settle(controls.button.fire('click'));
+    assert.equal(ui.selection().active, paths[1]);
+    assert.equal(ui.viewedRequests.length, 2);
+    const final = fileReviewControls(ui);
+    await ui.settle(final.button.fire('click'));
+    assert.equal(ui.selection().active, paths[1], 'Completing the list keeps the final file open.');
+    assert.equal(final.button.disabled, true);
+    assert.equal(final.status.textContent, 'All listed files viewed');
+    assert.equal(ui.viewedRequests.length, 3);
+    assert.deepEqual(ui.app.state.diff.viewed, {[paths[0]]: 'VIEWED', [paths[1]]: 'VIEWED'});
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} failed next-tab metadata preserves a confirmed mark and retries without another Viewed write`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
+    await ui.navigate(ui.review(41));
+    const controls = fileReviewControls(ui);
+    ui.app.fileTabsReply = message => {
+      if (message.value.active === paths[1]) throw new Error('File tabs could not be saved.');
+    };
+    await ui.settle(controls.button.fire('click'));
+    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
+    assert.equal(ui.app.state.diff.viewed[paths[0]], 'VIEWED', 'The successful mark is not rolled back.');
+    assert.equal(ui.viewedRequests.length, 1);
+    assert.equal(controls.button.textContent, 'Next unviewed');
+    assert.equal(controls.status.textContent, 'File tabs could not be saved.');
+    assert.equal(controls.button.disabled, false);
+    ui.app.fileTabsReply = undefined;
+    await ui.settle(controls.button.fire('click'));
+    assert.deepEqual(ui.selection(), {paths: paths.slice(0, 2), active: paths[1]});
+    assert.equal(ui.viewedRequests.length, 1, 'A navigation retry does not repeat the confirmed mark.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} scrolling during the next-file save preserves the new active tab and outgoing position`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
+    await ui.navigate(ui.review(41));
+    const nextSave = deferred();
+    // The trusted broker serializes writes: later scroll saves complete after
+    // the delayed next-file save, even while the old file remains visible.
+    ui.app.fileTabsReply = () => nextSave.promise;
+    const saving = fileReviewControls(ui).button.fire('click');
+    await ui.drain(1);
+    assert.equal(ui.selection().active, paths[0]);
+    t.mock.timers.enable({apis: ['setTimeout']});
+    try {
+      const body = ui.body();
+      body.scrollTop = 440;
+      body.scrollLeft = 55;
+      await body.fire('scroll');
+      t.mock.timers.tick(150);
+      await Promise.resolve();
+    } finally {
+      t.mock.timers.reset();
+    }
+    await ui.drain(1);
+    nextSave.resolve();
+    await ui.settle(saving);
+    await ui.drain();
+    assert.deepEqual(ui.selection(), {paths: paths.slice(0, 2), active: paths[1]});
+    assert.equal(ui.metadata.size, 1);
+    const saved = [...ui.metadata.values()][0];
+    assert.deepEqual(saved.paths, paths.slice(0, 2), 'A delayed old-file scroll cannot drop the newly opened tab.');
+    assert.equal(saved.active, paths[1], 'The next file is the persisted active tab.');
+    assert.deepEqual(
+      saved.positions.find(position => position.path === paths[0]),
+      {ref: `${baseSHA}:${reviewSHA}`, path: paths[0], top: 440, left: 55},
+      'The outgoing file still retains its latest scroll position.',
+    );
+    assert.equal(ui.viewedRequests.length, 1);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} sidebar Viewed updates the open file action without refetching or resetting its viewport`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
+    await ui.navigate(ui.review(41));
+    await ui.scroll(440, 55);
+    const controls = fileReviewControls(ui);
+    const body = ui.body();
+    const requests = ui.files.length;
+    const checkbox = ui.app.view.spacer
+      .querySelectorAll('.viewed-checkbox')
+      .find(node => node.getAttribute('aria-label') === `Mark ${paths[0]} as viewed`);
+    assert.ok(checkbox, 'The current review file has its real sidebar Viewed checkbox.');
+    checkbox.checked = true;
+    await ui.settle(checkbox.fire('change'));
+    assert.equal(controls.button.textContent, 'Next unviewed');
+    assert.equal(ui.body(), body, 'Publishing the mark retains the currently rendered file.');
+    assert.equal(ui.body().scrollTop, 440);
+    assert.equal(ui.body().scrollLeft, 55);
+    assert.equal(ui.files.length, requests, 'The shared mark must not reload the file text.');
+    assert.equal(ui.selection().active, paths[0]);
+    await ui.settle(controls.button.fire('click'));
+    assert.equal(ui.selection().active, paths[1]);
+    assert.equal(ui.viewedRequests.length, 1, 'Next unviewed skips the mark already confirmed by the checkbox.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} manual tab intent wins while Viewed and the manual metadata save are pending`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {review: {mode, paths}});
+    await ui.navigate(ui.review(41));
+    const pendingViewed = deferred();
+    const pendingTab = deferred();
+    ui.app.viewedReply = () => pendingViewed.promise;
+    const saving = fileReviewControls(ui).button.fire('click');
+    await ui.drain(1);
+    ui.app.fileTabsReply = message => (message.value.active === paths[2] ? pendingTab.promise : undefined);
+    const opening = ui.app.openFileTab({path: paths[2]});
+    await ui.drain(1);
+    assert.equal(ui.selection().active, paths[0], 'The manual file has not published before its metadata save.');
+    pendingViewed.resolve({state: 'VIEWED', mode});
+    await ui.settle(saving);
+    assert.equal(ui.app.state.diff.viewed[paths[0]], 'VIEWED');
+    assert.equal(ui.selection().active, paths[0], 'The late mark must not start automatic navigation.');
+    pendingTab.resolve();
+    await ui.settle(opening);
+    assert.deepEqual(ui.selection(), {paths: [paths[0], paths[2]], active: paths[2]});
+    assert.equal(ui.viewedRequests.length, 1);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  for (const replacement of ['review', 'revision', 'disposal']) {
+    test(`${provider} a Viewed reply after ${replacement} cannot update or advance a stale inline viewer`, async t => {
+      const review = {mode};
+      const ui = fixture(t, provider, splitRevision(), {review});
+      await ui.navigate(ui.review(41));
+      const oldDiff = ui.app.state.diff;
+      const controls = fileReviewControls(ui);
+      const pending = deferred();
+      ui.app.viewedReply = () => pending.promise;
+      const saving = controls.button.fire('click');
+      await ui.drain(1);
+      if (replacement === 'review') await ui.navigate(ui.review(42));
+      else if (replacement === 'revision') {
+        review.headSHA = featureSHA;
+        await ui.settle(ui.app.refresh());
+        assert.equal(ui.app.state.diff.head.sha, featureSHA);
+      } else ui.app.dispose();
+      await ui.drain(1);
+      const fileRequests = ui.files.length;
+      const stored = structuredClone([...ui.metadata]);
+      pending.resolve({state: 'VIEWED', mode});
+      await ui.settle(saving);
+      assert.deepEqual(oldDiff.viewed, {}, 'A reply cannot publish a mark after its review or page is obsolete.');
+      assert.equal(controls.group.isConnected, false);
+      assert.equal(ui.files.length, fileRequests, 'A stale completion cannot load another file.');
+      assert.deepEqual([...ui.metadata], stored, 'A stale completion cannot persist a different active file.');
+      if (replacement !== 'disposal') {
+        assert.equal(ui.selection().active, paths[0]);
+        assert.deepEqual(ui.app.state.diff.viewed, {});
+        assert.equal(fileReviewControls(ui).button.textContent, 'Viewed & next');
+      }
+      assert.deepEqual(ui.errors, []);
+    });
+  }
+
+  test(`${provider} Viewed navigation is absent in Code, commits and unsupported review mode`, async t => {
+    const revision = splitRevision();
+    const review = {mode: 'none'};
+    const ui = fixture(t, provider, revision, {review});
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    assert.equal(ui.workspace().querySelector('.file-review'), null);
+    await ui.navigate(ui.review(41));
+    assert.ok(ui.body().querySelector('.code-row'), 'The unsupported review still renders its diff.');
+    assert.equal(ui.workspace().querySelector('.file-review'), null);
+    review.mode = mode;
+    ui.app.fileReply = (message, context) =>
+      context.kind === 'commit' ? (message.source.sha === baseSHA ? revision.before : revision.after) : undefined;
+    await ui.navigate(`${ui.root}/${provider === 'gitlab' ? '-/' : ''}commit/${reviewSHA}`);
+    assert.ok(ui.body().querySelector('.code-row'), 'The commit still renders its diff.');
+    assert.equal(ui.workspace().querySelector('.file-review'), null);
+    assert.deepEqual(ui.viewedRequests, []);
+    assert.deepEqual(ui.errors, []);
+  });
 }
 
 for (const provider of ['github', 'gitlab']) {

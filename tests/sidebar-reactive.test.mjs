@@ -916,6 +916,90 @@ for (const mode of ['github', 'local']) {
   });
 }
 
+for (const mode of ['github', 'local']) {
+  test(`tree Viewed writes publish confirmed ${mode} marks to the shared diff without replacing it`, async t => {
+    let reply = deferred();
+    const ui = sidebar(t, () => reply.promise);
+    ui.state.mode = 'changes';
+    const diff = reviewDiff(mode, {}, ['__proto__', 'src/a.js']);
+    ui.applyDiff(diff);
+    ui.clock.flush();
+    const prototype = Object.getPrototypeOf(diff.viewed);
+    let checkbox = treeRow(ui, '__proto__').querySelector('.viewed-checkbox');
+    checkbox.checked = true;
+    const mark = checkbox.fire('change');
+    await Promise.resolve();
+    assert.equal(Object.hasOwn(diff.viewed, '__proto__'), false, 'a pending write is not a confirmed shared mark');
+    reply.resolve({state: 'VIEWED', mode});
+    await mark;
+    ui.clock.flush();
+    assert.equal(ui.state.diff, diff, 'publishing a mark must not reload an open viewer');
+    assert.equal(Object.hasOwn(diff.viewed, '__proto__'), true, 'literal file paths become own map entries');
+    assert.equal(diff.viewed.__proto__, 'VIEWED');
+    assert.equal(Object.getPrototypeOf(diff.viewed), prototype);
+    assert.equal(reviewControls(ui).progress.textContent, '1/2 viewed');
+
+    reply = deferred();
+    checkbox = treeRow(ui, '__proto__').querySelector('.viewed-checkbox');
+    checkbox.checked = false;
+    const unmark = checkbox.fire('change');
+    await Promise.resolve();
+    assert.equal(diff.viewed.__proto__, 'VIEWED');
+    reply.resolve({state: 'UNVIEWED', mode});
+    await unmark;
+    ui.clock.flush();
+    assert.equal(ui.state.diff, diff);
+    assert.equal(diff.viewed.__proto__, 'UNVIEWED', 'other review controls see confirmed unmarks too');
+    assert.equal(reviewControls(ui).progress.textContent, '0/2 viewed');
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+test('a confirmed GitHub local fallback updates the shared mode, sidebar notice and progress wording', async t => {
+  const ui = sidebar(t, async () => ({state: 'VIEWED', mode: 'local'}));
+  ui.state.mode = 'changes';
+  const diff = reviewDiff('github', {}, ['src/a.js']);
+  ui.applyDiff(diff);
+  ui.state.expanded = new Set(['src']);
+  ui.clock.flush();
+  assert.doesNotMatch(ui.view.notice.textContent, /Viewed marks are local/);
+  const checkbox = treeRow(ui, 'src/a.js').querySelector('.viewed-checkbox');
+  checkbox.checked = true;
+  await checkbox.fire('change');
+  ui.clock.flush();
+  assert.equal(ui.state.diff, diff);
+  assert.equal(diff.viewedMode, 'local');
+  assert.equal(diff.viewed['src/a.js'], 'VIEWED');
+  assert.match(ui.view.notice.textContent, /Viewed marks are local to this browser/);
+  assert.equal(reviewControls(ui).progress.getAttribute('aria-label'), '1 of 1 listed changed files viewed locally');
+  assert.equal(treeRow(ui, 'src/a.js').querySelector('.viewed-checkbox').title, 'Viewed locally');
+  assert.deepEqual(ui.errors, []);
+});
+
+for (const [label, result] of [
+  ['opposite mark', {state: 'UNVIEWED', mode: 'github'}],
+  ['unsupported mode', {state: 'VIEWED', mode: 'none'}],
+]) {
+  test(`tree Viewed controls reject an acknowledgement with an ${label}`, async t => {
+    const ui = sidebar(t, async () => result);
+    ui.state.mode = 'changes';
+    const diff = reviewDiff('github', {}, ['src/a.js']);
+    ui.applyDiff(diff);
+    ui.state.expanded = new Set(['src']);
+    ui.clock.flush();
+    const checkbox = treeRow(ui, 'src/a.js').querySelector('.viewed-checkbox');
+    checkbox.checked = true;
+    await checkbox.fire('change');
+    ui.clock.flush();
+    assert.deepEqual(diff.viewed, {});
+    assert.equal(diff.viewedMode, 'github');
+    assert.equal(checkbox.checked, false);
+    assert.equal(checkbox.disabled, false);
+    assert.equal(reviewControls(ui).progress.textContent, '0/1 viewed');
+    assert.deepEqual(ui.errors, ['The Viewed update was not confirmed. Try again.']);
+  });
+}
+
 test('folder Viewed aggregation does not mark empty or partially loaded folders', () => {
   const tree = makeTree([
     {path: 'empty', type: 'tree', viewed: true},
