@@ -77,6 +77,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | `navigation.js` | Page loads, header, tabs, Refresh. |
 | `sidebar/view.js`, `layout.js`, `render.js` | Shadow DOM elements, placement and page padding, tab rendering. |
 | `sidebar/files.js`, `tree.js` | Tree loading and lazy folders; virtualized rows, keyboard navigation, Viewed marks. |
+| `viewed.js`, `viewer/file-review.js` | Revision-bound Viewed publication and owned PR/MR Viewed-and-next controls shared by the tree, file tabs and View full. |
 | `sidebar/file-icons.js` | file-icons rule matching and glyph rendering. |
 | `sidebar/branches.js`, `pulls.js`, `bookmarks.js` | Branch popover, request list and filters, bookmarks. |
 | `viewer/` | Full-file diff and comments dialog; lexical highlighting. |

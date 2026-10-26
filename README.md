@@ -63,6 +63,8 @@ Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without ca
 
 In diffs, the **Changes** counter and its arrow buttons cycle through blocks of additions/removals separated by unchanged lines. They work in file tabs and **View full**, in both layouts, revealing off-screen blocks without reloading the file. The counter follows scrolling and keeps the selected block current while it remains visible. Diffs without changed lines show `0 / 0` with disabled arrows.
 
+In PR/MR file tabs and **View full**, **Viewed & next** saves the current file's Viewed mark, then opens the next unviewed file in the same viewer. It follows the full listed changed-file order, wraps to earlier files and ignores sidebar search and **Only unviewed**. An already viewed file offers **Next unviewed** without another write. Failed marks keep the file open; failed navigation keeps a successful mark and offers a retry. When all listed files are viewed, the current file stays open with a completion message. GitHub uses its available Viewed mode; GitLab marks remain local.
+
 Workspace metadata belongs to the current browser tab, selected account, host and repository. It resets on extension/browser restart and is excluded from Sync. Limits are 32 open files, 256 saved positions and 50 workspaces, with 64 KiB per entry; file text is never stored with this metadata. In-page tabs are new beta behavior; installed-browser smoke verification is pending.
 
 | Shortcut | Action |
