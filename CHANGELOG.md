@@ -11,6 +11,7 @@
 - **ADDED**: Unified / Side-by-side full-file diffs in file tabs and View full, with synchronized panes and preserved source-line positions
 - **ADDED**: Ctrl/Cmd+F literal search in open files and full-file diffs, with match highlights, counts and previous/next navigation across virtualized rows
 - **ADDED**: previous/next change-block navigation with a scroll-aware counter in file tabs and View full, for Unified and Side-by-side diffs
+- **ADDED**: Viewed & next in PR/MR file tabs and View full saves the current mark before opening the next listed unviewed file
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access

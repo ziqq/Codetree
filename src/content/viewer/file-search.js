@@ -44,8 +44,13 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   const close = button('close', 'Close file search', closeSearch);
   const field = el('div', {class: 'searchbar viewer-find-field'}, [icon('search'), input, count]);
   const bar = el('div', {class: 'viewer-find', role: 'search', hidden: ''}, [field, previous, next, close]);
-  const toggle = button('search', 'Find in file (Ctrl/Cmd+F)', openSearch, 'viewer-find-toggle');
-  shell.actions.append(toggle, bar);
+  const toggle = button('search', 'Find in file (Ctrl/Cmd+F)', openSearch, 'viewer-find-toggle small-button');
+  const closeFocused = shell.closeButton?.matches(':focus');
+  const tools = el('div', {class: 'viewer-tools'}, [toggle, bar]);
+  // Wrap find and Close together, retaining DOM/tab order and the dialog's initial focus.
+  if (shell.closeButton) tools.append(shell.closeButton);
+  shell.actions.append(tools);
+  if (closeFocused) shell.closeButton.focus();
   shell.body.setAttribute('tabindex', '0');
   let ranges = new Map();
   let matches = [];
@@ -203,8 +208,7 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   onCleanup(() => {
     live = false;
     reset();
-    bar.remove();
-    toggle.remove();
+    tools.remove();
   });
   update();
   return {ranges: row => ranges.get(row) || [], active: () => matches[active]};

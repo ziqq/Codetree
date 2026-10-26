@@ -17,6 +17,7 @@ import {createRoot, getOwner, onCleanup, runWithOwner, withOwner} from '../react
 import {listen} from '../reactive-dom.js';
 import {diffNode} from './viewer.js';
 import {renderDiffFile, renderTextFile} from './file-content.js';
+import {createFileReview} from './file-review.js';
 
 /** Creates the inline workspace and its navigation, persistence and theme actions. */
 export function createFileTabs(app) {
@@ -27,7 +28,7 @@ export function createFileTabs(app) {
   const tabs = el('div', {class: 'file-tabs', role: 'tablist', 'aria-label': 'Open files'});
   const heading = el('strong');
   const revision = el('small');
-  const native = el('a', {target: '_blank', rel: 'noopener noreferrer'});
+  const native = el('a', {class: 'small-button', target: '_blank', rel: 'noopener noreferrer'});
   const actions = el('div', {class: 'viewer-actions'}, [native]);
   const frame = el('section', {class: 'file-workspace', 'aria-label': 'Codetree file workspace'}, [
     tabs,
@@ -41,6 +42,8 @@ export function createFileTabs(app) {
   let shell;
   let disposeContent;
   let generation = 0;
+  let opening = 0;
+  let pendingOpen;
   let contentReady = false;
   let waitingForMount = false;
   let saveTimer;
@@ -128,8 +131,11 @@ export function createFileTabs(app) {
   async function rememberFileTabs() {
     clearTimeout(saveTimer);
     capturePosition();
-    if (!snapshot) return;
-    const {context, scope, accountID, value} = snapshot;
+    const saved = snapshot;
+    if (!saved) return;
+    // A scroll save must follow an in-flight open's publication, not overwrite it with the old active path.
+    while (pendingOpen && snapshot === saved) await pendingOpen;
+    const {context, scope, accountID, value} = saved;
     await app.rpc('FILE_TABS', {context, scope, accountID, value: structuredClone(value)});
   }
 
@@ -247,16 +253,39 @@ export function createFileTabs(app) {
     if (epoch !== state.epoch) return;
     if (!snapshot || !state.info) throw new Error('Wait for the repository to finish loading.');
     const currentSnapshot = snapshot;
+    const request = ++opening;
+    const render = generation;
     capturePosition();
-    if (!snapshot.value.paths.includes(node.path)) {
-      if (snapshot.value.paths.length >= maxFileTabs)
-        throw new Error(`Close a file tab before opening another (maximum ${maxFileTabs}).`);
-      snapshot.value.paths.push(node.path);
+    const previous = snapshot.value;
+    const paths = previous.paths;
+    const existing = paths.includes(node.path);
+    if (!existing && paths.length >= maxFileTabs)
+      throw new Error(`Close a file tab before opening another (maximum ${maxFileTabs}).`);
+    const value = {...previous, paths: existing ? paths : [...paths, node.path], active: node.path};
+    clearTimeout(saveTimer);
+    let completeOpen;
+    const pending = new Promise(resolve => {
+      completeOpen = resolve;
+    });
+    pendingOpen = pending;
+    try {
+      // Keep the rendered tab current if saving fails, so its review action can report and retry navigation.
+      await app.rpc('FILE_TABS', {...currentSnapshot, value: structuredClone(value)});
+      if (
+        snapshot !== currentSnapshot ||
+        epoch !== state.epoch ||
+        request !== opening ||
+        render !== generation ||
+        snapshot.value !== previous ||
+        previous.paths !== paths
+      )
+        return;
+      snapshot.value = {...value, positions: previous.positions};
+    } finally {
+      if (pendingOpen === pending) pendingOpen = null;
+      completeOpen();
     }
-    snapshot.value.active = node.path;
     state.selected = node.path;
-    await rememberFileTabs();
-    if (snapshot !== currentSnapshot || epoch !== state.epoch || snapshot.value.active !== node.path) return;
     renderTabs();
     await renderActiveFile();
   }
@@ -370,6 +399,7 @@ export function createFileTabs(app) {
         ? `${diff.base.sha?.slice(0, 7) || 'empty'} → ${diff.head.sha.slice(0, 7)} · full-file diff`
         : `${info.ref} · ${info.commitSHA?.slice(0, 7) || 'empty'} · read only`;
       native.textContent = `View on ${providerName(context)}`;
+      native.classList.toggle('viewer-native-accent', Boolean(diff) && context.provider === 'github');
       native.removeAttribute('href');
       shell.body.replaceChildren(empty('Loading file', 'Loading this file at the selected revision…', 'refresh'));
       let styles;
@@ -396,6 +426,18 @@ export function createFileTabs(app) {
         await renderTextFile(app, shell, path, text, current);
       }
       if (!current()) return;
+      if (file)
+        runWithOwner(shell.owner, () =>
+          createFileReview(
+            app,
+            shell,
+            diffNode(file),
+            diff,
+            current,
+            path => openFileTab({path}),
+            () => opening,
+          ),
+        );
       unavailable.delete(path);
       contentReady = true;
       const position = snapshot.value.positions.find(

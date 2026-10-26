@@ -906,11 +906,11 @@ button:disabled {
   flex-direction: column;
 }
 .viewer-header {
-  padding: 13px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 .viewer-heading {
@@ -928,18 +928,53 @@ button:disabled {
   display: block;
   font-size: 11px;
   color: var(--muted);
-  margin-top: 5px;
+  margin-top: 4px;
 }
 .viewer-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
   max-width: 100%;
 }
+.viewer-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.viewer-actions > .icon-button,
+.viewer-tools > .icon-button,
+.viewer-find > .icon-button {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+.viewer-actions > .icon-button,
+.viewer-tools > .icon-button {
+  margin: 0;
+  padding: 0;
+}
 .viewer-actions a {
+  height: 30px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--muted-bg);
   font-size: 11px;
-  margin-right: 9px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.viewer-actions a.viewer-native-accent {
+  color: var(--accent);
+}
+.viewer-actions a:hover {
+  background: var(--hover);
 }
 .diff-layout {
   display: inline-flex;
@@ -1005,7 +1040,6 @@ button:disabled {
 }
 .viewer-find {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   max-width: 100%;
@@ -1203,7 +1237,7 @@ button:disabled {
   word-break: break-word;
 }
 .viewer-bottom {
-  padding: 7px 14px;
+  padding: 7px 16px;
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--muted);
@@ -1213,6 +1247,34 @@ button:disabled {
 }
 .viewer-bottom .flex {
   flex: 1;
+}
+.viewer-bottom:has(> .file-review) {
+  flex-wrap: wrap;
+}
+.file-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+}
+.file-review[hidden] {
+  display: none;
+}
+.file-review .small-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+.file-review-status {
+  max-width: 36ch;
+  overflow-wrap: anywhere;
+}
+.file-review-status:empty {
+  display: none;
+}
+.file-review-status.error {
+  color: var(--red);
 }
 .file-workspace {
   margin: 16px;

@@ -227,6 +227,7 @@ export function createRender(app) {
           }),
         );
       if (state.mode === 'changes' && state.diff) {
+        void state.viewedVersion;
         if (state.diff.viewedMode === 'local')
           notice.append(document.createTextNode('Viewed marks are local to this browser. '));
         for (const warning of state.diff.warnings) notice.append(el('div', {text: warning}));

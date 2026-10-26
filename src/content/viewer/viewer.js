@@ -12,6 +12,7 @@
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {renderDiffFile} from './file-content.js';
+import {createFileReview} from './file-review.js';
 import {createAlive, createRoot, getOwner, onCleanup, runWithOwner} from '../reactive.js';
 import {listen} from '../reactive-dom.js';
 
@@ -45,13 +46,13 @@ export function createViewer(app) {
 
   /** Whether [shell] is still the open view. */
   function isCurrent(shell) {
-    return shell.alive() && shell.generation === generation;
+    return viewer.open && shell.alive() && shell.generation === generation;
   }
 
   /**
    * Opens the dialog with an empty layout for a new view.
    *
-   * @returns {{actions: Element, body: Element, bottom: Element, generation: number}}
+   * @returns {{actions: Element, closeButton: HTMLButtonElement, body: Element, bottom: Element, generation: number}}
    */
   function viewerShell(title, subtitle, label = 'Full-file diff') {
     disposeViewer?.();
@@ -64,7 +65,8 @@ export function createViewer(app) {
           el('strong', {text: title}),
           el('small', {text: subtitle}),
         ]);
-        const actions = el('div', {class: 'viewer-actions'}, [button('close', 'Close viewer', () => viewer.close())]);
+        const closeButton = button('close', 'Close viewer', () => viewer.close(), 'small-button');
+        const actions = el('div', {class: 'viewer-actions'}, [closeButton]);
         const viewerBody = el('div', {class: 'viewer-body'});
         const bottom = el('div', {class: 'viewer-bottom'});
         viewer.replaceChildren(
@@ -75,7 +77,7 @@ export function createViewer(app) {
           ]),
         );
         if (!viewer.open) viewer.showModal();
-        return {actions, body: viewerBody, bottom, generation, owner: getOwner(), alive: createAlive()};
+        return {actions, closeButton, body: viewerBody, bottom, generation, owner: getOwner(), alive: createAlive()};
       }),
     );
   }
@@ -102,6 +104,7 @@ export function createViewer(app) {
     if (!isCurrent(shell)) return;
     shell.actions.prepend(
       el('a', {
+        class: `small-button${state.context.provider === 'github' ? ' viewer-native-accent' : ''}`,
         href: originalURL,
         text: `${providerName(state.context)} diff`,
         target: '_blank',
@@ -131,6 +134,17 @@ export function createViewer(app) {
     );
     try {
       await renderDiffFile(app, shell, node, diff, () => isCurrent(shell));
+      if (isCurrent(shell))
+        runWithOwner(shell.owner, () =>
+          createFileReview(
+            app,
+            shell,
+            node,
+            diff,
+            () => isCurrent(shell),
+            path => showDiff(diffNode(diff.files.find(file => file.filename === path))),
+          ),
+        );
     } catch (error) {
       if (isCurrent(shell)) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff'));
     }

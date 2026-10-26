@@ -15,8 +15,9 @@ import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
-import {batch, createMemo, createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
+import {createMemo, createRenderEffect, createSignal, on, onCleanup, withOwner} from '../reactive.js';
 import {requestFrame} from '../reactive-dom.js';
+import {createViewedAction} from '../viewed.js';
 
 /** Fixed tree-row height in pixels; virtualization depends on it. */
 const rowHeight = 29;
@@ -155,11 +156,7 @@ export function createTree(app) {
           );
           row.append(full);
           if (state.diff?.viewedMode !== 'none') {
-            const context = state.context;
-            const headSHA = state.diff.head.sha;
-            const epoch = state.epoch;
-            const generation = state.filesGeneration;
-            const alive = app.pageAlive || (() => true);
+            const action = createViewedAction(app);
             const checkbox = el('input', {
               type: 'checkbox',
               class: 'viewed-checkbox',
@@ -174,33 +171,9 @@ export function createTree(app) {
                 const viewed = checkbox.checked;
                 checkbox.disabled = true;
                 try {
-                  const result = await app.rpc('VIEWED', {context, headSHA, path: node.path, viewed});
-                  if (
-                    !alive() ||
-                    epoch !== state.epoch ||
-                    generation !== state.filesGeneration ||
-                    state.diff?.head.sha !== headSHA
-                  )
-                    return;
-                  batch(() => {
-                    node.viewed = result.state === 'VIEWED';
-                    // Publish file marks for progress/count bindings; pending or failed writes never reach them.
-                    state.entries = state.entries.map(entry =>
-                      entry.path === node.path ? {...entry, viewed: node.viewed} : entry,
-                    );
-                    // Only ancestors can change; search and collapsed rows do not affect the full tree.
-                    let path = node.path;
-                    state.tree.nodes.get(path).viewed = node.viewed;
-                    while (path.includes('/')) {
-                      path = path.slice(0, path.lastIndexOf('/'));
-                      const parent = state.tree.nodes.get(path);
-                      parent.viewed =
-                        parent.loaded && parent.children.length > 0 && parent.children.every(child => child.viewed);
-                    }
-                    updateTree();
-                  });
+                  await action.set(node.path, viewed);
                 } catch (error) {
-                  checkbox.checked = Boolean(node.viewed);
+                  checkbox.checked = action.viewed(node.path);
                   throw error;
                 } finally {
                   checkbox.disabled = false;
