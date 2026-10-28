@@ -117,10 +117,10 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 
 - `core.test.mjs`: full-file diff validation.
 - `split-diff.test.mjs`: View full layout controls, aligned old/new rows, synchronized/clamped scrolling, source-line positions, font/viewport changes and disposal through the production viewer with synthetic geometry.
-- `viewer-search.test.mjs`: file-search controls and shortcuts, literal/Unicode ranges across syntax tokens, complete virtualized-file navigation, result limits and stale-scan/disposal checks through the production viewer.
+- `viewer-search.test.mjs`: the shared Find/Go to line field, literal colon queries, Old/New source-line mapping in both layouts, invalid/empty revision feedback, keyboard guards and stale-scan/disposal checks through the production viewer. Search coverage includes Unicode ranges across syntax tokens, complete virtualized-file navigation and result limits.
 - `viewer-changes.test.mjs`: change-block counts, cyclic navigation, virtual row reveal, manual scrolling, split projection, clamped positions and owned controls through the production View full dialog.
 - `viewer-review.test.mjs`: Viewed-and-next acknowledgement ordering, listed-file traversal, completion, retries and stale-view disposal through View full in both layouts and provider modes.
-- `file-tabs.test.mjs`: file navigation and session restoration, including Split diff positions and change-block counters across file/review switches, Refresh and page reload, plus independent inline/dialog scrolling and navigation with a shared layout. Viewed-and-next coverage checks confirmed marks, metadata-save retries, manual navigation intent and stale replies.
+- `file-tabs.test.mjs`: file navigation and session restoration, including Split diff positions, source-line jumps and change-block counters across file/review switches, branches, Refresh and page reload, plus independent inline/dialog scrolling and shortcut priority with a shared layout. Viewed-and-next coverage checks confirmed marks, metadata-save retries, manual navigation intent and stale replies.
 - `hosts.test.mjs`: request contexts built like the content script's, and rejected branch/path segments.
 - `hide-rules.test.mjs`: regex and wildcard URL exclusions, validation, persisted rules, URL query/fragment boundaries and code-only scope.
 - `viewed.test.mjs`: Viewed marks through the bundled service worker in a VM with mocked APIs.

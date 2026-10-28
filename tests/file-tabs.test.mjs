@@ -1228,6 +1228,153 @@ function searchRevision() {
   };
 }
 
+/** Opens source-line mode through the active viewer's keyboard handler and returns its shared field. */
+async function openLine(ui, scope, body, modifiers = {ctrlKey: true}) {
+  body.focus();
+  const event = keyEvent(body, 'g', modifiers);
+  await ui.window.fire('keydown', event);
+  assert.equal(event.defaultPrevented, true, 'The active viewer handles its Go to line shortcut.');
+  const bar = scope.querySelector('.viewer-find');
+  assert.equal(bar?.hidden, false);
+  assert.equal(bar.getAttribute('aria-label'), 'Go to line');
+  const input = bar.querySelector('input');
+  assert.equal(input.value, ':');
+  assert.equal(ui.document.activeElement, input);
+  return {bar, input};
+}
+
+/** Selects a source revision and submits a one-based line through Enter, without calling viewer internals. */
+async function submitLine(ui, controls, number, side) {
+  if (side) {
+    const revisions = controls.bar.querySelector('.viewer-line-revision');
+    assert.equal(revisions.hidden, false);
+    const button = revisions.querySelectorAll('button').find(button => button.textContent === side);
+    await button.fire('click');
+    assert.equal(button.getAttribute('aria-pressed'), 'true');
+  }
+  controls.input.value = `:${number}`;
+  await controls.input.fire('input');
+  await findKey(ui, controls, 'Enter');
+  assert.equal(controls.bar.hidden, true, 'A successful jump closes the shared field.');
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} shared field preserves literal colon search and saves line jumps across tabs, branches and reload`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    const lines = longText.split('\n').map(line => line + ' '.repeat(150));
+    lines[180] += '// private query :223';
+    ui.app.fileReply = () => lines.join('\n');
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    const find = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, find, ':223');
+    assert.equal(find.count.textContent, '1 / 1');
+    assert.equal(find.bar.hidden, false, 'A colon query remains in literal Find mode.');
+    const requests = ui.files.length;
+    const line = await openLine(ui, ui.workspace(), ui.body());
+    assert.equal(line.input, find.input);
+    assert.equal(line.bar.querySelector('.viewer-line-revision').hidden, true, 'Plain files have no revision picker.');
+    assert.equal(line.input.getAttribute('aria-label'), 'Line number');
+    await submitLine(ui, line, 150);
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    assert.equal(ui.files.length, requests);
+    const restoredFind = await openFind(ui, ui.workspace(), ui.body(), {metaKey: true});
+    assert.equal(restoredFind.input.value, ':223');
+    // Cancel the restored query's debounce with a line jump before saving its position.
+    await submitLine(ui, await openLine(ui, ui.workspace(), ui.body(), {metaKey: true}), 150);
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    await ui.branch('feature');
+    assert.equal(ui.body().scrollTop, 0, 'A new branch starts with its own position.');
+    await submitLine(ui, await openLine(ui, ui.workspace(), ui.body()), 180);
+    assert.equal(ui.body().scrollTop, 179 * 22);
+    await ui.branch('main');
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    await ui.reload();
+    assert.equal(ui.body().scrollTop, 149 * 22, 'The jump flows through ordinary session-position saves.');
+    assert.equal(findControls(ui.workspace()).bar.hidden, true);
+    assert.doesNotMatch(JSON.stringify([...ui.metadata]), /:223|private query/);
+    assert.ok(ui.body().querySelectorAll('.code-row').length < 50);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Go to line maps Old/New diff lines in both layouts and restores their source anchor across tabs`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const requests = ui.files.length;
+    for (const display of ['Unified', 'Side-by-side']) {
+      await diffLayout(ui, ui.workspace(), display);
+      for (const [side, number, unifiedRow, splitRow, source] of [
+        ['New', 21, 23, 20, 'newOnly'],
+        ['Old', 23, 22, 22, 'removedOnly'],
+        ['New', 110, 112, 110, 'source111'],
+      ]) {
+        const line = await openLine(ui, ui.workspace(), ui.body(), {metaKey: true});
+        await submitLine(ui, line, number, side);
+        const panes = display === 'Unified' ? [ui.body()] : diffPanes(ui.body());
+        for (const pane of panes) {
+          assert.equal(pane.scrollTop, (display === 'Unified' ? unifiedRow : splitRow) * 22);
+          assert.ok(pane.querySelectorAll('.code-row').length < 50);
+        }
+        assert.match(ui.body().textContent, new RegExp(source));
+      }
+    }
+    assert.equal(ui.files.length, requests, 'Neither source-side selection nor layout changes refetch revisions.');
+    await submitLine(ui, await openLine(ui, ui.workspace(), ui.body()), 21, 'New');
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 20 * 22, left: 0},
+      {top: 20 * 22, left: 0},
+    ]);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(ui.body().scrollTop, 23 * 22, 'The paired split row retains New rather than its Old counterpart.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Go to line gives View full priority and disposes controls after file and PR/MR switches`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const inline = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, inline, 'source110');
+    const inlineTop = ui.body().scrollTop;
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    const modalBody = modal.querySelector('.viewer-body');
+    const full = await openLine(ui, modal, modalBody, {metaKey: true});
+    await submitLine(ui, full, 110, 'New');
+    assert.equal(modalBody.scrollTop, 112 * 22);
+    assert.equal(ui.body().scrollTop, inlineTop);
+    assert.equal(inline.input.value, 'source110');
+    assert.equal(inline.bar.getAttribute('role'), 'search');
+    assert.equal(modal.open, true);
+    await openLine(ui, modal, modalBody);
+    await findKey(ui, full, 'Escape');
+    assert.equal(modal.open, true);
+    assert.equal(ui.document.activeElement, modalBody);
+    ui.app.closeViewer();
+    const old = await openLine(ui, ui.workspace(), ui.body());
+    const revision = old.bar.querySelector('.viewer-line-revision').querySelectorAll('button')[1];
+    await ui.open(paths[1]);
+    assert.equal(old.bar.isConnected, false);
+    assert.equal(old.input.listeners.get('input').length, 0);
+    assert.equal(revision.listeners.get('click').length, 0);
+    await revision.fire('click');
+    const current = await openLine(ui, ui.workspace(), ui.body());
+    await submitLine(ui, current, 120, 'New');
+    assert.equal(ui.body().scrollTop, 122 * 22);
+    await ui.navigate(ui.review(42));
+    assert.equal(current.bar.isConnected, false);
+    assert.equal(findControls(ui.workspace()).bar.hidden, true);
+    assert.equal(ui.body().scrollTop, 0, 'A different PR/MR retains its separate position.');
+    await current.input.fire('input');
+    assert.equal(ui.body().scrollTop, 0);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
 /** Reads the inline review action through its visible label and accessible status. */
 function fileReviewControls(ui) {
   const group = ui.workspace().querySelector('.file-review');

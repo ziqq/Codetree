@@ -522,3 +522,226 @@ test('View full file search cancels debounce and yielding work on close and disp
   const event = await key(ui, body, 'f', {ctrlKey: true});
   assert.equal(event.defaultPrevented, false);
 });
+
+test('View full shared field keeps colon queries literal and restores Find after Ctrl/Cmd+G', async t => {
+  const ui = fixture(t, revision({prefix: ['// literal :223'], suffix: ['// literal :223']}));
+  const body = await open(ui);
+  const {input, bar, count, previous, next, close} = controls(ui);
+  await key(ui, body, 'f', {ctrlKey: true});
+  await search(ui, ':223');
+  assert.equal(bar.getAttribute('role'), 'search');
+  assert.equal(count.textContent, '1 / 2');
+  assert.equal(activeText(body), ':223');
+  await key(ui, input, 'Enter');
+  assert.equal(count.textContent, '2 / 2');
+  assert.equal(bar.hidden, false, 'Enter still navigates literal matches, even for a colon query.');
+
+  for (const modifiers of [{ctrlKey: true}, {metaKey: true}]) {
+    const event = await key(ui, input, 'g', modifiers);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.propagationStopped, true);
+    assert.equal(controls(ui).input, input, 'Both modes reuse the same input element.');
+    assert.equal(ui.viewer.querySelectorAll('input').length, 1);
+    assert.equal(bar.getAttribute('aria-label'), 'Go to line');
+    assert.equal(bar.getAttribute('role'), 'group');
+    assert.equal(input.value, ':');
+    assert.equal(input.getAttribute('aria-label'), 'New line number');
+    assert.equal(ui.document.activeElement, input);
+    assert.ok([count, previous, next, close].every(control => control.hidden));
+    assert.equal(body.querySelectorAll('.file-match').length, 0);
+    assert.equal(
+      ui.viewer.querySelectorAll('button').some(button => button.textContent === 'Go'),
+      false,
+    );
+    input.value = ':2';
+    await layout(ui, 'Side-by-side');
+    assert.equal(input.value, ':2');
+    assert.equal(bar.getAttribute('aria-label'), 'Go to line');
+    await layout(ui, 'Unified');
+    await key(ui, input, 'f', modifiers);
+    await finish(ui);
+    assert.equal(input.value, ':223', 'The line draft never replaces the previous literal query.');
+    assert.equal(input.getAttribute('aria-label'), 'Find in file');
+    assert.equal(input.getAttribute('inputmode'), null);
+    assert.equal(count.textContent, '1 / 2');
+    assert.ok([count, previous, next, close].every(control => !control.hidden));
+    assert.equal(bar.querySelector('.viewer-line-revision').hidden, true);
+  }
+});
+
+for (const display of ['Unified', 'Side-by-side']) {
+  test(`View full Go to line resolves Old/New source numbers in ${display} without refetching`, async t => {
+    const ui = fixture(
+      t,
+      revision({
+        prefix: Array.from({length: 320}, (_, index) => `${index} ${'wide '.repeat(200)}`),
+        removed: ['old first', 'old second', 'removed only'],
+        added: ['new first', 'new second'],
+        suffix: Array.from({length: 100}, (_, index) => `tail ${index}`),
+      }),
+    );
+    const body = await open(ui);
+    await layout(ui, display);
+    const panes = () => (display === 'Unified' ? [body] : body.querySelectorAll('.split-diff-pane'));
+    panes()[0].scrollLeft = 150;
+    await panes()[0].fire('scroll');
+    ui.clock.flush();
+    const {input, bar} = controls(ui);
+    for (const [side, number, unifiedRow, splitRow, text] of [
+      ['New', 321, 323, 320, 'new first'],
+      ['Old', 323, 322, 322, 'removed only'],
+      ['New', 350, 352, 350, 'tail 27'],
+    ]) {
+      const left = panes()[0].scrollLeft;
+      await key(ui, body, 'g', {metaKey: true});
+      assert.equal(bar.hidden, false, 'The active viewer handles Go to line.');
+      const revisions = bar.querySelector('.viewer-line-revision');
+      assert.equal(revisions.hidden, false);
+      await revisions
+        .querySelectorAll('button')
+        .find(button => button.textContent === side)
+        .fire('click');
+      assert.equal(input.getAttribute('aria-label'), `${side} line number`);
+      input.value = `:${number}`;
+      await input.fire('input');
+      const enter = await key(ui, input, 'Enter');
+      ui.clock.flush();
+      assert.equal(enter.defaultPrevented, true);
+      assert.equal(bar.hidden, true);
+      assert.equal(ui.viewer.open, true);
+      assert.equal(ui.document.activeElement, body);
+      for (const pane of panes()) {
+        assert.equal(pane.scrollTop, (display === 'Unified' ? unifiedRow : splitRow) * 22);
+        assert.equal(pane.scrollLeft, left);
+        assert.ok(pane.querySelectorAll('.code-row').length < 50, 'The jump retains row virtualization.');
+      }
+      assert.ok(body.querySelectorAll('.line-text').some(line => line.textContent === text));
+    }
+    assert.equal(ui.requests.length, 2, 'Source-line jumps reuse the exact loaded revisions.');
+  });
+}
+
+test('View full Go to line validates bounds, clears errors on edit and leaves Escape to close the field', async t => {
+  const ui = fixture(t, revision({prefix: Array(80).fill('context'), suffix: Array(40).fill('tail')}));
+  const body = await open(ui);
+  body.scrollTop = 440;
+  await key(ui, body, 'g', {ctrlKey: true});
+  const {input, bar} = controls(ui);
+  assert.equal(bar.hidden, false);
+  const status = bar.querySelector('.viewer-line-status');
+  for (const value of [':', ':0', ':-1', ':1.5', ':1e2', ':word', '::2', ':122']) {
+    input.value = value;
+    await input.fire('input');
+    assert.equal(input.getAttribute('aria-invalid'), null);
+    assert.equal(status.textContent, '');
+    await key(ui, input, 'Enter');
+    assert.equal(input.getAttribute('aria-invalid'), 'true', value);
+    assert.equal(status.textContent, 'Enter a line from 1 to 121.');
+    assert.equal(body.scrollTop, 440);
+    assert.equal(bar.hidden, false);
+    assert.equal(ui.document.activeElement, input);
+  }
+  input.value = ':121';
+  await input.fire('input');
+  await key(ui, input, 'Enter');
+  ui.clock.flush();
+  assert.equal(body.scrollTop, body.scrollHeight - body.clientHeight, 'The last source line clamps at file end.');
+  assert.equal(bar.hidden, true);
+  await key(ui, body, 'g', {metaKey: true});
+  input.value = ':1';
+  await key(ui, input, 'Enter');
+  assert.equal(body.scrollTop, 0, 'Source lines are one based.');
+  await key(ui, body, 'g', {ctrlKey: true});
+  const escape = await key(ui, input, 'Escape');
+  assert.equal(escape.defaultPrevented, true);
+  assert.equal(bar.hidden, true);
+  assert.equal(ui.viewer.open, true);
+  assert.equal(ui.document.activeElement, body);
+  assert.equal((await key(ui, body, 'Escape')).defaultPrevented, false);
+});
+
+for (const empty of ['Old', 'New']) {
+  test(`View full Go to line reports an empty ${empty} revision and can select its populated counterpart`, async t => {
+    const data = revision();
+    data[empty === 'Old' ? 'before' : 'after'] = '';
+    data.node.status = empty === 'Old' ? 'added' : 'removed';
+    data.node.patch = '';
+    const ui = fixture(t, data);
+    const body = await open(ui);
+    await key(ui, body, 'g', {ctrlKey: true});
+    const {bar, input} = controls(ui);
+    assert.equal(bar.hidden, false);
+    const revisions = bar.querySelector('.viewer-line-revision').querySelectorAll('button');
+    await revisions.find(button => button.textContent === empty).fire('click');
+    assert.equal(input.placeholder, 'Empty');
+    input.value = ':1';
+    await key(ui, input, 'Enter');
+    assert.equal(bar.querySelector('.viewer-line-status').textContent, 'This revision has no lines.');
+    assert.equal(input.getAttribute('aria-invalid'), 'true');
+    await revisions.find(button => button.textContent !== empty).fire('click');
+    assert.equal(input.value, ':1');
+    assert.equal(input.getAttribute('aria-invalid'), null);
+    await key(ui, input, 'Enter');
+    assert.equal(bar.hidden, true);
+    assert.equal(ui.viewer.open, true);
+  });
+}
+
+test('View full Go to line preserves native editing and rejects composing, repeated or modified shortcuts', async t => {
+  const ui = fixture(t);
+  const body = await open(ui);
+  const {bar} = controls(ui);
+  for (const tag of ['input', 'textarea', 'select', 'div']) {
+    const editor = ui.document.createElement(tag);
+    if (tag === 'div') editor.isContentEditable = true;
+    ui.document.body.append(editor);
+    editor.focus();
+    assert.equal((await key(ui, editor, 'g', {metaKey: true})).defaultPrevented, false);
+    assert.equal(bar.hidden, true);
+  }
+  body.focus();
+  for (const modifiers of [
+    {ctrlKey: true, isComposing: true},
+    {ctrlKey: true, altGraph: true},
+    {ctrlKey: true, altKey: true},
+    {ctrlKey: true, metaKey: true},
+    {ctrlKey: true, shiftKey: true},
+    {ctrlKey: true, repeat: true},
+    {ctrlKey: true, defaultPrevented: true},
+    {},
+  ]) {
+    const event = await key(ui, body, 'g', modifiers);
+    assert.equal(bar.hidden, true, JSON.stringify(modifiers));
+    assert.equal(event.propagationStopped, false);
+  }
+  await key(ui, body, 'g', {metaKey: true});
+  assert.equal(bar.hidden, false);
+  const {input} = controls(ui);
+  input.value = ':1';
+  assert.equal((await key(ui, input, 'Enter', {isComposing: true})).defaultPrevented, false);
+  assert.equal(bar.hidden, false);
+});
+
+test('View full Go to line cancels a yielding Find scan and disposes its revision controls', async t => {
+  const ui = fixture(t, revision({prefix: Array(600).fill('beacon'), suffix: ['tail']}));
+  const body = await open(ui);
+  await key(ui, body, 'f', {ctrlKey: true});
+  const {input, bar, count} = controls(ui);
+  input.value = 'beacon';
+  await input.fire('input');
+  t.mock.timers.tick(120);
+  assert.equal(count.textContent, 'Searching…');
+  await key(ui, input, 'g', {metaKey: true});
+  assert.equal(bar.getAttribute('aria-label'), 'Go to line');
+  await finish(ui, 1000);
+  assert.equal(input.value, ':');
+  assert.equal(body.querySelectorAll('.file-match').length, 0);
+  const old = bar.querySelector('.viewer-line-revision').querySelectorAll('button')[1];
+  ui.app.closeViewer();
+  await Promise.resolve();
+  assert.equal(old.listeners.get('click').length, 0);
+  assert.equal(input.listeners.get('input').length, 0);
+  await old.fire('click');
+  assert.equal(ui.viewer.querySelector('.viewer-find'), null);
+  assert.equal((await key(ui, body, 'g', {ctrlKey: true})).defaultPrevented, false);
+});
