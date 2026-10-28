@@ -216,6 +216,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
   const labels = el('div', {class: 'split-diff-labels'}, [el('span', {text: 'Old'}), el('span', {text: 'New'})]);
   const panes = el('div', {class: 'split-diff-panes'}, [oldPane, newPane]);
   const maxLength = rows.reduce((max, row) => Math.max(max, row.text.length), 0);
+  const lineSide = diff && !rows.some(row => row.newLine) ? 'oldLine' : 'newLine';
 
   /** Reads the visible position in canonical unified coordinates, independent of the current layout. */
   function readPosition() {
@@ -309,6 +310,15 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
     restorePosition({top: line * rowHeight, left: position.left});
   }
 
+  /** Reveals a one-based New source line, or an Old line when the file is deleted. */
+  function goToLine(line) {
+    if (!current()) return;
+    const index = Number.isSafeInteger(line) && line > 0 ? rows.findIndex(row => row[lineSide] === line) : -1;
+    if (index < 0) throw new Error(`Line ${line} does not exist in this file revision.`);
+    restorePosition({top: index * rowHeight, left: readPosition().left});
+    shell.onScroll?.();
+  }
+
   /** Reveals a search hit even when its row is not rendered, keeping split panes and tab metadata in sync. */
   function reveal(match) {
     restorePosition({top: match.row * rowHeight, left: readPosition().left});
@@ -332,6 +342,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
   shell.readPosition = readPosition;
   shell.restorePosition = restorePosition;
   shell.relayout = relayout;
+  shell.goToLine = goToLine;
   shell.body.replaceChildren(code);
   runWithOwner(shell.owner, () => {
     selection = createFileSelection(app, shell, rows, sources, current, draw, diff);

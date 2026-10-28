@@ -25,6 +25,7 @@ import {createView} from './sidebar/view.js';
 import {createState} from './state.js';
 import {createViewer} from './viewer/viewer.js';
 import {createFileTabs} from './viewer/file-tabs.js';
+import {createQuickOpen} from './quick-open.js';
 import {
   batch,
   catchError,
@@ -111,11 +112,13 @@ export function mount() {
           createViewer,
           createHeaderButtons,
           createFileTabs,
+          createQuickOpen,
         ]) {
           Object.assign(app, untrackActions(factory(app)));
         }
         const {run} = app;
         const {host, shadow, pageStyle, iconFonts, search, stylesheetLoaded} = app.view;
+        search.title = 'Search file paths in the sidebar · Quick Open files: Ctrl/Cmd+P';
         document.documentElement.append(host, pageStyle, iconFonts);
 
         // Global shortcuts are ignored while typing, composing text or using AltGr.

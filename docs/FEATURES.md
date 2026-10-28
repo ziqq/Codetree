@@ -54,6 +54,14 @@ Code workspaces share their open paths and active file across branches, but scro
 
 The broker keeps metadata in trusted session storage, isolated by browser tab, selected account, provider/host, repository and Code/review scope. It stores paths, the active path, an opaque page-route identity and scroll positions, never raw text or comments. Account changes reject stale saves. Metadata is excluded from browser Sync and clears on extension/browser restart. Bounds are 32 open paths, 256 positions, 50 scoped workspaces and 64 KiB per stored entry. This new beta workflow still needs installed-browser smoke verification; implementation does not establish live GitHub/GitLab behavior.
 
+## Quick Open
+
+**Ctrl/Cmd+P** opens a separate file palette with fuzzy matching over names and full paths in the current loaded file set. It includes ordinary files, excludes folders/submodules and exposes the loaded-only scope when lazy folders remain. Searching does not fetch or expand missing tree entries. With no query, it lists recent successfully opened files from the current scope. Query and recents are memory-only and reset on route, file mode or account changes; they add no stored metadata, Sync data or permissions.
+
+Use **Up/Down** to select a result, **Home/End** for the first/last result, **Enter** to open its inline tab, and **Escape** to close the palette. Ctrl/Cmd-click opens a result in a browser tab using the existing native-file navigation. A query such as `src/main.js:120` adds a one-based source-line target; ordinary files and diffs use New, while a removed file uses Old. Navigation reuses the existing file-tab and source-line paths, including their loading/error handling and position saves. Native editors retain their shortcuts.
+
+Quick Open searches file paths, **Ctrl/Cmd+F** searches literal text in the current file or diff, and **Ctrl/Cmd+G** navigates within that file. A colon remains literal in Ctrl/Cmd+F; `path:line` belongs to Quick Open and does not change the viewer's Find mode.
+
 ## Shared appearance and navigation
 
 - Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Codetree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.
