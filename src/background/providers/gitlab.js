@@ -229,10 +229,24 @@ async function diff(context, api, memo, fresh) {
     30000,
     async () => {
       const warnings = [];
-      const [changes, discussions] = await Promise.all([
+      const namespace = `${context.owner}/${context.repo}`;
+      const headProject = request.source_project_id || request.target_project_id;
+      // Resolve only fork namespaces, in parallel; lookup failure disables its link, not the preview.
+      const sourceProject =
+        headProject !== request.target_project_id && Number.isSafeInteger(headProject) && headProject > 0
+          ? api.json(`/projects/${headProject}`, 60000, fresh).catch(() => null)
+          : null;
+      const [changes, discussions, project] = await Promise.all([
         api.pages(`${path}/diffs`),
         readComments(`${path}/discussions`, api, warnings),
+        sourceProject,
       ]);
+      const headProjectPath =
+        headProject === request.target_project_id
+          ? namespace
+          : project?.id === headProject
+            ? project.path_with_namespace
+            : null;
       const latest = await api.json(path, 1000, true);
       if (latest.diff_refs?.head_sha !== refs.head_sha || latest.diff_refs?.base_sha !== refs.base_sha)
         throw new Error('The merge request changed while loading. Refresh to review the latest revision.');
@@ -249,8 +263,8 @@ async function diff(context, api, memo, fresh) {
         comments: comments(discussions, context),
         title: request.title,
         number: context.number,
-        base: {project: request.target_project_id, sha: refs.base_sha},
-        head: {project: request.source_project_id || request.target_project_id, sha: refs.head_sha},
+        base: {project: request.target_project_id, projectPath: namespace, sha: refs.base_sha},
+        head: {project: headProject, projectPath: headProjectPath, sha: refs.head_sha},
         warnings,
       };
     },
