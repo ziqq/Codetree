@@ -288,6 +288,18 @@ export function createFileTabs(app) {
     state.selected = node.path;
     renderTabs();
     await renderActiveFile();
+    if (epoch !== state.epoch || snapshot !== currentSnapshot || request !== opening || renderedPath !== node.path)
+      return;
+    if (node.line !== undefined) {
+      if (!contentReady || !shell?.goToLine)
+        throw new Error('This file has no available text preview for line navigation.');
+      shell.goToLine(node.line);
+    }
+  }
+
+  /** Focuses the current owned viewport after a file-opening dialog has closed. */
+  function focusFileTab() {
+    if (contentReady && shell?.body.isConnected && !host.hidden) shell.body.focus({preventScroll: true});
   }
 
   /** Restores the code workspace when a branch is selected from either Code or review pages. */
@@ -440,6 +452,7 @@ export function createFileTabs(app) {
         );
       unavailable.delete(path);
       contentReady = true;
+      app.rememberQuickOpenFile?.(path);
       const position = snapshot.value.positions.find(
         position => position.path === path && position.ref === positionRef,
       );
@@ -507,6 +520,7 @@ export function createFileTabs(app) {
   return {
     loadFileTabs,
     openFileTab,
+    focusFileTab,
     selectFileBranch,
     rememberFileTabs,
     suspendFileTabs,

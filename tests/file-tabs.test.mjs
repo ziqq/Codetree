@@ -1790,3 +1790,132 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 }
+
+/** Reflects browser dataset camel-casing for delegated source-line controls in this fixture only. */
+function installSelectionAttributes(document) {
+  const create = document.createElement.bind(document);
+  document.createElement = tag => {
+    const node = create(tag);
+    const attribute = node.setAttribute.bind(node);
+    node.setAttribute = (key, value) => {
+      attribute(key, value);
+      if (key.startsWith('data-'))
+        node.dataset[key.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = String(value);
+    };
+    return node;
+  };
+}
+
+/** Chooses a rendered source number through the owned viewport's delegated click handler. */
+async function selectSource(ui, body, side, line, shiftKey = false) {
+  const button = body
+    .querySelectorAll('button')
+    .find(node => node.getAttribute('aria-label') === `Select ${side ? side + ' ' : ''}line ${line}`);
+  assert.ok(button, `The active file exposes selectable ${side} line ${line}.`);
+  await body.fire('click', {target: button, shiftKey});
+  ui.clock.flush();
+}
+
+/** Reads selection controls by visible action names, requiring the capability on old checkouts too. */
+function selectionControls(scope) {
+  const group = scope.querySelector('.file-selection');
+  assert.ok(group, 'A loaded file exposes selection actions.');
+  return {
+    group,
+    label: group.querySelector('.file-selection-label'),
+    code: group.querySelectorAll('button').find(button => button.textContent === 'Copy code'),
+    link: group.querySelectorAll('button').find(button => button.textContent === 'Copy permalink'),
+    status: group.querySelector('[role="status"]'),
+  };
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} plain-file selection copies blank/tabbed lines and links to the loaded commit`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    installSelectionAttributes(ui.document);
+    const copied = [];
+    install(t, {
+      navigator: {
+        clipboard: {
+          writeText: async text => {
+            copied.push(text);
+          },
+        },
+      },
+    });
+    ui.app.fileReply = () => ['first', '\tselected source', '', 'last selected', longText].join('\n');
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    const selected = selectionControls(ui.workspace());
+    await selectSource(ui, ui.body(), '', 2);
+    await selectSource(ui, ui.body(), '', 4, true);
+    assert.equal(selected.label.textContent, 'Lines 2–4');
+    await selected.code.fire('click');
+    assert.equal(copied.at(-1), '\tselected source\n\nlast selected');
+    await selected.link.fire('click');
+    assert.equal(copied.at(-1), `${ui.blob(mainSHA, paths[0])}#L2-${provider === 'github' ? 'L' : ''}4`);
+    assert.doesNotMatch(JSON.stringify([...ui.metadata]), /selected source|last selected/);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} source selections stay independent in inline and View full and reset on file/PR changes`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    installSelectionAttributes(ui.document);
+    const copied = [];
+    install(t, {
+      navigator: {
+        clipboard: {
+          writeText: async text => {
+            copied.push(text);
+          },
+        },
+      },
+    });
+    await ui.navigate(ui.review(41));
+    // Changed lines are initially just below the virtual viewport's visible range.
+    await ui.scroll(20 * 22);
+    ui.clock.flush();
+    const inline = selectionControls(ui.workspace());
+    await selectSource(ui, ui.body(), 'Old', 21);
+    await selectSource(ui, ui.body(), 'Old', 23, true);
+    assert.equal(inline.label.textContent, 'Old · Lines 21–23');
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    const modalBody = modal.querySelector('.viewer-body');
+    const full = selectionControls(modal);
+    assert.equal(full.group.hidden, true);
+    modalBody.scrollTop = 20 * 22;
+    await modalBody.fire('scroll');
+    ui.clock.flush();
+    await selectSource(ui, modalBody, 'New', 21);
+    assert.equal(full.label.textContent, 'New · Line 21');
+    assert.equal(inline.label.textContent, 'Old · Lines 21–23');
+    await full.code.fire('click');
+    assert.equal(copied.at(-1), "const newOnly = 'search beacon';");
+    ui.app.closeViewer();
+    await inline.code.fire('click');
+    assert.equal(
+      copied.at(-1),
+      "const oldOnly = 'search beacon';\nconst oldPair = 'old branch';\nconst removedOnly = 'gone';",
+    );
+    const count = copied.length;
+    await full.code.fire('click');
+    assert.equal(copied.length, count, 'Disposed View full actions cannot write.');
+    await ui.open(paths[1]);
+    assert.equal(inline.group.isConnected, false);
+    assert.equal(selectionControls(ui.workspace()).group.hidden, true);
+    await inline.code.fire('click');
+    assert.equal(copied.length, count);
+    await ui.open(paths[0]);
+    assert.equal(selectionControls(ui.workspace()).group.hidden, true, 'Selection is not restored as tab metadata.');
+    await selectSource(ui, ui.body(), 'New', 21);
+    const previous = selectionControls(ui.workspace());
+    await ui.navigate(ui.review(42));
+    assert.equal(previous.group.isConnected, false);
+    assert.equal(selectionControls(ui.workspace()).group.hidden, true);
+    await previous.code.fire('click');
+    assert.equal(copied.length, count);
+    assert.deepEqual(ui.errors, []);
+  });
+}

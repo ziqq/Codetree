@@ -59,14 +59,17 @@ Click a tree file to open it in Codetree's in-page workspace; clicking it again 
 
 Switching branches keeps Code's open paths and active file while loading the selected branch; each branch has separate scroll positions. A missing file stays open with Retry and, when available, an action to open it on the default branch. Each PR, MR and commit has a separate workspace; returning restores its tabs and positions. Selecting a branch from a review exits to Code and restores Code's workspace. Reloading the same native route preserves the selected inline tab; navigating to another native file selects that file.
 
+Use **Ctrl/Cmd+P** to open **Quick Open**, a separate palette for finding a file by its name or path with fuzzy matching. Search covers the current loaded file set; a notice identifies lazy folders that have not been loaded, and folders/submodules are not results. An empty query shows recently opened files. **Up/Down** selects a result, **Home/End** selects the first/last result, **Enter** opens an inline file tab, and **Escape** closes the palette. Ctrl/Cmd-click opens the result in a new browser tab. Append a source line, such as `src/main.js:120`, to open that file at line 120; diffs use New, or Old for a removed file. Query and recent-file state stay in page memory and reset when the route, file mode or account changes. Native editors retain their normal shortcuts.
+
 Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without case sensitivity in the open file or diff. The search covers the complete loaded text, including virtualized rows. **Enter / Shift+Enter** and the arrow buttons cycle through matches; **Escape** closes search before closing View full. Diff search includes old and new lines, counting shared context once. Tabs and View full have separate searches, cleared when their file changes; queries stay in page memory. At most 10,000 matches are listed, with a `+` count when more exist. Native text editors keep their normal find shortcut.
 
-Search and source-line navigation use the **same field**, with an explicit mode selected by the shortcut:
+Viewer text search and source-line navigation use the **same field**; Quick Open has a separate file palette:
 
 | Shortcut and input | Result |
 | --- | --- |
 | **Ctrl/Cmd+F**, then `:223` | Find the literal text `:223` in the current file or diff. The colon does not change the search mode. |
 | **Ctrl/Cmd+G**, then append `223` to the prefilled `:` and press **Enter** | Go to source line 223. |
+| **Ctrl/Cmd+P**, then `src/main.js:120` and **Enter** | Find the file and open its inline tab at source line 120. |
 
 Line mode is labeled **Line**. In diffs it also shows **New** (the default) and **Old**, including removed lines. **Enter** reveals the line and closes the field; **Escape** closes it without moving. Switching back with **Ctrl/Cmd+F** restores the previous text query. Invalid numbers show the selected revision's valid range, and empty revisions are identified explicitly. This works in file tabs and **View full**, in Unified and Side-by-side, and uses the existing tab-position persistence. Native text editors retain their shortcuts.
 
@@ -84,6 +87,7 @@ Workspace metadata belongs to the current browser tab, selected account, host an
 | `Shift+S` | Open the sidebar and focus search |
 | `Ctrl/Cmd+F` | Open the viewer's shared field in literal text-search mode |
 | `Ctrl/Cmd+G` | Open the same viewer field in line mode, prefilled with `:` |
+| `Ctrl/Cmd+P` | Open Quick Open to find a loaded file, optionally with `path:line` |
 | Arrow keys | Navigate and expand/collapse rows |
 | `Enter` | Open a file or toggle a folder |
 
