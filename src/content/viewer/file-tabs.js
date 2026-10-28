@@ -18,6 +18,7 @@ import {listen} from '../reactive-dom.js';
 import {diffNode} from './viewer.js';
 import {renderDiffFile, renderTextFile} from './file-content.js';
 import {createFileReview} from './file-review.js';
+import {createTabMenu} from './tab-menu.js';
 
 /** Creates the inline workspace and its navigation, persistence and theme actions. */
 export function createFileTabs(app) {
@@ -34,7 +35,14 @@ export function createFileTabs(app) {
     tabs,
     el('div', {class: 'viewer-header'}, [el('div', {class: 'viewer-heading'}, [heading, revision]), actions]),
   ]);
+  const reopen = el('button', {type: 'button', class: 'small-button', text: 'Reopen closed file'});
+  const recovery = el('div', {class: 'file-tab-recovery', hidden: ''}, [
+    el('span', {class: 'file-tab-recovery-label', text: 'All file tabs closed'}),
+    reopen,
+  ]);
+  frame.append(recovery);
   shadow.append(frame);
+  const menu = createTabMenu(shadow);
   let sheet;
   let stylesheetLoaded;
   let resolveStyles;
@@ -49,6 +57,9 @@ export function createFileTabs(app) {
   let saveTimer;
   let positionRef = '';
   let renderedPath = '';
+  let closed = [];
+  let changes = Promise.resolve();
+  let drag;
   const tabControls = new Map();
   const unavailable = new Set();
 
@@ -87,7 +98,7 @@ export function createFileTabs(app) {
 
   /** Idempotently reattaches our own host after a provider replaces its main container. */
   function mountFileTabs() {
-    if (!snapshot || !snapshot.value.paths.length || !state.context) return;
+    if (!snapshot || (!snapshot.value.paths.length && !closed.length) || !state.context) return;
     if (location.href !== app.lastURL) {
       capturePosition();
       contentReady = false;
@@ -149,6 +160,12 @@ export function createFileTabs(app) {
     for (const node of Array.from(frame.children))
       if (node.classList.contains('viewer-body') || node.classList.contains('viewer-bottom')) node.remove();
     snapshot = null;
+    // Old-scope writes may finish, but they must not hold the new workspace's operation queue.
+    pendingOpen = null;
+    changes = Promise.resolve();
+    closed = [];
+    clearDrag();
+    menu.close();
     waitingForMount = false;
     unavailable.clear();
     resolveStyles?.();
@@ -160,12 +177,14 @@ export function createFileTabs(app) {
   /** Renders open-path controls; missing files remain closable and keyboard-accessible. */
   function renderTabs() {
     const focused = shadow.activeElement?.closest('.file-tab')?.dataset.path;
+    const recoveryFocused = shadow.activeElement === reopen;
     tabs.replaceChildren();
     tabControls.clear();
     for (const path of snapshot?.value.paths || []) {
       const selected = path === snapshot.value.active;
       const tab = el('div', {
         'data-path': path,
+        draggable: 'true',
         class: `file-tab${selected ? ' active' : ''}${unavailable.has(path) ? ' unavailable' : ''}`,
       });
       const control = el('button', {
@@ -212,38 +231,186 @@ export function createFileTabs(app) {
       );
       tabs.append(tab);
     }
-    if (focused) (tabControls.get(focused) || tabControls.get(snapshot?.value.active))?.focus();
-    host.hidden = !snapshot?.value.paths.length;
+    const empty = !snapshot?.value.paths.length;
+    recovery.hidden = !empty || !closed.length;
+    frame.classList.toggle('file-workspace-empty', empty);
+    tabs.hidden = empty;
+    frame.querySelector('.viewer-header').hidden = empty;
+    host.hidden = empty && !closed.length;
     host.style.display = host.hidden ? 'none' : 'block';
     updateFileTabTheme();
     mountFileTabs();
+    if (focused || recoveryFocused)
+      (
+        tabControls.get(focused) ||
+        tabControls.get(snapshot?.value.active) ||
+        (!recovery.hidden ? reopen : null)
+      )?.focus({preventScroll: true});
   }
 
-  /** Closes one path, choosing its adjacent tab and releasing its saved positions. */
-  async function closeFileTab(path) {
-    if (!snapshot) return;
-    const currentSnapshot = snapshot;
-    const epoch = state.epoch;
-    capturePosition();
-    const value = snapshot.value;
-    const index = value.paths.indexOf(path);
-    const wasActive = value.active === path;
-    value.paths = value.paths.filter(item => item !== path);
-    value.positions = value.positions.filter(position => position.path !== path);
-    if (wasActive) {
-      generation++;
-      disposeContent?.();
-      disposeContent = null;
-      shell = null;
-      contentReady = false;
-      for (const node of Array.from(frame.children))
-        if (node.classList.contains('viewer-body') || node.classList.contains('viewer-bottom')) node.remove();
-      value.active = value.paths[Math.min(index, value.paths.length - 1)] || '';
+  /** Bounds closed-path history and the total revision-position metadata it retains. */
+  function boundClosed(history) {
+    const bounded = history.slice(-maxFileTabs).map(item => ({...item}));
+    let remaining = maxFileTabPositions;
+    for (let index = bounded.length - 1; index >= 0; index--) {
+      bounded[index].positions = remaining ? bounded[index].positions.slice(-remaining) : [];
+      remaining -= bounded[index].positions.length;
     }
-    await rememberFileTabs();
-    if (snapshot !== currentSnapshot || epoch !== state.epoch) return;
-    renderTabs();
-    if (wasActive && value.active) await renderActiveFile();
+    return bounded;
+  }
+
+  /** Computes a complete metadata change without publishing tabs or discarding the current viewport. */
+  function tabChange(kind, path, target, after, value) {
+    const paths = [...value.paths];
+    if (kind === 'reorder') {
+      if (!paths.includes(path) || !paths.includes(target) || path === target) return null;
+      paths.splice(paths.indexOf(path), 1);
+      paths.splice(paths.indexOf(target) + (after ? 1 : 0), 0, path);
+      if (paths.every((path, index) => path === value.paths[index])) return null;
+      return {value: {...value, paths}, closed};
+    }
+    if (kind === 'reopen') {
+      const item = closed.at(-1);
+      if (!item) return null;
+      if (paths.length >= maxFileTabs)
+        throw new Error(`Close a file tab before opening another (maximum ${maxFileTabs}).`);
+      if (paths.includes(item.path)) return null;
+      // Neighbour anchors restore reverse batch closes to their original order, even from an empty strip.
+      const right = paths.indexOf(item.right);
+      const left = paths.indexOf(item.left);
+      const index = right >= 0 ? right : left >= 0 ? left + 1 : Math.min(item.index, paths.length);
+      paths.splice(index, 0, item.path);
+      return {
+        value: {
+          ...value,
+          paths,
+          active: item.path,
+          positions: [...value.positions, ...item.positions].slice(-maxFileTabPositions),
+        },
+        closed: closed.filter(record => record.path !== item.path),
+      };
+    }
+    if (!paths.includes(path) && kind !== 'all') return null;
+    const index = paths.indexOf(path);
+    const removed = paths.filter(
+      (item, offset) =>
+        kind === 'all' || (kind === 'others' ? item !== path : kind === 'right' ? offset > index : item === path),
+    );
+    if (!removed.length) return null;
+    const kept = paths.filter(item => !removed.includes(item));
+    const history = closed.filter(item => !removed.includes(item.path));
+    for (const removedPath of removed) {
+      const index = paths.indexOf(removedPath);
+      history.push({
+        path: removedPath,
+        index,
+        left: paths[index - 1],
+        right: paths[index + 1],
+        positions: value.positions.filter(position => position.path === removedPath),
+      });
+    }
+    const active = kept.includes(value.active)
+      ? value.active
+      : kept[Math.min(paths.indexOf(value.active), kept.length - 1)] || '';
+    return {
+      value: {
+        ...value,
+        paths: kept,
+        active,
+        positions: value.positions.filter(position => kept.includes(position.path)),
+      },
+      closed: boundClosed(history),
+    };
+  }
+
+  /** Serializes tab-management saves after existing opens and publishes only the same current intent. */
+  function changeTabs(kind, path, target, after = false) {
+    const saved = snapshot;
+    const epoch = state.epoch;
+    const intent = opening;
+    const task = changes
+      .catch(() => {})
+      .then(async () => {
+        while (pendingOpen && snapshot === saved) await pendingOpen;
+        if (!saved || snapshot !== saved || epoch !== state.epoch || intent !== opening) return;
+        clearTimeout(saveTimer);
+        capturePosition();
+        const previous = saved.value;
+        const next = tabChange(kind, path, target, after, previous);
+        if (!next) return;
+        let release;
+        const pending = new Promise(resolve => {
+          release = resolve;
+        });
+        pendingOpen = pending;
+        try {
+          await app.rpc('FILE_TABS', {...saved, value: structuredClone(next.value)});
+          if (snapshot !== saved || epoch !== state.epoch || intent !== opening || saved.value !== previous) return;
+          capturePosition();
+          const latest = tabChange(kind, path, target, after, previous);
+          if (!latest) return;
+          saved.value = latest.value;
+          closed = latest.closed;
+        } finally {
+          if (pendingOpen === pending) pendingOpen = null;
+          release();
+        }
+        menu.close();
+        const activeChanged = previous.active !== saved.value.active;
+        if (activeChanged) {
+          generation++;
+          disposeContent?.();
+          disposeContent = null;
+          shell = null;
+          contentReady = false;
+          for (const node of Array.from(frame.children))
+            if (node.classList.contains('viewer-body') || node.classList.contains('viewer-bottom')) node.remove();
+        }
+        renderTabs();
+        return {rendering: activeChanged && saved.value.active ? renderActiveFile() : undefined};
+      });
+    // Queue metadata transactions only; a slow FILE response must not block a later close/drop.
+    changes = task.then(
+      () => {},
+      () => {},
+    );
+    return task.then(result => result?.rendering);
+  }
+
+  /** Closes one file through the same save-before-publication path as batch tab actions. */
+  function closeFileTab(path) {
+    return changeTabs('close', path);
+  }
+
+  /** Clears native drag feedback without retaining a tab from an older render or page. */
+  function clearDrag() {
+    drag = null;
+    for (const tab of Array.from(tabs.children)) {
+      tab.removeAttribute('data-drag-position');
+      tab.classList.toggle('dragging', false);
+    }
+  }
+
+  /** Opens actions for the chosen tab without changing the active file. */
+  function openTabMenu(path, x, y) {
+    const saved = snapshot;
+    const paths = saved?.value.paths || [];
+    if (!paths.includes(path)) return;
+    clearDrag();
+    menu.open(
+      [
+        {id: 'others', label: 'Close others', disabled: paths.length < 2},
+        {id: 'right', label: 'Close right', disabled: paths.indexOf(path) === paths.length - 1},
+        {id: 'all', label: 'Close all'},
+        {id: 'reopen', label: 'Reopen closed file', disabled: !closed.length},
+      ],
+      run(async action => {
+        if (snapshot === saved) await changeTabs(action, path);
+      }),
+      tabControls.get(path),
+      x,
+      y,
+    );
   }
 
   /** Opens or focuses a path without changing the provider URL or hijacking modified browser clicks. */
@@ -281,6 +448,7 @@ export function createFileTabs(app) {
       )
         return;
       snapshot.value = {...value, positions: previous.positions};
+      closed = closed.filter(item => item.path !== node.path);
     } finally {
       if (pendingOpen === pending) pendingOpen = null;
       completeOpen();
@@ -333,6 +501,9 @@ export function createFileTabs(app) {
     const page = JSON.stringify([context.kind, info.ref, info.path || '']);
     const samePage = value.page === page;
     const firstVisit = !value.page;
+    closed = [];
+    menu.close();
+    clearDrag();
     snapshot = {
       context,
       scope,
@@ -514,6 +685,69 @@ export function createFileTabs(app) {
     }
   }
 
+  listen(
+    reopen,
+    'click',
+    run(() => changeTabs('reopen')),
+  );
+  listen(tabs, 'contextmenu', event => {
+    const tab = event.target.closest?.('.file-tab');
+    if (!tab || !tabs.contains(tab)) return;
+    event.preventDefault();
+    openTabMenu(tab.dataset.path, event.clientX, event.clientY);
+  });
+  listen(tabs, 'keydown', event => {
+    if (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey)) return;
+    const tab = event.target.closest?.('.file-tab');
+    if (!tab || !tabs.contains(tab) || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openTabMenu(tab.dataset.path);
+  });
+  listen(tabs, 'dragstart', event => {
+    const tab = event.target.closest?.('.file-tab');
+    if (!tab || !tabs.contains(tab) || event.target.closest?.('.file-tab-close')) {
+      event.preventDefault();
+      return;
+    }
+    clearDrag();
+    menu.close();
+    drag = {path: tab.dataset.path, snapshot};
+    tab.classList.add('dragging');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', drag.path);
+    }
+  });
+  listen(tabs, 'dragover', event => {
+    const tab = event.target.closest?.('.file-tab');
+    if (!drag || drag.snapshot !== snapshot) return;
+    if (!tab || !tabs.contains(tab) || tab.dataset.path === drag.path) {
+      drag.target = undefined;
+      for (const item of Array.from(tabs.children)) item.removeAttribute('data-drag-position');
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const bounds = tab.getBoundingClientRect?.() || {left: 0, width: 100};
+    drag.target = tab.dataset.path;
+    drag.after = event.clientX >= bounds.left + bounds.width / 2;
+    for (const item of Array.from(tabs.children)) item.removeAttribute('data-drag-position');
+    tab.setAttribute('data-drag-position', drag.after ? 'after' : 'before');
+  });
+  listen(tabs, 'drop', event => {
+    const tab = event.target.closest?.('.file-tab');
+    if (!drag || drag.snapshot !== snapshot || !drag.target || tab?.dataset.path !== drag.target) {
+      clearDrag();
+      return;
+    }
+    event.preventDefault();
+    const {path, target, after} = drag;
+    clearDrag();
+    return run(() => changeTabs('reorder', path, target, after))();
+  });
+  listen(window, 'dragend', clearDrag);
+  listen(window, 'resize', clearDrag);
   // Last-chance metadata only; never wait for a response during document teardown.
   listen(window, 'pagehide', () => rememberFileTabs().catch(() => {}));
   onCleanup(suspendFileTabs);

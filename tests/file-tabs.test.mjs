@@ -26,7 +26,10 @@ const modulePath = join(directory, 'content.mjs');
 // must fail the visible behavior assertions, rather than fail an absent import.
 await writeFile(
   modulePath,
-  await bundle({fileTabs: existsSync(new URL('../src/content/viewer/file-tabs.js', import.meta.url))}),
+  await bundle({
+    fileTabs: existsSync(new URL('../src/content/viewer/file-tabs.js', import.meta.url)),
+    quickOpen: true,
+  }),
 );
 const content = await import(pathToFileURL(modulePath));
 await rm(directory, {recursive: true, force: true});
@@ -55,7 +58,7 @@ async function turn() {
 }
 
 /** Composes real navigation, tree, branch and workspace factories around a metadata-only RPC fixture. */
-function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
+function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpen = false} = {}) {
   const {document, window} = dom();
   if (reviewDiff || search) installDiffViewport(document);
   if (search) installViewerSearchDOM(document);
@@ -199,18 +202,20 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
       return controlled === undefined ? {state: message.viewed ? 'VIEWED' : 'UNVIEWED', mode: review.mode} : controlled;
     }
     if (type === 'FILE_TABS') {
+      const accountID = app.fileTabsAccount || '';
       const key = JSON.stringify([
         context.origin,
         context.owner,
         context.repo,
         message.scope,
-        message.scope === 'review' ? context.number : '',
+        message.scope === 'review' ? (context.number ?? context.sha) : '',
+        accountID,
       ]);
       if (message.value) {
         if (app.fileTabsReply) await app.fileTabsReply(message, context);
         metadata.set(key, structuredClone(message.value));
       }
-      return {...structuredClone(metadata.get(key) || {paths: [], active: '', positions: [], page: ''}), accountID: ''};
+      return {...structuredClone(metadata.get(key) || {paths: [], active: '', positions: [], page: ''}), accountID};
     }
     if (type === 'FILE') {
       files.push({...message, context});
@@ -261,6 +266,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
         content.createNavigation,
         ...(reviewDiff || search ? [content.createViewer] : []),
         content.createFileTabs,
+        ...(quickOpen ? [content.createQuickOpen] : []),
       ].filter(Boolean))
         Object.assign(app, untrackActions(factory(app)));
       app.view.body.append(app.view.spacer);
@@ -516,7 +522,8 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(ui.body().scrollLeft, 65);
     await ui.branch('feature');
     await ui.close(paths[2]);
-    assert.equal(globalThis.document.getElementById('codetree-file-workspace').hidden, true);
+    assert.equal(globalThis.document.getElementById('codetree-file-workspace').hidden, false);
+    assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
     assert.deepEqual(ui.errors, []);
   });
 
@@ -1916,6 +1923,506 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(selectionControls(ui.workspace()).group.hidden, true);
     await previous.code.fire('click');
     assert.equal(copied.length, count);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+/** Returns a visible tab through its path, without relying on workspace metadata internals. */
+function managedTab(ui, path) {
+  const tab = ui
+    .workspace()
+    .querySelectorAll('.file-tab')
+    .find(node => node.dataset.path === path);
+  assert.ok(tab, `Expected open tab ${path}`);
+  return tab;
+}
+
+/** Preserves browser cancellation on the fixture's copied event so later capture listeners observe it. */
+function tabMenuKey(target, key) {
+  const event = keyEvent(target, key);
+  const cancel = event.preventDefault;
+  event.preventDefault = function () {
+    this.defaultPrevented = true;
+    cancel();
+  };
+  return event;
+}
+
+/** Delivers native drag events to the owned strip and verifies its public insertion marker. */
+async function reorderTab(ui, path, target, after = false) {
+  const strip = ui.workspace().querySelector('.file-tabs');
+  const source = managedTab(ui, path);
+  const destination = managedTab(ui, target);
+  assert.equal(source.getAttribute('draggable'), 'true', 'Open tabs expose native drag reordering.');
+  destination.getBoundingClientRect = () => ({left: 100, width: 100, bottom: 30});
+  const dataTransfer = {setData() {}};
+  await strip.fire('dragstart', {target: source, dataTransfer});
+  await strip.fire('dragover', {target: destination, clientX: after ? 190 : 110, dataTransfer});
+  assert.equal(destination.getAttribute('data-drag-position'), after ? 'after' : 'before');
+  await ui.settle(strip.fire('drop', {target: destination, dataTransfer}));
+  assert.equal(destination.getAttribute('data-drag-position'), null);
+}
+
+/** Opens the actual menu by pointer or keyboard and exposes its labelled items. */
+async function tabMenu(ui, path, keyboard = false) {
+  const strip = ui.workspace().querySelector('.file-tabs');
+  const tab = managedTab(ui, path);
+  const name = tab.querySelector('.file-tab-name');
+  name.focus();
+  await strip.fire(
+    keyboard ? 'keydown' : 'contextmenu',
+    keyboard ? {target: name, key: 'F10', shiftKey: true} : {target: name, clientX: 1000, clientY: 760},
+  );
+  const menu = ui.workspace().querySelector('[role="menu"]');
+  assert.ok(menu && !menu.hidden, 'File tabs expose their owned context menu.');
+  return menu;
+}
+
+/** Invokes a labelled menu action, waiting for its save and any resulting file render. */
+async function tabAction(ui, path, label) {
+  const menu = await tabMenu(ui, path);
+  const item = menu.querySelectorAll('[role="menuitem"]').find(node => node.textContent === label);
+  assert.ok(item && !item.disabled, `Expected enabled ${label} tab action`);
+  await ui.settle(menu.fire('click', {target: item}));
+}
+
+/** Uses the recovery action after the strip has intentionally become empty. */
+async function recoverTab(ui) {
+  const recovery = ui.workspace().querySelector('.file-tab-recovery');
+  assert.ok(recovery && !recovery.hidden, 'All-closed workspaces retain a compact recovery action.');
+  const button = recovery.querySelector('button');
+  assert.equal(button.textContent, 'Reopen closed file');
+  button.focus();
+  await ui.settle(button.fire('click'));
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} tab management drag preserves active source/search and persists Code and review order`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    await ui.navigate(ui.root);
+    for (const path of paths) await ui.open(path);
+    await ui.open(paths[0]);
+    const find = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, find, 'line150');
+    const body = ui.body();
+    const top = body.scrollTop;
+    const requests = ui.files.length;
+    await reorderTab(ui, paths[2], paths[0]);
+    assert.deepEqual(ui.selection(), {paths: [paths[2], paths[0], paths[1]], active: paths[0]});
+    assert.equal(ui.body(), body, 'Reordering retains the owned viewport.');
+    assert.equal(find.input.value, 'line150');
+    assert.equal(find.count.textContent, '1 / 1');
+    assert.equal(body.scrollTop, top);
+    assert.equal(ui.files.length, requests, 'Reordering does not fetch file contents.');
+    await ui.branch('feature');
+    assert.deepEqual(ui.selection().paths, [paths[2], paths[0], paths[1]]);
+    await ui.branch('main');
+    assert.equal(ui.body().scrollTop, top);
+    await ui.reload();
+    assert.deepEqual(ui.selection().paths, [paths[2], paths[0], paths[1]]);
+    await ui.navigate(ui.review(41));
+    await ui.open(paths[1]);
+    await reorderTab(ui, paths[0], paths[1], true);
+    assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
+    await ui.navigate(ui.review(42));
+    assert.deepEqual(ui.selection().paths, [paths[0]]);
+    await ui.navigate(ui.review(41));
+    assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management bulk close and reopen restore visual slots and saved positions`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    ui.app.fileReply = () =>
+      longText
+        .split('\n')
+        .map(line => line + ' '.repeat(150))
+        .join('\n');
+    await ui.navigate(ui.root);
+    for (const [index, path] of paths.entries()) {
+      await ui.open(path);
+      await ui.scroll((index + 1) * 440, 25 * index);
+    }
+    await tabAction(ui, paths[0], 'Close right');
+    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
+    await tabAction(ui, paths[0], 'Reopen closed file');
+    assert.deepEqual(ui.selection(), {paths: [paths[0], paths[2]], active: paths[2]});
+    assert.equal(ui.body().scrollTop, 1320);
+    assert.equal(ui.body().scrollLeft, 50);
+    await tabAction(ui, paths[2], 'Reopen closed file');
+    assert.deepEqual(ui.selection(), {paths, active: paths[1]});
+    assert.equal(ui.body().scrollTop, 880);
+    await tabAction(ui, paths[1], 'Close others');
+    assert.deepEqual(ui.selection(), {paths: [paths[1]], active: paths[1]});
+    await tabAction(ui, paths[1], 'Close all');
+    const recovery = ui.workspace().querySelector('.file-tab-recovery');
+    assert.equal(recovery.hidden, false);
+    assert.equal(ui.workspace().querySelector('.file-tab-body'), null);
+    await recoverTab(ui);
+    assert.equal(ui.selection().active, paths[1]);
+    assert.equal(ui.body().scrollTop, 880);
+    await tabAction(ui, paths[1], 'Reopen closed file');
+    await tabAction(ui, paths[2], 'Reopen closed file');
+    assert.deepEqual(ui.selection().paths, paths);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management all-closed recovery survives main replacement but resets after navigation and reload`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await tabAction(ui, paths[0], 'Close all');
+    ui.replaceMain();
+    await ui.drain();
+    assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
+    await recoverTab(ui);
+    assert.equal(ui.selection().active, paths[0]);
+    await tabAction(ui, paths[0], 'Close all');
+    await ui.reload();
+    const host = ui.document.getElementById('codetree-file-workspace');
+    assert.ok(!host || host.hidden, 'Closed history is not persisted across page reload.');
+    await ui.open(paths[0]);
+    const menu = await tabMenu(ui, paths[0]);
+    assert.equal(
+      menu.querySelectorAll('button').find(node => node.textContent === 'Reopen closed file').disabled,
+      true,
+    );
+    await ui.close(paths[0]);
+    await ui.navigate(ui.review(41));
+    const reviewMenu = await tabMenu(ui, paths[0]);
+    assert.equal(
+      reviewMenu.querySelectorAll('button').find(node => node.textContent === 'Reopen closed file').disabled,
+      true,
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management menu keyboard clamps, takes Escape priority and retains focus through recovery`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[1]);
+    const find = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, find, 'line15');
+    ui.workspace().querySelector('[role="menu"]').getBoundingClientRect = () => ({width: 220, height: 140});
+    let menu = await tabMenu(ui, paths[0], true);
+    const event = tabMenuKey(ui.document.activeElement, 'Escape');
+    await ui.window.fire('keydown', event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(menu.hidden, true);
+    assert.equal(find.bar.hidden, false, 'The tab menu consumes Escape before viewer Find.');
+    assert.equal(ui.document.activeElement.getAttribute('aria-label'), paths[0]);
+    menu = await tabMenu(ui, paths[0]);
+    assert.ok(Number.parseFloat(menu.style.left) <= 796);
+    assert.ok(Number.parseFloat(menu.style.top) <= 620);
+    await ui.window.fire('keydown', keyEvent(ui.document.activeElement, 'End'));
+    assert.equal(ui.document.activeElement.textContent, 'Close all', 'Keyboard navigation skips disabled Reopen.');
+    await ui.settle(ui.window.fire('keydown', keyEvent(ui.document.activeElement, 'Enter')));
+    assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
+    assert.equal(ui.document.activeElement.textContent, 'Reopen closed file');
+    await recoverTab(ui);
+    assert.equal(ui.document.activeElement.getAttribute('aria-label'), paths[1]);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management metadata failures preserve viewport, tabs and retryable closed history`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    await ui.navigate(ui.root);
+    for (const path of paths) await ui.open(path);
+    const body = ui.body();
+    await ui.scroll(990, 30);
+    const before = ui.selection();
+    ui.app.fileTabsReply = async () => {
+      throw new Error('Tab save failed');
+    };
+    await reorderTab(ui, paths[2], paths[0]);
+    assert.deepEqual(ui.selection(), before);
+    assert.equal(ui.body(), body);
+    await tabAction(ui, paths[1], 'Close all');
+    assert.deepEqual(ui.selection(), before);
+    assert.equal(ui.body(), body);
+    assert.equal(body.scrollTop, 990);
+    ui.app.fileTabsReply = undefined;
+    await ui.close(paths[2]);
+    ui.app.fileTabsReply = async () => {
+      throw new Error('Reopen save failed');
+    };
+    await tabAction(ui, paths[0], 'Reopen closed file');
+    assert.deepEqual(ui.selection().paths, paths.slice(0, 2));
+    ui.app.fileTabsReply = undefined;
+    await tabAction(ui, paths[0], 'Reopen closed file');
+    assert.equal(ui.selection().active, paths[2]);
+    assert.equal(ui.body().scrollTop, 990);
+    assert.deepEqual(ui.errors, ['Tab save failed', 'Tab save failed', 'Reopen save failed']);
+  });
+
+  test(`${provider} tab management waits for a pending open and cannot override newer file intent`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[1]);
+    const gate = deferred();
+    let blocked = true;
+    ui.app.fileTabsReply = message => {
+      if (blocked && message.value.active === paths[2]) {
+        blocked = false;
+        return gate.promise;
+      }
+    };
+    const opening = ui.app.openFileTab({path: paths[2]});
+    await ui.drain(2);
+    const menu = await tabMenu(ui, paths[0]);
+    const closing = menu.fire('click', {
+      target: menu.querySelectorAll('button').find(node => node.textContent === 'Close others'),
+    });
+    await ui.drain(2);
+    gate.resolve();
+    await ui.settle(Promise.all([opening, closing]));
+    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
+    const stale = deferred();
+    blocked = true;
+    ui.app.fileTabsReply = message => {
+      if (blocked && !message.value.paths.length) {
+        blocked = false;
+        return stale.promise;
+      }
+    };
+    const allMenu = await tabMenu(ui, paths[0]);
+    const closeAll = allMenu.fire('click', {
+      target: allMenu.querySelectorAll('button').find(node => node.textContent === 'Close all'),
+    });
+    await ui.drain(2);
+    await ui.open(paths[1]);
+    stale.resolve();
+    await ui.settle(closeAll);
+    assert.equal(ui.selection().active, paths[1]);
+    assert.deepEqual(ui.selection().paths, paths.slice(0, 2));
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management drops stale menu and drag state on navigation and disposal`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[1]);
+    const menu = await tabMenu(ui, paths[0]);
+    const old = menu.querySelectorAll('button').find(node => node.textContent === 'Close all');
+    await ui.navigate(ui.review(41));
+    assert.equal(menu.hidden, true);
+    await menu.fire('click', {target: old});
+    assert.deepEqual(ui.selection().paths, [paths[0]]);
+    const strip = ui.workspace().querySelector('.file-tabs');
+    const tab = managedTab(ui, paths[0]);
+    await strip.fire('dragstart', {target: tab});
+    await ui.window.fire('dragend');
+    assert.equal(tab.classList.contains('dragging'), false);
+    ui.app.dispose();
+    assert.equal(strip.listeners.get('drop').length, 0);
+    assert.equal(menu.listeners.get('click').length, 0);
+    assert.equal(ui.window.listeners.get('dragend').length, 0);
+    assert.equal(ui.window.listeners.get('keydown')?.length || 0, 0);
+  });
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} tab management close can supersede a slow replacement file render`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    for (const path of paths) await ui.open(path);
+    const gate = deferred();
+    ui.app.fileReply = message => (message.path === paths[1] ? gate.promise : undefined);
+    const menu = await tabMenu(ui, paths[1]);
+    const replacing = menu.fire('click', {
+      target: menu.querySelectorAll('button').find(node => node.textContent === 'Close others'),
+    });
+    await ui.drain(3);
+    assert.deepEqual(ui.selection(), {paths: [paths[1]], active: paths[1]});
+    await tabAction(ui, paths[1], 'Close all');
+    assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
+    gate.resolve(longText);
+    await ui.settle(replacing);
+    assert.deepEqual(ui.selection().paths, []);
+    assert.equal(
+      ui.workspace().querySelector('.file-tab-body'),
+      null,
+      'The late render cannot resurrect a closed file.',
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management reorder preserves an in-flight Quick Open source-line intent`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[2]);
+    const gate = deferred();
+    ui.app.fileReply = message => (message.path === paths[1] ? gate.promise : undefined);
+    const opening = ui.app.openFileTab({path: paths[1], line: 180});
+    await ui.drain(3);
+    await reorderTab(ui, paths[2], paths[0]);
+    assert.deepEqual(ui.selection().paths, [paths[2], paths[0], paths[1]]);
+    gate.resolve(longText);
+    await ui.settle(opening);
+    assert.equal(ui.selection().active, paths[1]);
+    assert.equal(ui.body().scrollTop, 179 * 22);
+    assert.equal(ui.files.length, 3, 'Drop reuses the already-started file request.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management closed history is bounded and ordinary reopen removes duplicates`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    const closedPaths = Array.from({length: 34}, (_, index) => `src/closed-${index}.js`);
+    for (const path of closedPaths) {
+      await ui.settle(ui.app.openFileTab({path}));
+      await ui.close(path);
+    }
+    await recoverTab(ui);
+    assert.equal(ui.selection().active, closedPaths.at(-1));
+    await ui.settle(ui.app.openFileTab({path: closedPaths.at(-2)}));
+    await tabAction(ui, closedPaths.at(-1), 'Reopen closed file');
+    assert.equal(
+      ui.selection().active,
+      closedPaths.at(-3),
+      'Ordinary opening removes its duplicate from closed history.',
+    );
+    for (let index = 3; index < 32; index++) await tabAction(ui, ui.selection().active, 'Reopen closed file');
+    assert.equal(ui.selection().paths.length, 32);
+    assert.ok(!ui.selection().paths.includes(closedPaths[0]) && !ui.selection().paths.includes(closedPaths[1]));
+    const menu = await tabMenu(ui, ui.selection().active);
+    assert.equal(
+      menu.querySelectorAll('button').find(node => node.textContent === 'Reopen closed file').disabled,
+      true,
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} tab management account changes discard closed history and stale pending menu saves`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[1]);
+    await ui.close(paths[0]);
+    const gate = deferred();
+    let blocked = true;
+    ui.app.fileTabsReply = message => {
+      if (blocked && !message.value.paths.length) {
+        blocked = false;
+        return gate.promise;
+      }
+    };
+    const menu = await tabMenu(ui, paths[1]);
+    const closing = menu.fire('click', {
+      target: menu.querySelectorAll('button').find(node => node.textContent === 'Close all'),
+    });
+    await ui.drain(2);
+    ui.app.suspendFileTabs();
+    ui.app.fileTabsAccount = 'second-account';
+    ui.app.fileTabsReply = undefined;
+    await ui.settle(ui.app.loadPage(true));
+    await ui.open(paths[0]);
+    gate.resolve();
+    await ui.settle(closing);
+    await ui.drain();
+    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
+    const current = await tabMenu(ui, paths[0]);
+    assert.equal(
+      current.querySelectorAll('button').find(node => node.textContent === 'Reopen closed file').disabled,
+      true,
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} tab management keeps separate commit orders and restores canonical split positions after close`, async t => {
+    const ui = fixture(t, provider, searchRevision(), {search: true});
+    const commit = sha => `${ui.root}${provider === 'gitlab' ? '/-' : ''}/commit/${sha}`;
+    await ui.navigate(commit('e'.repeat(40)));
+    await ui.open(paths[1]);
+    await reorderTab(ui, paths[0], paths[1], true);
+    assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
+    await ui.navigate(commit('f'.repeat(40)));
+    assert.deepEqual(ui.selection().paths, [paths[0]]);
+    await ui.navigate(commit('e'.repeat(40)));
+    assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
+    await ui.navigate(ui.review(41));
+    await diffLayout(ui, ui.workspace(), 'Side-by-side');
+    await paneScroll(ui, diffPanes(ui.body())[0], 110 * 22, 0);
+    await ui.close(paths[0]);
+    await recoverTab(ui);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 110 * 22, left: 0},
+      {top: 110 * 22, left: 0},
+    ]);
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(ui.body().scrollTop, 112 * 22, 'Closed history keeps canonical source coordinates.');
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} tab management new review is usable while an old scope metadata save remains pending`, async t => {
+    const ui = fixture(t, provider);
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    const gate = deferred();
+    let blocked = true;
+    ui.app.fileTabsReply = (message, context) => {
+      if (blocked && context.kind !== 'pull' && !message.value.paths.length) {
+        blocked = false;
+        return gate.promise;
+      }
+    };
+    const oldMenu = await tabMenu(ui, paths[0]);
+    const oldClosing = oldMenu.fire('click', {
+      target: oldMenu.querySelectorAll('button').find(node => node.textContent === 'Close all'),
+    });
+    await ui.drain(2);
+    await ui.navigate(ui.review(42));
+    assert.deepEqual(ui.selection().paths, [paths[0]]);
+    await tabAction(ui, paths[0], 'Close all');
+    assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
+    gate.resolve();
+    await ui.settle(oldClosing);
+    assert.deepEqual(ui.selection().paths, []);
+    await recoverTab(ui);
+    assert.equal(ui.selection().active, paths[0]);
+    assert.deepEqual(ui.errors, []);
+  });
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} tab management menu dismisses on palette focus transfer without stealing the new focus`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true, quickOpen: true});
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.open(paths[1]);
+    const menu = await tabMenu(ui, paths[0], true);
+    const items = menu.querySelectorAll('button');
+    items[1].focus();
+    await menu.fire('focusout', {target: items[0], relatedTarget: items[1]});
+    assert.equal(menu.hidden, false, 'Moving between menu items retains the same menu.');
+    await ui.window.fire('keydown', keyEvent(items[1], 'p', {ctrlKey: true, isTrusted: true}));
+    const palette = ui.app.view.shadow.querySelector('.quick-open');
+    assert.equal(palette.open, true);
+    const paletteInput = palette.querySelector('input');
+    await menu.fire('focusout', {target: items[1], relatedTarget: paletteInput});
+    assert.equal(menu.hidden, true, 'Entering another dialog dismisses the old tab menu.');
+    assert.equal(ui.document.activeElement, paletteInput, 'Dismissal leaves the new focus owner untouched.');
+    await ui.window.fire('keydown', keyEvent(paletteInput, 'Escape', {isTrusted: true}));
+    assert.equal(palette.open, false);
+    ui.body().focus();
+    await ui.window.fire('keydown', tabMenuKey(ui.body(), 'Escape'));
+    assert.equal(menu.hidden, true);
+    const reopened = await tabMenu(ui, paths[0]);
+    assert.equal(reopened.hidden, false, 'Focus dismissal does not disable later menu actions.');
+    await ui.settle(
+      reopened.fire('click', {
+        target: reopened.querySelectorAll('button').find(node => node.textContent === 'Close others'),
+      }),
+    );
+    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
     assert.deepEqual(ui.errors, []);
   });
 }

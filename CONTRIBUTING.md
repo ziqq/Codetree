@@ -4,7 +4,7 @@
 
 1. Discuss new features with the maintainer first. Keep changes focused; avoid unrelated refactors and dependencies.
 2. Inspect the working tree and preserve user changes. Never overwrite the maintainer's edits without confirmation.
-3. Confirm the main implementation before adding/changing tests. Regression coverage must expose the previous implementation's mistake; never weaken checks to make a change pass.
+3. Deliver implementation and regression tests together in the same task and pull request, unless the maintainer explicitly asks to defer tests. Regression coverage must expose the previous implementation's mistake; never weaken checks to make a change pass.
 4. Follow the existing style: two spaces, single quotes, explicit DOM creation and safe text rendering. Do not add `innerHTML`, `eval`, remote executable code or third-party page scripts.
 5. Keep API behavior in the broker/adapters. Tokens belong in trusted extension storage and may only reach the selected API host.
 6. Run syntax checks and verify affected browser interactions. Identify checks made with fixtures, live APIs and actual extension installation separately.
@@ -24,7 +24,7 @@ npm audit --audit-level=high
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
-`npm test` runs the approved regression suite and is included in `npm run check`. New coverage follows implementation approval and must demonstrate real previous failures. Unit and syntax checks do not replace browser verification.
+`npm test` runs the regression suite and is included in `npm run check`. Add relevant coverage alongside implementation and demonstrate real previous failures. Unit and syntax checks do not replace browser verification.
 
 See [Checks and releases](docs/RELEASING.md) for the exact CI gates, runtime allowlist, tag/version validation and artifact verification. Development dependencies, fixtures and screenshots must not enter the runtime ZIP.
 

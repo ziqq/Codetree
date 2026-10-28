@@ -1526,6 +1526,12 @@ button:disabled {
   border-radius: 8px;
   overflow: hidden;
 }
+.file-workspace.file-workspace-empty > .viewer-header,
+.file-workspace.file-workspace-empty > .file-tabs,
+.file-workspace > .viewer-header[hidden],
+.file-workspace > .file-tabs[hidden] {
+  display: none;
+}
 .file-tabs {
   display: flex;
   overflow-x: auto;
@@ -1534,6 +1540,7 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 .file-tab {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1545,6 +1552,26 @@ button:disabled {
 .file-tab.active {
   background: var(--bg);
   border-bottom-color: var(--accent);
+}
+.file-tab.dragging {
+  opacity: 0.45;
+}
+.file-tab[data-drag-position='before']::before,
+.file-tab[data-drag-position='after']::after {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  content: '';
+  pointer-events: none;
+}
+.file-tab[data-drag-position='before']::before {
+  left: 0;
+}
+.file-tab[data-drag-position='after']::after {
+  right: 0;
 }
 .file-tab.unavailable .file-tab-name {
   color: var(--muted);
@@ -1564,6 +1591,72 @@ button:disabled {
 .file-tab-close {
   flex-shrink: 0;
   margin-right: 5px;
+}
+.file-tab-menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px #0003;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+.file-tab-menu[hidden] {
+  display: none;
+}
+.file-tab-menu .small-button {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.file-tab-menu .small-button:hover:not(:disabled),
+.file-tab-menu .small-button:focus-visible {
+  background: var(--selected);
+}
+.file-tab-menu .small-button:disabled {
+  cursor: not-allowed;
+}
+.file-tab-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--muted-bg);
+  color: var(--muted);
+  font-size: 12px;
+}
+.file-tab-recovery[hidden] {
+  display: none;
+}
+.file-tab-recovery-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.file-tab-recovery .small-button {
+  min-height: 28px;
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .file-tab-body {
   height: clamp(260px, 55vh, 620px);

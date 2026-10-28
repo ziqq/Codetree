@@ -5,7 +5,7 @@ Codetree is a Chrome/Chromium Manifest V3 extension for GitHub/GitLab repository
 ## General rules
 
 1. Ask before adding functionality that has not been discussed. Do not introduce unrelated features, dependencies or architecture.
-2. Never add/edit tests before the main implementation is confirmed. Regression coverage must demonstrate the old failure and preserve intended behavior.
+2. Implement changes and their regression tests together in the same task and pull request. Do not require a separate implementation-approval step for coverage unless the maintainer explicitly asks to defer tests. Regression coverage must demonstrate the old failure and preserve intended behavior.
 3. Inspect `git status` and the relevant diff first. Never overwrite the maintainer's edits to earlier agent code without confirmation.
 4. Avoid overengineering. Follow existing modules and keep changes narrow.
 5. Keep `CHANGELOG.md` newest first and entries ordered **DEPRECATED**, **ADDED**, **CHANGED**, **FIXED**; omit unused categories.
@@ -46,7 +46,7 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 git diff --check
 ```
 
-`npm test` runs approved regressions for Viewed revision checks and window pins against the bundled service worker, asynchronous tree loading through the content factories, full-file patch validation and release follow-up wiring. Follow the implementation-approval rule before changing coverage. Syntax/unit-test success does not prove browser or authenticated API behavior.
+`npm test` runs regressions for Viewed revision checks and window pins against the bundled service worker, asynchronous tree loading through the content factories, full-file patch validation and release follow-up wiring. Add relevant coverage alongside the implementation in the same task. Syntax/unit-test success does not prove browser or authenticated API behavior.
 
 ## Coding conventions
 
