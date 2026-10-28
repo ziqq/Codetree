@@ -302,8 +302,17 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
       app,
       shell,
       rows,
-      {draw, reveal, row: () => Math.floor(readPosition().top / rowHeight)},
+      {
+        draw,
+        reveal,
+        row: () => Math.floor(readPosition().top / rowHeight),
+        go: row => {
+          restorePosition({top: row * rowHeight, left: readPosition().left});
+          shell.onScroll?.();
+        },
+      },
       current,
+      diff,
     );
     for (const viewport of [shell.body, oldPane, newPane]) {
       listen(

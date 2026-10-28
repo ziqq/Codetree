@@ -61,6 +61,15 @@ Switching branches keeps Code's open paths and active file while loading the sel
 
 Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without case sensitivity in the open file or diff. The search covers the complete loaded text, including virtualized rows. **Enter / Shift+Enter** and the arrow buttons cycle through matches; **Escape** closes search before closing View full. Diff search includes old and new lines, counting shared context once. Tabs and View full have separate searches, cleared when their file changes; queries stay in page memory. At most 10,000 matches are listed, with a `+` count when more exist. Native text editors keep their normal find shortcut.
 
+Search and source-line navigation use the **same field**, with an explicit mode selected by the shortcut:
+
+| Shortcut and input | Result |
+| --- | --- |
+| **Ctrl/Cmd+F**, then `:223` | Find the literal text `:223` in the current file or diff. The colon does not change the search mode. |
+| **Ctrl/Cmd+G**, then append `223` to the prefilled `:` and press **Enter** | Go to source line 223. |
+
+Line mode is labeled **Line**. In diffs it also shows **New** (the default) and **Old**, including removed lines. **Enter** reveals the line and closes the field; **Escape** closes it without moving. Switching back with **Ctrl/Cmd+F** restores the previous text query. Invalid numbers show the selected revision's valid range, and empty revisions are identified explicitly. This works in file tabs and **View full**, in Unified and Side-by-side, and uses the existing tab-position persistence. Native text editors retain their shortcuts.
+
 In diffs, the **Changes** counter and its arrow buttons cycle through blocks of additions/removals separated by unchanged lines. They work in file tabs and **View full**, in both layouts, revealing off-screen blocks without reloading the file. The counter follows scrolling and keeps the selected block current while it remains visible. Diffs without changed lines show `0 / 0` with disabled arrows.
 
 In PR/MR file tabs and **View full**, **Viewed & next** saves the current file's Viewed mark, then opens the next unviewed file in the same viewer. It follows the full listed changed-file order, wraps to earlier files and ignores sidebar search and **Only unviewed**. An already viewed file offers **Next unviewed** without another write. Failed marks keep the file open; failed navigation keeps a successful mark and offers a retry. When all listed files are viewed, the current file stays open with a completion message. GitHub uses its available Viewed mode; GitLab marks remain local.
@@ -71,10 +80,12 @@ Workspace metadata belongs to the current browser tab, selected account, host an
 | --- | --- |
 | `Shift+D` | Open or close the sidebar |
 | `Shift+S` | Open the sidebar and focus search |
+| `Ctrl/Cmd+F` | Open the viewer's shared field in literal text-search mode |
+| `Ctrl/Cmd+G` | Open the same viewer field in line mode, prefilled with `:` |
 | Arrow keys | Navigate and expand/collapse rows |
 | `Enter` | Open a file or toggle a folder |
 
-These are the defaults; change toggle/search bindings in **Settings → Navigation**, or leave a binding blank to disable it. Shortcuts do not run while editing an input or contenteditable element.
+Change the sidebar toggle/search defaults (`Shift+D` and `Shift+S`) in **Settings → Navigation**, or leave a binding blank to disable them. Sidebar shortcuts do not run while editing an input or contenteditable element. Viewer shortcuts work within Codetree's shared field; native text editors keep their own behavior.
 
 In **Settings → Navigation → Hide on these URLs**, enter up to 64 rules, one per line. Existing URL patterns use `*` for any characters. Prefix a rule with `regex:` for a JavaScript regular expression, for example `regex:/(issues|discussions)(/|\?|$)`. Expressions have no `/` delimiters or flags. Both kinds of rule are case-sensitive and match the full URL, including query parameters but excluding the `#` fragment. Any matching rule hides the sidebar and native **View full** controls. Invalid expressions prevent saving and identify the line to fix. Rules are included in optional browser Sync.
 
