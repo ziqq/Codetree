@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * Owned literal search over complete viewer rows, independent of DOM virtualization.
+ * Owned literal search and line-navigation toolbar over complete viewer rows, independent of DOM virtualization.
  * Matches use original UTF-16 offsets, retain syntax spans and never leave the viewer.
  */
 
@@ -11,6 +11,7 @@ import {button, el} from '../dom.js';
 import {listen} from '../reactive-dom.js';
 import {onCleanup, withOwner} from '../reactive.js';
 import {icon} from '../../shared/icons.js';
+import {createFileLine} from './file-line.js';
 
 /** Bounds retained match metadata even when a short query occurs throughout a large file. */
 const maxMatches = 10000;
@@ -23,11 +24,12 @@ const maxMatches = 10000;
  * @param {object} app The content feature context.
  * @param {object} shell The owned viewer shell.
  * @param {Array<object>} rows Validated unified rows or complete plain-file rows.
- * @param {{draw: Function, reveal: Function, row: Function}} viewport Virtual viewport adapters.
+ * @param {{draw: Function, reveal: Function, row: Function, go: Function}} viewport Virtual viewport adapters.
  * @param {Function} current Whether this shell still owns its contents.
+ * @param {boolean} diff Whether the file has old and new source line numbers.
  * @returns {{ranges: Function, active: Function}} Visible-row highlight accessors.
  */
-export function createFileSearch(app, shell, rows, viewport, current) {
+export function createFileSearch(app, shell, rows, viewport, current, diff = false) {
   const input = el('input', {
     type: 'search',
     placeholder: 'Find in file',
@@ -42,9 +44,20 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   previous.title = 'Previous match (Shift+Enter)';
   next.title = 'Next match (Enter)';
   const close = button('close', 'Close file search', closeSearch);
-  const field = el('div', {class: 'searchbar viewer-find-field'}, [icon('search'), input, count]);
-  const bar = el('div', {class: 'viewer-find', role: 'search', hidden: ''}, [field, previous, next, close]);
+  const symbol = icon('search');
+  const label = el('span', {class: 'viewer-line-label', text: 'Line', hidden: ''});
+  const field = el('div', {class: 'searchbar viewer-find-field'}, [symbol, label, input, count]);
+  const line = createFileLine(rows, viewport, current, diff, input, closeSearch);
+  const bar = el('div', {class: 'viewer-find', role: 'search', hidden: ''}, [
+    line.revisions,
+    field,
+    previous,
+    next,
+    close,
+    line.status,
+  ]);
   const toggle = button('search', 'Find in file (Ctrl/Cmd+F)', openSearch, 'viewer-find-toggle small-button');
+  toggle.title = 'Find in file (Ctrl/Cmd+F) · Go to line (Ctrl/Cmd+G)';
   const closeFocused = shell.closeButton?.matches(':focus');
   const tools = el('div', {class: 'viewer-tools'}, [toggle, bar]);
   // Wrap find and Close together, retaining DOM/tab order and the dialog's initial focus.
@@ -60,6 +73,30 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   let generation = 0;
   let timer;
   let live = true;
+  let lineMode = false;
+  let query = '';
+
+  /** Shows the active mode in one persistent input, retaining the separate literal search query. */
+  function mode(value) {
+    lineMode = value;
+    line.revisions.hidden = !value || !diff;
+    label.hidden = !value;
+    symbol.style.display = value ? 'none' : '';
+    count.hidden = previous.hidden = next.hidden = close.hidden = value;
+    field.classList.toggle('viewer-line-field', value);
+    bar.setAttribute('role', value ? 'group' : 'search');
+    bar.setAttribute('aria-label', value ? 'Go to line' : 'Find in file');
+    input.setAttribute('maxlength', value ? '7' : '1024');
+    input.setAttribute('aria-busy', 'false');
+    if (value) input.setAttribute('inputmode', 'numeric');
+    else {
+      line.clear();
+      input.removeAttribute('inputmode');
+      input.placeholder = 'Find in file';
+      input.setAttribute('aria-label', 'Find in file');
+      input.value = query;
+    }
+  }
 
   /** Updates the count without replacing the focused input or its selection. */
   function update() {
@@ -86,7 +123,8 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   /** Opens this viewer's bar and selects the existing local query for replacement. */
   function openSearch() {
     if (!live || !current()) return;
-    const wasHidden = bar.hidden;
+    const wasHidden = bar.hidden || lineMode;
+    mode(false);
     bar.hidden = false;
     toggle.hidden = true;
     input.focus();
@@ -95,14 +133,28 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   }
 
   /** Closes search before a modal Escape can close the underlying diff dialog. */
-  function closeSearch() {
+  function closeSearch(focus = true) {
     if (!live || !current()) return;
     bar.hidden = true;
     toggle.hidden = false;
     reset();
+    mode(false);
     update();
     viewport.draw();
-    shell.body.focus();
+    if (focus) shell.body.focus();
+  }
+
+  /** Exchanges the search field for line entry without widening the viewer toolbar. */
+  function openLine() {
+    if (!live || !current()) return;
+    if (!lineMode) query = input.value;
+    reset();
+    update();
+    viewport.draw();
+    mode(true);
+    bar.hidden = false;
+    toggle.hidden = true;
+    line.open();
   }
 
   /** Selects one retained match and lets the renderer reveal its virtual source row. */
@@ -158,8 +210,12 @@ export function createFileSearch(app, shell, rows, viewport, current) {
   /** Debounces input and invalidates old highlights immediately, including while composing text. */
   function schedule(event) {
     if (!live || !current()) return;
+    if (lineMode) {
+      line.update();
+      return;
+    }
+    query = input.value.slice(0, 1024);
     reset();
-    const query = input.value.slice(0, 1024);
     searching = Boolean(query);
     update();
     viewport.draw();
@@ -183,12 +239,14 @@ export function createFileSearch(app, shell, rows, viewport, current) {
       node => node !== input && (node?.matches?.('input,textarea,select') || node?.isContentEditable),
     );
     if (editing) return;
-    const find = event.key.toLowerCase() === 'f' && event.ctrlKey !== event.metaKey && !event.altKey && !event.shiftKey;
-    if (find) {
+    const command = event.ctrlKey !== event.metaKey && !event.altKey && !event.shiftKey;
+    const key = event.key.toLowerCase();
+    if (command && (key === 'f' || key === 'g')) {
       if (event.repeat) return;
       event.preventDefault();
       event.stopPropagation();
-      openSearch();
+      if (key === 'f') openSearch();
+      else openLine();
     } else if (!bar.hidden && !event.ctrlKey && !event.metaKey && !event.altKey) {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -197,7 +255,8 @@ export function createFileSearch(app, shell, rows, viewport, current) {
       } else if (event.key === 'Enter' && focused === input) {
         event.preventDefault();
         event.stopPropagation();
-        select(active + (event.shiftKey ? -1 : 1));
+        if (lineMode) line.submit();
+        else select(active + (event.shiftKey ? -1 : 1));
       }
     }
   }
