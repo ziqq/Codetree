@@ -18,6 +18,7 @@ import {listen, requestFrame} from '../reactive-dom.js';
 import {tokenize} from './syntax.js';
 import {createFileSearch} from './file-search.js';
 import {createFileChanges} from './file-changes.js';
+import {createFileSelection} from './file-selection.js';
 
 /**
  * Loads and renders both exact revisions of a changed file.
@@ -54,7 +55,10 @@ export async function renderDiffFile(app, shell, node, diff, current) {
     oldSyntax.lines = [];
     newSyntax.lines = [];
   }
-  renderRows(app, shell, rows, oldSyntax, newSyntax, current, true);
+  renderRows(app, shell, rows, oldSyntax, newSyntax, current, true, {
+    old: {source: diff.base, path: node.previous_filename || node.path},
+    new: {source: diff.head, path: node.path},
+  });
   shell.bottom.prepend(
     el('span', {class: 'adds', text: `+${node.adds}`}),
     el('span', {class: 'dels', text: `−${node.dels}`}),
@@ -77,8 +81,9 @@ export async function renderDiffFile(app, shell, node, diff, current) {
  * @param {string} path The repository path used for highlighting.
  * @param {string} text The complete file text.
  * @param {() => boolean} current Whether this render still owns the shell.
+ * @param {object} source The exact revision descriptor used to load this text.
  */
-export async function renderTextFile(app, shell, path, text, current) {
+export async function renderTextFile(app, shell, path, text, current, source) {
   if (!current()) return;
   const fileLines = lines(text);
   if (fileLines.length > 100000)
@@ -89,7 +94,7 @@ export async function renderTextFile(app, shell, path, text, current) {
   const syntax = await tokenize(text, path, current);
   if (!current()) return;
   if (syntax.limited) syntax.lines = [];
-  renderRows(app, shell, rows, {lines: []}, syntax, current);
+  renderRows(app, shell, rows, {lines: []}, syntax, current, false, {new: {source, path}});
   shell.bottom.prepend(el('span', {text: `${rows.length} lines · UTF-8`}));
   if (syntax.limited) shell.bottom.append(el('span', {text: 'Syntax limit reached · plain text'}));
 }
@@ -130,7 +135,7 @@ function splitRows(rows) {
 }
 
 /** Creates one source row or an empty alignment gap, rendering syntax as text nodes only. */
-function codeRow(row, side, oldSyntax, newSyntax, search) {
+function codeRow(row, side, oldSyntax, newSyntax, search, selection, diff) {
   if (!row) return el('div', {class: 'code-row diff-gap', 'aria-hidden': 'true'});
   const text = el('span', {class: 'line-text'});
   const old = side === 'old' || (side === 'unified' && row.type === 'removed');
@@ -166,16 +171,35 @@ function codeRow(row, side, oldSyntax, newSyntax, search) {
     position = token.end;
   }
   append(text, position, row.text.length);
-  const numbers = side === 'unified' ? [row.oldLine, row.newLine] : [old ? row.oldLine : row.newLine];
-  return el('div', {class: `code-row ${row.type}`}, [
-    ...numbers.map(number => el('span', {class: 'line-number', text: number || ''})),
+  const numbers =
+    side === 'unified'
+      ? [
+          [row.oldLine, 'oldLine'],
+          [row.newLine, 'newLine'],
+        ]
+      : [[old ? row.oldLine : row.newLine, old ? 'oldLine' : 'newLine']];
+  return el('div', {class: `code-row ${row.type}${selection.selected(row, side) ? ' line-selected' : ''}`}, [
+    ...numbers.map(([number, revision]) => {
+      if (!number) return el('span', {class: 'line-number'});
+      const label = `${diff ? `${revision === 'oldLine' ? 'Old' : 'New'} ` : ''}line ${number}`;
+      return el('button', {
+        type: 'button',
+        class: 'line-number',
+        text: number,
+        'data-line': number,
+        'data-line-side': revision,
+        'aria-label': `Select ${label}`,
+        'aria-pressed': String(selection.selected(row, revision === 'oldLine' ? 'old' : 'new')),
+        title: `Select ${label} · Shift-click to select a range`,
+      });
+    }),
     el('span', {class: 'line-sign', text: row.type === 'added' ? '+' : row.type === 'removed' ? '−' : ' '}),
     text,
   ]);
 }
 
 /** Installs owned virtualized viewports; switching layout reuses validated rows and syntax without fetching. */
-function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = false) {
+function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sources) {
   let rowHeight = Math.max(22, app.state.preferences.fontSize + 8);
   let split = false;
   let projection;
@@ -183,6 +207,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
   let frame = 0;
   let search;
   let changes;
+  let selection;
   const code = el('div', {class: 'code-spacer'});
   const oldCode = el('div', {class: 'code-spacer'});
   const newCode = el('div', {class: 'code-spacer'});
@@ -223,6 +248,11 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
   function draw() {
     frame = 0;
     if (!current()) return;
+    const focused = shell.body.getRootNode?.().activeElement || document.activeElement;
+    const focusLine =
+      shell.body.contains(focused) && focused?.classList.contains('line-number')
+        ? {line: focused.dataset.line, side: focused.dataset.lineSide}
+        : null;
     const viewport = split ? oldPane : shell.body;
     const count = split ? projection.pairs.length : rows.length;
     const start = Math.max(0, Math.floor(viewport.scrollTop / rowHeight) - 6);
@@ -236,11 +266,17 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
       const fragment = document.createDocumentFragment();
       for (let index = start; index < end; index++) {
         const row = split ? projection.pairs[index][side === 'old' ? 0 : 1] : rows[index];
-        const element = codeRow(row, side, oldSyntax, newSyntax, search);
+        const element = codeRow(row, side, oldSyntax, newSyntax, search, selection, diff);
         element.style.top = `${index * rowHeight}px`;
         fragment.append(element);
       }
       container.replaceChildren(fragment);
+    }
+    if (focusLine) {
+      const number = Array.from(shell.body.querySelectorAll('.line-number')).find(
+        node => node.dataset.line === focusLine.line && node.dataset.lineSide === focusLine.side,
+      );
+      (number || shell.body).focus({preventScroll: true});
     }
     if (split) {
       // Tabs and wide glyphs can exceed the estimate. Equalize actual overflow before either pane scrolls.
@@ -298,6 +334,14 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff = fals
   shell.relayout = relayout;
   shell.body.replaceChildren(code);
   runWithOwner(shell.owner, () => {
+    selection = createFileSelection(app, shell, rows, sources, current, draw, diff);
+    listen(shell.body, 'click', event => {
+      if (!current() || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const number = event.target.closest?.('.line-number');
+      if (!number?.dataset.line || !shell.body.contains(number)) return;
+      event.preventDefault();
+      selection.choose(number.dataset.lineSide, Number(number.dataset.line), event.shiftKey);
+    });
     search = createFileSearch(
       app,
       shell,

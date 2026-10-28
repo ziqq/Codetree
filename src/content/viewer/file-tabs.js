@@ -423,7 +423,7 @@ export function createFileTabs(app) {
             : {owner: context.owner, repo: context.repo, sha: info.commitSHA});
         const text = await app.rpc('FILE', {context, source, path});
         if (!current()) return;
-        await renderTextFile(app, shell, path, text, current);
+        await renderTextFile(app, shell, path, text, current, source);
       }
       if (!current()) return;
       if (file)

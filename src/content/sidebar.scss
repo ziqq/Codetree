@@ -1215,13 +1215,25 @@ button:disabled {
 .code-row.diff-gap {
   background: var(--muted-bg);
 }
+.code-row.line-selected {
+  box-shadow: inset 3px 0 var(--accent);
+}
+.code-row.line-selected.context {
+  background: var(--selected);
+}
 .code-row .line-number {
   display: inline-block;
   text-align: right;
   flex: 0 0 52px;
   width: 52px;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--muted);
-  padding-right: 10px;
+  padding: 0 10px 0 0;
+  font: inherit;
+  line-height: inherit;
   user-select: none;
 }
 .code-row.added .line-number {
@@ -1229,6 +1241,13 @@ button:disabled {
 }
 .code-row.removed .line-number {
   background: var(--diff-delete-number-bg);
+}
+.code-row button.line-number:hover {
+  color: var(--text);
+}
+.code-row .line-number[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 600;
 }
 .code-row .line-sign {
   display: inline-block;
@@ -1290,8 +1309,46 @@ button:disabled {
 .viewer-bottom .flex {
   flex: 1;
 }
-.viewer-bottom:has(> .file-review) {
+.viewer-bottom:has(> .file-review),
+.viewer-bottom:has(> .file-selection:not([hidden])) {
   flex-wrap: wrap;
+}
+.file-selection {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+.file-selection[hidden] {
+  display: none;
+}
+.file-selection-label {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.file-selection .small-button {
+  margin: 0;
+  min-height: 26px;
+  flex-shrink: 0;
+}
+.file-selection .small-button:disabled {
+  cursor: not-allowed;
+}
+.file-selection-status {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.file-selection-status:empty {
+  display: none;
+}
+.file-selection-status.error {
+  color: var(--red);
 }
 .file-review {
   display: flex;
