@@ -15,6 +15,7 @@
 - **ADDED**: Ctrl/Cmd+G source-line mode in the shared viewer find field, with `:` input and New / Old revision selection for diffs
 - **ADDED**: source-line and range selection with Copy permalink, Copy code and Clear selection in file tabs and View full, for both diff layouts
 - **ADDED**: Ctrl/Cmd+P Quick Open with fuzzy loaded-file matching, recent files and optional `path:line` navigation
+- **ADDED**: draggable file-tab order, Close others/right/all actions and memory-only Reopen closed file with source-position recovery
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access

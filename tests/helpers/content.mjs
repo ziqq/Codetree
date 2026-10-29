@@ -29,10 +29,13 @@ export * from './src/shared/tree.js';
 `;
 
 /** Builds a browser-compatible module without altering source files or runtime dependencies. */
-export async function bundle({fileTabs = false} = {}) {
+export async function bundle({fileTabs = false, quickOpen = false} = {}) {
   const result = await build({
     stdin: {
-      contents: source + (fileTabs ? "export * from './src/content/viewer/file-tabs.js';" : ''),
+      contents:
+        source +
+        (fileTabs ? "export * from './src/content/viewer/file-tabs.js';" : '') +
+        (quickOpen ? "export * from './src/content/quick-open.js';" : ''),
       resolveDir: root,
     },
     bundle: true,
