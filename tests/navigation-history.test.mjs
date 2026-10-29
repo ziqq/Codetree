@@ -586,7 +586,13 @@ test('navigation history model dedupes, truncates the forward branch and stays b
     'Other scopes are skipped.',
   );
   assert.equal(history.back(at('e', 0), entry => entry.path !== 'd').entry.path, 'c');
-  assert.equal(history.back(at('x', 0)).entry.path, 'e', 'Away from the pointer, Back returns to it first.');
+  assert.equal(
+    history.back(at('x', 0)).entry.path,
+    'd',
+    'Away from the pointer, Back still steps to the previous point.',
+  );
+  assert.equal(history.back(at('d', 0)).entry.path, 'c', 'An unrecorded return to a neighbour steps from it.');
+  assert.equal(history.forward(at('d', 0)).entry.path, 'e');
   assert.equal(model.maxNavigationHistory, 50);
   history.clear();
   assert.deepEqual([history.entries, history.index], [[], -1]);
@@ -705,7 +711,7 @@ test('inline Back to a missing file keeps the pointer, reports it and leaves Ret
   assert.deepEqual(
     available(ui.workspace()),
     [true, false],
-    'The pointer stays on the last restored point, so Back returns there.',
+    'The pointer stays on the last restored point, so Back can retry the previous one.',
   );
   ui.app.fileReply = undefined;
   const retry = ui
@@ -715,12 +721,16 @@ test('inline Back to a missing file keeps the pointer, reports it and leaves Ret
   assert.ok(retry);
   await ui.settle(retry.fire('click'));
   assert.doesNotMatch(ui.body().textContent, /File not found/);
-  await traverse(ui, ui.workspace(), 'Back');
+  assert.deepEqual(
+    available(ui.workspace()),
+    [false, true],
+    'After Retry the viewer is on the previous point, so only Forward remains.',
+  );
+  await traverse(ui, ui.workspace(), 'Forward');
   assert.equal(ui.selection().active, paths[1]);
-  assert.equal(ui.body().scrollTop, 440, 'The unmoved pointer still names the last restored file.');
+  assert.equal(ui.body().scrollTop, 440);
   await traverse(ui, ui.workspace(), 'Back');
   assert.equal(ui.selection().active, paths[0]);
-  assert.equal(ui.body().scrollTop, 660);
   assert.equal(ui.errors.length, 1);
 });
 

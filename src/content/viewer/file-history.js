@@ -58,9 +58,9 @@ function copy(location) {
 /**
  * Creates one bounded in-memory navigation history.
  *
- * The pointer names the last committed location. When the viewer is not at that
- * location (for example after an unrecorded tab switch or a failed load), Back
- * returns to the pointer entry itself before going further back.
+ * The pointer names the last committed location. Back and Forward always step to
+ * the neighbouring entry, even when the viewer has left the pointer without
+ * recording (for example after closing a tab or a failed load).
  *
  * @param {number} [limit=maxNavigationHistory] Maximum retained entries.
  */
@@ -106,7 +106,9 @@ export function createNavigationHistory(limit = maxNavigationHistory) {
 
   /**
    * Finds the nearest accepted entry in one direction without moving the pointer.
-   * When `current` is the pointer entry, its latest position is saved first.
+   * Steps start from the entry showing the current file: the pointer, or a
+   * neighbour reached without recording (for example by Retry after a failed
+   * Back). That entry first receives the latest position.
    *
    * @param {number} direction -1 for Back, 1 for Forward.
    * @param {object|null} current The viewer's present location, if loaded.
@@ -116,10 +118,9 @@ export function createNavigationHistory(limit = maxNavigationHistory) {
    */
   function find(direction, current, accept = () => true, save = true) {
     if (index < 0) return null;
-    const atPointer = sameFile(entries[index], current);
-    if (atPointer && save) entries[index].position = copy(current).position;
-    // Away from the pointer, Back first returns to the last committed point.
-    let target = direction < 0 && !atPointer ? index : index + direction;
+    const base = [index, index - 1, index + 1].find(offset => sameFile(entries[offset], current)) ?? index;
+    if (save && sameFile(entries[base], current)) entries[base].position = copy(current).position;
+    let target = base + direction;
     while (target >= 0 && target < entries.length) {
       if (accept(entries[target]) && !sameLocation(entries[target], current))
         return {index: target, entry: copy(entries[target])};
