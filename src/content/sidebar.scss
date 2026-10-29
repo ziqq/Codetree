@@ -1119,6 +1119,103 @@ button:disabled {
 .viewer-actions a:hover {
   background: var(--hover);
 }
+.file-outline {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.file-outline-toggle {
+  height: 30px;
+  margin: 0;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.file-outline-toggle[aria-expanded='true'] {
+  color: var(--accent);
+  background: var(--selected);
+}
+.file-outline-panel {
+  position: fixed;
+  z-index: 10;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px #0003;
+  pointer-events: auto;
+}
+.file-outline-panel[hidden],
+.file-outline-list[hidden],
+.file-outline-notice[hidden] {
+  display: none;
+}
+.file-outline-revision {
+  margin-bottom: 6px;
+}
+.file-outline-source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+}
+.file-outline-status {
+  padding: 6px 0;
+  font-size: 11px;
+}
+.file-outline-notice {
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.file-outline-list {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.file-outline-spacer {
+  position: relative;
+}
+.file-outline-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  width: 100%;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 11px;
+}
+.file-outline-item:hover,
+.file-outline-item[aria-selected='true'] {
+  background: var(--selected);
+}
+.file-outline-kind,
+.file-outline-line {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.file-outline-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .diff-layout,
 .viewer-line-revision {
   display: inline-flex;

@@ -17,6 +17,7 @@ import {pathToFileURL} from 'node:url';
 import {bundle} from './helpers/content.mjs';
 import {dom, frames, install} from './helpers/dom.mjs';
 import {installViewerSearchDOM, keyEvent} from './helpers/viewer-search.mjs';
+import {installDiffViewport} from './helpers/diff-viewport.mjs';
 
 const modulePath = new URL('../src/shared/quick-open.js', import.meta.url);
 const matching = existsSync(modulePath) ? await import(modulePath) : {};
@@ -44,8 +45,9 @@ function deferred() {
 }
 
 /** Composes the real palette and optional underlying viewer around observable navigation effects. */
-function fixture(t, paths = ['src/main.js', 'src/other.js'], provider = 'github') {
+function fixture(t, paths = ['src/main.js', 'src/other.js'], provider = 'github', {viewport = false} = {}) {
   const {document, window} = dom();
+  if (viewport) installDiffViewport(document);
   installViewerSearchDOM(document);
   const create = document.createElement.bind(document);
   document.createElement = tag => {
@@ -636,3 +638,372 @@ test('Quick Open recents and query do not survive replacement of their owned fac
   assert.equal(replacement.status.textContent, '0 recent files');
   assert.deepEqual(ui.rpcCalls, []);
 });
+
+/** A complete bridge model whose source ownership and synchronous navigation remain observable. */
+function symbols(ui, options = {}) {
+  let current = true;
+  const selected = [];
+  const body = ui.document.createElement('div');
+  ui.document.body.append(body);
+  const model = {
+    filePath: 'src/other.js',
+    path: 'src/other.js',
+    source:
+      ui.state.context.provider === 'gitlab'
+        ? {project: 'fork/nested/source', sha: headSHA}
+        : {owner: 'fork', repo: 'source', sha: headSHA},
+    side: 'new',
+    diff: false,
+    supported: true,
+    limited: false,
+    symbols: [
+      {name: 'renderWidget', kind: 'method', line: 7, container: 'NetworkPanel'},
+      {name: 'reset', kind: 'function', line: 12},
+    ],
+    current: () => current,
+    go(symbol) {
+      if (!current || !model.symbols.includes(symbol)) return false;
+      selected.push(symbol);
+      body.focus();
+      return true;
+    },
+    ...options,
+  };
+  ui.app.getFileTabSymbols = () => model;
+  return {
+    model,
+    selected,
+    body,
+    expire: () => {
+      current = false;
+    },
+  };
+}
+
+test('Quick Open symbol parsing keeps @ explicit and does not interpret symbol text as path:line', () => {
+  const {parseQuickOpenQuery: parse} = helpers();
+  assert.deepEqual(parse(' @ '), {query: '', mode: 'symbols'});
+  assert.deepEqual(parse('@NetworkPanel.render'), {query: 'NetworkPanel.render', mode: 'symbols'});
+  assert.deepEqual(parse('@name:120'), {query: 'name:120', mode: 'symbols'});
+  assert.deepEqual(parse('src/a.js:120'), {query: 'src/a.js', line: 120});
+  assert.deepEqual(parse('src/@name.js'), {query: 'src/@name.js'});
+});
+
+test('Quick Open @ lists bounded current-file symbols with source context and leaves file recents untouched', async t => {
+  const ui = fixture(t);
+  const source = symbols(ui, {
+    diff: true,
+    side: 'old',
+    path: 'src/old name.js',
+    limited: true,
+    symbols: Array.from({length: 80}, (_, index) => ({
+      name: `method${index}`,
+      kind: 'method',
+      line: index + 1,
+      container: 'Panel',
+    })),
+  });
+  ui.app.rememberQuickOpenFile('src/main.js');
+  const view = await open(ui);
+  await query(ui, '@');
+  assert.equal(view.input.getAttribute('aria-label'), 'Quick Open symbol');
+  assert.equal(view.results.querySelectorAll('.quick-open-result').length, 50);
+  assert.equal(view.status.textContent, '80 symbols · first 50 shown');
+  assert.match(view.notice.textContent, /src\/old name\.js \(src\/other\.js\).*Old.*ccccccc/);
+  assert.match(view.notice.textContent, /limit reached.*incomplete/);
+  assert.match(view.results.querySelector('.quick-open-path').textContent, /method · Panel · line 1/);
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.equal(source.selected[0], source.model.symbols[0], 'The bridge receives its original member symbol.');
+  assert.equal(view.dialog.open, false);
+  assert.equal(ui.document.activeElement, source.body);
+  assert.deepEqual(ui.inline, []);
+  assert.deepEqual(ui.native, []);
+  assert.deepEqual(ui.rpcCalls, []);
+  assert.equal(ui.app.focusCount, 0);
+  await open(ui);
+  await query(ui, '');
+  assert.deepEqual(paths(ui), ['src/main.js'], 'Symbol activation never records the current file as a recent open.');
+});
+
+test('Quick Open @ fuzzy matches names and containers while immediate Enter uses its captured current model', async t => {
+  const ui = fixture(t);
+  const source = symbols(ui);
+  const view = await open(ui);
+  await query(ui, '@np.rW', false);
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.deepEqual(source.selected, [source.model.symbols[0]]);
+  assert.equal(view.dialog.open, false);
+  assert.deepEqual(ui.inline, []);
+});
+
+test('Quick Open @ gives loading and comments View full priority without falling back to inline symbols', async t => {
+  const ui = fixture(t);
+  const inline = symbols(ui);
+  let inlineReads = 0;
+  ui.app.getFileTabSymbols = () => {
+    inlineReads++;
+    return inline.model;
+  };
+  ui.app.getViewerSymbols = () => null;
+  ui.viewer.open = true;
+  const view = await open(ui);
+  await query(ui, '@');
+  assert.deepEqual(paths(ui), []);
+  assert.match(view.status.textContent, /unavailable.*View full/);
+  assert.equal(inlineReads, 0);
+  await key(ui, view.input, 'Escape');
+  assert.equal(ui.viewer.open, true);
+  ui.app.showComments({path: 'src/comments.js', type: 'blob', comments: []});
+  await open(ui);
+  await query(ui, '@render');
+  assert.deepEqual(paths(ui), []);
+  assert.match(view.status.textContent, /unavailable.*View full/);
+  assert.equal(inlineReads, 0);
+  assert.deepEqual(inline.selected, []);
+  assert.deepEqual(ui.inline, []);
+});
+
+test('Quick Open @ distinguishes no current file, unsupported source and a supported empty symbol list', async t => {
+  const ui = fixture(t);
+  let view = await open(ui);
+  await query(ui, '@');
+  assert.match(view.status.textContent, /Open a file/);
+  await key(ui, view.input, 'Escape');
+  const source = symbols(ui, {supported: false, symbols: []});
+  view = await open(ui);
+  await query(ui, '@');
+  assert.match(view.status.textContent, /not supported/);
+  assert.equal(view.notice.hidden, false);
+  await key(ui, view.input, 'Escape');
+  source.model.supported = true;
+  await open(ui);
+  await query(ui, '@');
+  assert.equal(view.status.textContent, '0 symbols');
+  assert.equal(view.results.querySelector('.quick-open-empty').textContent, 'No symbols found in this file.');
+  await key(ui, view.input, 'Enter');
+  assert.equal(view.dialog.open, true);
+  assert.deepEqual(ui.inline, []);
+});
+
+for (const provider of ['github', 'gitlab']) {
+  test(`Quick Open @ ${provider} modified clicks use the captured Old/fork source and keep View full open`, async t => {
+    const ui = fixture(t, ['src/unrelated.js'], provider);
+    const source = symbols(ui, {
+      diff: true,
+      side: 'old',
+      filePath: 'src/new name.js',
+      path: 'src/old name.js',
+      source:
+        provider === 'github'
+          ? {owner: 'target', repo: 'repo', sha: baseSHA}
+          : {project: 'target/nested/repo', sha: baseSHA},
+    });
+    ui.app.getViewerSymbols = () => source.model;
+    ui.viewer.open = true;
+    const view = await open(ui);
+    await query(ui, '@render');
+    await click(ui, 0, {metaKey: true});
+    const oldRoot = provider === 'github' ? 'target/repo' : 'target/nested/repo/-';
+    assert.deepEqual(ui.opened, [
+      [`https://${provider}.example.com/${oldRoot}/blob/${baseSHA}/src/old%20name.js#L7`, '_blank', 'noopener'],
+    ]);
+    assert.equal(view.dialog.open, true);
+    assert.equal(ui.viewer.open, true);
+    assert.deepEqual(source.selected, []);
+    await key(ui, view.input, 'Escape');
+    source.model.side = 'new';
+    source.model.path = source.model.filePath;
+    source.model.source =
+      provider === 'github'
+        ? {owner: 'fork', repo: 'source', sha: headSHA}
+        : {project: 'fork/nested/source', sha: headSHA};
+    await open(ui);
+    await query(ui, '@render');
+    await click(ui, 0, {ctrlKey: true});
+    const newRoot = provider === 'github' ? 'fork/source' : 'fork/nested/source/-';
+    assert.equal(
+      ui.opened.at(-1)[0],
+      `https://${provider}.example.com/${newRoot}/blob/${headSHA}/src/new%20name.js#L7`,
+    );
+    await key(ui, view.input, 'Enter');
+    await drain(ui, 0);
+    assert.deepEqual(source.selected, [source.model.symbols[0]]);
+    assert.equal(view.dialog.open, false);
+    assert.equal(ui.viewer.open, true, 'Symbol navigation closes only Quick Open.');
+    assert.deepEqual(ui.inline, []);
+    assert.deepEqual(ui.rpcCalls, []);
+  });
+}
+
+test('Quick Open @ reports an unresolved exact link while still allowing local symbol navigation', async t => {
+  const ui = fixture(t, undefined, 'gitlab');
+  const source = symbols(ui, {source: {project: 42, sha: headSHA}});
+  const view = await open(ui);
+  await query(ui, '@render');
+  await click(ui, 0, {ctrlKey: true});
+  assert.match(view.status.textContent, /exact source revision is unavailable/);
+  assert.equal(view.dialog.open, true);
+  assert.deepEqual(ui.opened, []);
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.deepEqual(source.selected, [source.model.symbols[0]]);
+  assert.deepEqual(ui.inline, []);
+});
+
+test('Quick Open @ rejects stale source models before activation and when a yielding scan finishes', async t => {
+  const ui = fixture(t);
+  const source = symbols(ui);
+  const view = await open(ui);
+  await query(ui, '@render');
+  source.expire();
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.equal(view.dialog.open, true);
+  assert.match(view.status.textContent, /file or revision changed/);
+  assert.deepEqual(paths(ui), []);
+  assert.deepEqual(source.selected, []);
+  await key(ui, view.input, 'Escape');
+  const next = symbols(ui, {
+    symbols: Array.from({length: 600}, (_, index) => ({name: `method${index}`, kind: 'function', line: index + 1})),
+  });
+  await open(ui);
+  await query(ui, '@method', false);
+  t.mock.timers.tick(80);
+  assert.equal(view.input.getAttribute('aria-busy'), 'true');
+  next.expire();
+  await drain(ui, 0);
+  assert.deepEqual(paths(ui), []);
+  assert.match(view.status.textContent, /file or revision changed/);
+  await query(ui, 'main');
+  assert.deepEqual(paths(ui), ['src/main.js'], 'A stale symbol scan cannot replace ordinary file matches.');
+});
+
+test('Quick Open @ keeps the palette available when a current bridge cannot navigate its symbol', async t => {
+  const ui = fixture(t);
+  symbols(ui, {go: () => false});
+  const view = await open(ui);
+  await query(ui, '@render');
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.equal(view.dialog.open, true);
+  assert.match(view.status.textContent, /symbol is no longer available/);
+  assert.deepEqual(ui.inline, []);
+});
+
+test('Quick Open @ captures the selected source on opening and refreshes it only when reopened', async t => {
+  const ui = fixture(t);
+  const first = symbols(ui);
+  const view = await open(ui);
+  const next = symbols(ui, {
+    diff: true,
+    side: 'old',
+    source: {owner: 'target', repo: 'repo', sha: baseSHA},
+    symbols: [{name: 'oldTarget', kind: 'function', line: 4}],
+  });
+  await query(ui, '@render');
+  assert.equal(view.results.querySelector('.quick-open-name')?.textContent, 'renderWidget');
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.deepEqual(first.selected, [first.model.symbols[0]]);
+  assert.deepEqual(next.selected, []);
+  await open(ui);
+  await query(ui, '@oldTarget');
+  assert.match(view.notice.textContent, /Old.*bbbbbbb/);
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.deepEqual(next.selected, [next.model.symbols[0]]);
+  assert.deepEqual(ui.inline, []);
+});
+
+test('Quick Open @ waits for composition and cancels a disposed yielding symbol scan', async t => {
+  const ui = fixture(t);
+  const source = symbols(ui, {
+    symbols: [
+      ...Array.from({length: 600}, (_, index) => ({name: `method${index}`, kind: 'method', line: index + 1})),
+      {name: 'reset', kind: 'function', line: 601},
+    ],
+  });
+  const view = await open(ui);
+  await query(ui, '@method', false);
+  t.mock.timers.tick(80);
+  view.input.value = '@reset';
+  await view.input.fire('input', {isComposing: true});
+  await key(ui, view.input, 'Enter', {isComposing: true});
+  await drain(ui, 0);
+  assert.deepEqual(paths(ui), []);
+  assert.equal(view.status.textContent, 'Composing query…');
+  assert.deepEqual(source.selected, []);
+  await view.input.fire('compositionend');
+  await drain(ui);
+  assert.equal(view.results.querySelector('.quick-open-name')?.textContent, 'reset');
+  await key(ui, view.input, 'Enter');
+  await drain(ui, 0);
+  assert.deepEqual(source.selected, [source.model.symbols.at(-1)]);
+  await open(ui);
+  await query(ui, '@method', false);
+  t.mock.timers.tick(80);
+  assert.equal(view.input.getAttribute('aria-busy'), 'true');
+  ui.app.dispose();
+  const status = view.status.textContent;
+  await drain(ui, 0);
+  assert.equal(view.dialog.isConnected, false);
+  assert.equal(view.status.textContent, status);
+  assert.equal(view.input.listeners.get('input').length, 0);
+  assert.equal(ui.window.listeners.get('keydown').length, 0);
+  assert.equal(source.selected.length, 1);
+});
+
+for (const display of ['Unified', 'Side-by-side']) {
+  test(`Quick Open @ navigates the real View full source in ${display} without reopening or refetching`, async t => {
+    const ui = fixture(t, ['src/unrelated.js'], 'github', {viewport: true});
+    const prefix = Array.from({length: 250}, (_, index) => `// context ${index}`);
+    const suffix = Array.from({length: 50}, (_, index) => `// tail ${index}`);
+    const before = [...prefix, 'export function oldTarget() { return 1; }', ...suffix].join('\n');
+    const after = [...prefix, 'export function newTarget() { return 2; }', ...suffix].join('\n');
+    const node = {
+      path: 'src/actual.js',
+      type: 'blob',
+      status: 'modified',
+      adds: 1,
+      dels: 1,
+      patch: '@@ -251 +251 @@\n-export function oldTarget() { return 1; }\n+export function newTarget() { return 2; }',
+    };
+    ui.state.diff = {
+      base: {owner: 'team', repo: 'repo', sha: baseSHA},
+      head: {owner: 'fork', repo: 'source', sha: headSHA},
+      files: [{...node, filename: node.path, additions: 1, deletions: 1}],
+    };
+    ui.app.rpc = async (type, message) => {
+      assert.equal(type, 'FILE');
+      ui.rpcCalls.push({type, message});
+      return message.source.sha === baseSHA ? before : after;
+    };
+    t.mock.timers.reset();
+    await ui.app.showDiff(node);
+    const body = ui.viewer.querySelector('.viewer-body');
+    assert.ok(body.querySelector('.code-spacer'));
+    assert.equal(typeof ui.app.getViewerSymbols, 'function', 'The production viewer exposes its owned symbol model.');
+    const button = ui.viewer
+      .querySelector('.diff-layout')
+      .querySelectorAll('button')
+      .find(button => button.textContent === display);
+    await button.fire('click');
+    ui.clock.flush();
+    t.mock.timers.enable({apis: ['setTimeout']});
+    const view = await open(ui);
+    await query(ui, '@newTarget');
+    assert.equal(view.results.querySelector('.quick-open-name')?.textContent, 'newTarget');
+    assert.match(view.notice.textContent, /src\/actual\.js.*New.*ccccccc/);
+    await key(ui, view.input, 'Enter');
+    await drain(ui, 0);
+    assert.equal(view.dialog.open, false);
+    assert.equal(ui.viewer.open, true);
+    const panes = display === 'Unified' ? [body] : body.querySelectorAll('.split-diff-pane');
+    for (const pane of panes) assert.equal(pane.scrollTop, (display === 'Unified' ? 251 : 250) * 22);
+    assert.equal(ui.document.activeElement, body);
+    assert.equal(ui.rpcCalls.length, 2);
+    assert.deepEqual(ui.inline, []);
+  });
+}

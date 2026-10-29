@@ -27,12 +27,14 @@ export function createViewer(app) {
   const {viewer} = app.view;
   let generation = 0;
   let disposeViewer;
+  let activeShell;
   // `close` fires in a later task; if another view opened the dialog again meanwhile, the event is stale.
   listen(viewer, 'close', () => {
     if (viewer.open) return;
     generation++;
     disposeViewer?.();
     disposeViewer = null;
+    activeShell = null;
   });
   onCleanup(closeViewer);
 
@@ -41,6 +43,7 @@ export function createViewer(app) {
     generation++;
     disposeViewer?.();
     disposeViewer = null;
+    activeShell = null;
     if (viewer.open) viewer.close();
   }
 
@@ -77,7 +80,16 @@ export function createViewer(app) {
           ]),
         );
         if (!viewer.open) viewer.showModal();
-        return {actions, closeButton, body: viewerBody, bottom, generation, owner: getOwner(), alive: createAlive()};
+        activeShell = {
+          actions,
+          closeButton,
+          body: viewerBody,
+          bottom,
+          generation,
+          owner: getOwner(),
+          alive: createAlive(),
+        };
+        return activeShell;
       }),
     );
   }
@@ -146,6 +158,7 @@ export function createViewer(app) {
           ),
         );
     } catch (error) {
+      shell.getSymbols = null;
       if (isCurrent(shell)) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff'));
     }
   }
@@ -182,5 +195,9 @@ export function createViewer(app) {
     if (!comments.length)
       shell.body.append(empty('No inline comments', 'There are no review comments for this file.', 'comment'));
   }
-  return {closeViewer, isCurrent, viewerShell, showDiff, showComments};
+  /** Returns symbols only for the current loaded diff; loading and comment dialogs have no symbol model. */
+  function getViewerSymbols() {
+    return activeShell && isCurrent(activeShell) ? activeShell.getSymbols?.() || null : null;
+  }
+  return {closeViewer, isCurrent, viewerShell, showDiff, showComments, getViewerSymbols};
 }

@@ -212,6 +212,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
         accountID,
       ]);
       if (message.value) {
+        if (message.accountID !== accountID) throw new Error('The file workspace account changed.');
         if (app.fileTabsReply) await app.fileTabsReply(message, context);
         metadata.set(key, structuredClone(message.value));
       }
@@ -2424,5 +2425,196 @@ for (const provider of ['github', 'gitlab']) {
     );
     assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
     assert.deepEqual(ui.errors, []);
+  });
+}
+
+/** Requires the visible Outline control before accessing its new loaded-view bridge on a baseline checkout. */
+function fileOutline(scope) {
+  const toggle = scope.querySelector('.file-outline-toggle');
+  assert.ok(toggle, 'Loaded file tabs expose their compact Outline control.');
+  return {toggle, panel: scope.querySelector('.file-outline-panel')};
+}
+
+/** Builds a complete unequal renamed diff with declaration names in both exact revisions. */
+function outlineRevision() {
+  const prefix = Array.from({length: 50}, (_, index) => `// context ${index}`);
+  const removed = ['function oldOnly() {}', 'function oldExtra() {}'];
+  const added = ['function newOnly() {}'];
+  const suffix = Array.from({length: 150}, (_, index) => `// tail ${index}`);
+  return {
+    before: [...prefix, ...removed, ...suffix].join('\n'),
+    after: [...prefix, ...added, ...suffix].join('\n'),
+    file: {
+      status: 'renamed',
+      previous_filename: 'src/old.js',
+      additions: 1,
+      deletions: 2,
+      patch: ['@@ -51,2 +51,1 @@', ...removed.map(line => '-' + line), ...added.map(line => '+' + line)].join('\n'),
+    },
+  };
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} Outline plain-file navigation retains Find and positions while models follow branch/account scope`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    ui.app.fileReply = message =>
+      Array.from({length: 260}, (_, index) =>
+        index === 149
+          ? 'function onlyTarget() {}'
+          : index === 180
+            ? 'class ServiceTarget {}'
+            : `// ${message.path} context ${index}`,
+      ).join('\n');
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    const controls = fileOutline(ui.workspace());
+    assert.equal(controls.panel.hidden, true);
+    const model = ui.app.getFileTabSymbols();
+    assert.equal(model.filePath, paths[0]);
+    assert.equal(model.path, paths[0]);
+    assert.equal(model.source.sha, mainSHA);
+    assert.equal(model.side, 'new');
+    assert.equal(model.diff, false);
+    const find = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, find, 'ServiceTarget');
+    const requests = ui.files.length;
+    controls.toggle.focus();
+    await controls.toggle.fire('click');
+    const target = model.symbols.find(symbol => symbol.name === 'onlyTarget');
+    assert.ok(target);
+    assert.equal(model.go(target), true);
+    ui.clock.flush();
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    assert.equal(ui.document.activeElement, ui.body());
+    assert.equal(find.input.value, 'ServiceTarget');
+    assert.equal(find.count.textContent, '1 / 1');
+    assert.equal(ui.files.length, requests, 'Opening Outline and following a symbol reuse loaded text.');
+    assert.ok(ui.body().querySelectorAll('.code-row').length < 50);
+    await ui.open(paths[1]);
+    assert.equal(model.current(), false);
+    assert.equal(model.go(target), false);
+    await ui.open(paths[0]);
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    fileOutline(ui.workspace());
+    assert.equal(findControls(ui.workspace()).bar.hidden, true);
+    const restored = ui.app.getFileTabSymbols();
+    await ui.branch('feature');
+    fileOutline(ui.workspace());
+    assert.equal(restored.current(), false);
+    assert.equal(ui.app.getFileTabSymbols().source.sha, featureSHA);
+    await ui.branch('main');
+    fileOutline(ui.workspace());
+    assert.equal(ui.body().scrollTop, 149 * 22);
+    const beforeAccount = ui.app.getFileTabSymbols();
+    ui.app.fileTabsAccount = 'other-outline-account';
+    await ui.settle(ui.app.loadPage(true));
+    assert.notEqual(
+      ui.app.getFileTabSymbols(),
+      beforeAccount,
+      'A native file route loads a fresh account-scoped model.',
+    );
+    assert.equal(beforeAccount.current(), false);
+    assert.doesNotMatch(
+      JSON.stringify([...ui.metadata]),
+      /onlyTarget|ServiceTarget/,
+      'Workspace metadata stores positions, not symbols or file text.',
+    );
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Outline actual file tabs and View full retain independent source sides in both layouts`, async t => {
+    const ui = fixture(t, provider, outlineRevision(), {search: true});
+    await ui.navigate(ui.review(41));
+    const inline = fileOutline(ui.workspace());
+    const find = await openFind(ui, ui.workspace(), ui.body());
+    await findText(t, ui, find, 'oldOnly');
+    inline.toggle.focus();
+    await inline.toggle.fire('click');
+    const old = inline.panel
+      .querySelector('.file-outline-revision')
+      .querySelectorAll('button')
+      .find(button => button.textContent === 'Old');
+    old.focus();
+    await old.fire('click');
+    const inlineModel = ui.app.getFileTabSymbols();
+    assert.equal(inlineModel.side, 'old');
+    assert.equal(inlineModel.path, 'src/old.js');
+    assert.equal(inlineModel.go(inlineModel.symbols.find(symbol => symbol.name === 'oldExtra')), true);
+    assert.equal(ui.body().scrollTop, 51 * 22);
+    const file = ui.app.state.diff.files[0];
+    await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
+    const modal = ui.app.view.viewer;
+    fileOutline(modal);
+    const modalModel = ui.app.getViewerSymbols();
+    assert.equal(modalModel.side, 'new');
+    assert.equal(modalModel.path, paths[0]);
+    assert.equal(ui.app.getFileTabSymbols().side, 'old');
+    const requests = ui.files.length;
+    assert.equal(modalModel.go(modalModel.symbols.find(symbol => symbol.name === 'newOnly')), true);
+    assert.equal(modal.querySelector('.viewer-body').scrollTop, 52 * 22);
+    assert.equal(ui.body().scrollTop, 51 * 22);
+    await diffLayout(ui, modal, 'Side-by-side');
+    assert.equal(inlineModel.current(), true);
+    assert.equal(modalModel.current(), true);
+    assert.deepEqual(panePositions(modal), [
+      {top: 50 * 22, left: 0},
+      {top: 50 * 22, left: 0},
+    ]);
+    assert.deepEqual(panePositions(ui.body()), [
+      {top: 51 * 22, left: 0},
+      {top: 51 * 22, left: 0},
+    ]);
+    assert.equal(ui.files.length, requests);
+    assert.equal(find.input.value, 'oldOnly');
+    assert.equal(find.count.textContent, '1 / 1');
+    ui.app.showComments({...file, path: file.filename, comments: []});
+    assert.equal(ui.app.getViewerSymbols(), null);
+    assert.equal(modalModel.current(), false);
+    assert.equal(ui.app.getFileTabSymbols(), inlineModel);
+    ui.app.closeViewer();
+    await ui.open(paths[1]);
+    await ui.open(paths[0]);
+    assert.equal(
+      ui.app.getFileTabSymbols().side,
+      'new',
+      'A newly loaded tab starts with its own default Outline revision.',
+    );
+    await diffLayout(ui, ui.workspace(), 'Unified');
+    assert.equal(ui.body().scrollTop, 51 * 22);
+    assert.equal(inlineModel.current(), false);
+    assert.equal(inlineModel.go(inlineModel.symbols[0]), false);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} Outline inline bridge remains null for loading/error and invalidates disposed file models`, async t => {
+    const ui = fixture(t, provider, undefined, {search: true});
+    ui.app.fileReply = () => 'function firstTarget() {}\n' + longText;
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    fileOutline(ui.workspace());
+    const old = ui.app.getFileTabSymbols();
+    const gate = deferred();
+    ui.app.fileReply = () => gate.promise;
+    const loading = ui.app.openFileTab({path: paths[1]});
+    await ui.drain(3);
+    assert.equal(ui.app.getFileTabSymbols(), null);
+    assert.equal(old.current(), false);
+    assert.equal(old.go(old.symbols[0]), false);
+    gate.resolve('// empty outline');
+    await ui.settle(loading);
+    fileOutline(ui.workspace());
+    assert.equal(ui.app.getFileTabSymbols().symbols.length, 0);
+    ui.app.fileReply = () => {
+      throw Object.assign(new Error('Not found'), {status: 404});
+    };
+    await ui.open(paths[0]);
+    assert.equal(ui.app.getFileTabSymbols(), null);
+    assert.match(ui.body().textContent, /File not found/);
+    await ui.navigate(ui.review(42));
+    assert.equal(old.current(), false);
+    ui.app.dispose();
+    assert.equal(ui.app.getFileTabSymbols(), null);
+    assert.equal(ui.window.listeners.get('resize')?.length || 0, 0);
+    assert.equal(ui.window.listeners.get('keydown')?.length || 0, 0);
   });
 }

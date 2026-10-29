@@ -19,6 +19,8 @@ import {tokenize} from './syntax.js';
 import {createFileSearch} from './file-search.js';
 import {createFileChanges} from './file-changes.js';
 import {createFileSelection} from './file-selection.js';
+import {createFileOutline} from './file-outline.js';
+import {extractSymbols} from '../../shared/symbols.js';
 
 /**
  * Loads and renders both exact revisions of a changed file.
@@ -46,9 +48,11 @@ export async function renderDiffFile(app, shell, node, diff, current) {
       `This file exceeds the 100,000 combined line text-preview limit. Open it on ${providerName(app.state.context)}.`,
     );
   const rows = fullDiff(before, after, node.patch);
-  const [oldSyntax, newSyntax] = await Promise.all([
+  const [oldSyntax, newSyntax, oldOutline, newOutline] = await Promise.all([
     tokenize(before, node.previous_filename || node.path, current),
     tokenize(after, node.path, current),
+    extractSymbols(before, node.previous_filename || node.path, current),
+    extractSymbols(after, node.path, current),
   ]);
   if (!current()) return;
   if (oldSyntax.limited || newSyntax.limited) {
@@ -56,8 +60,8 @@ export async function renderDiffFile(app, shell, node, diff, current) {
     newSyntax.lines = [];
   }
   renderRows(app, shell, rows, oldSyntax, newSyntax, current, true, {
-    old: {source: diff.base, path: node.previous_filename || node.path},
-    new: {source: diff.head, path: node.path},
+    old: {source: diff.base, path: node.previous_filename || node.path, outline: oldOutline},
+    new: {source: diff.head, path: node.path, outline: newOutline},
   });
   shell.bottom.prepend(
     el('span', {class: 'adds', text: `+${node.adds}`}),
@@ -91,10 +95,10 @@ export async function renderTextFile(app, shell, path, text, current, source) {
       `This file exceeds the 100,000 line text-preview limit. Open it on ${providerName(app.state.context)}.`,
     );
   const rows = fileLines.map((text, index) => ({type: 'context', text, oldLine: null, newLine: index + 1}));
-  const syntax = await tokenize(text, path, current);
+  const [syntax, outline] = await Promise.all([tokenize(text, path, current), extractSymbols(text, path, current)]);
   if (!current()) return;
   if (syntax.limited) syntax.lines = [];
-  renderRows(app, shell, rows, {lines: []}, syntax, current, false, {new: {source, path}});
+  renderRows(app, shell, rows, {lines: []}, syntax, current, false, {new: {source, path, outline}});
   shell.bottom.prepend(el('span', {text: `${rows.length} lines · UTF-8`}));
   if (syntax.limited) shell.bottom.append(el('span', {text: 'Syntax limit reached · plain text'}));
 }
@@ -345,6 +349,20 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
   shell.goToLine = goToLine;
   shell.body.replaceChildren(code);
   runWithOwner(shell.owner, () => {
+    const outline = createFileOutline(
+      shell,
+      rows,
+      sources,
+      current,
+      {
+        go: row => {
+          restorePosition({top: row * rowHeight, left: readPosition().left});
+          shell.onScroll?.();
+        },
+      },
+      diff,
+    );
+    shell.getSymbols = outline.getSymbols;
     selection = createFileSelection(app, shell, rows, sources, current, draw, diff);
     listen(shell.body, 'click', event => {
       if (!current() || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -369,6 +387,8 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
       current,
       diff,
     );
+    // Keep Outline, Find and the final Close control together when the toolbar wraps.
+    shell.actions.querySelector('.viewer-tools').prepend(outline.element);
     for (const viewport of [shell.body, oldPane, newPane]) {
       listen(
         viewport,
