@@ -63,6 +63,10 @@ Switching branches keeps Code's open paths and active file while loading the sel
 
 Use **Ctrl/Cmd+P** to open **Quick Open**, a separate palette for finding a file by its name or path with fuzzy matching. Search covers the current loaded file set; a notice identifies lazy folders that have not been loaded, and folders/submodules are not results. An empty query shows recently opened files. **Up/Down** selects a result, **Home/End** selects the first/last result, **Enter** opens an inline file tab, and **Escape** closes the palette. Ctrl/Cmd-click opens the result in a new browser tab. Append a source line, such as `src/main.js:120`, to open that file at line 120; diffs use New, or Old for a removed file. Query and recent-file state stay in page memory and reset when the route, file mode or account changes. Native editors retain their normal shortcuts.
 
+For JavaScript, TypeScript and Dart, open **Outline** in the file toolbar to browse recognized classes, functions and methods. Select a symbol to reveal its source line without fetching the file again. Diffs offer separate **New / Old** lists, including renamed and removed source paths, in both Unified and Side-by-side. The inline workspace and View full keep their own Outline state.
+
+In **Quick Open**, type **`@`** to list symbols in the currently open file, or **`@render`** to filter them by name. An open View full takes priority; symbols use the revision selected in its Outline, or the inline Outline otherwise. Enter jumps within that viewer; Ctrl/Cmd-click opens an exact-revision source link in a browser tab. This mode searches the loaded file only. The original lexical analyzer recognizes common declarations rather than performing semantic code analysis; unsupported languages, empty results and analysis limits are shown explicitly. Symbol data stays in viewer memory, outside storage and Sync.
+
 Use **Ctrl/Cmd+F** or the viewer's search button to find literal text without case sensitivity in the open file or diff. The search covers the complete loaded text, including virtualized rows. **Enter / Shift+Enter** and the arrow buttons cycle through matches; **Escape** closes search before closing View full. Diff search includes old and new lines, counting shared context once. Tabs and View full have separate searches, cleared when their file changes; queries stay in page memory. At most 10,000 matches are listed, with a `+` count when more exist. Native text editors keep their normal find shortcut.
 
 Viewer text search and source-line navigation use the **same field**; Quick Open has a separate file palette:
@@ -89,7 +93,7 @@ Workspace metadata belongs to the current browser tab, selected account, host an
 | `Shift+S` | Open the sidebar and focus search |
 | `Ctrl/Cmd+F` | Open the viewer's shared field in literal text-search mode |
 | `Ctrl/Cmd+G` | Open the same viewer field in line mode, prefilled with `:` |
-| `Ctrl/Cmd+P` | Open Quick Open to find a loaded file, optionally with `path:line` |
+| `Ctrl/Cmd+P` | Open Quick Open for loaded files (`path:line`) or current-file symbols (`@name`) |
 | Arrow keys | Navigate and expand/collapse rows |
 | `Enter` | Open a file or toggle a folder |
 

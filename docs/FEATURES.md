@@ -66,6 +66,14 @@ Use **Up/Down** to select a result, **Home/End** for the first/last result, **En
 
 Quick Open searches file paths, **Ctrl/Cmd+F** searches literal text in the current file or diff, and **Ctrl/Cmd+G** navigates within that file. A colon remains literal in Ctrl/Cmd+F; `path:line` belongs to Quick Open and does not change the viewer's Find mode.
 
+## Symbols and Outline
+
+**Outline** lists recognized declarations from the currently loaded JavaScript, TypeScript or Dart source. Selecting a symbol reveals its one-based source line through the same virtualized viewport and position-saving path as source-line navigation. File tabs and View full own separate lists; changing layout reuses the loaded analysis and preserves the source position. In diffs, **New / Old** selects an independent revision, including old names on renamed files and the remaining revision of added/removed files.
+
+Prefix a Quick Open query with **`@`** for the current file's symbols: `@` lists them, while `@render` fuzzy-matches names and containers. Results show declaration kind and source line, with the active file/revision identified. Enter navigates within the originating viewer without opening another file or closing View full. Ctrl/Cmd-click uses an exact source-revision permalink. A visible View full takes priority over inline tabs, including its loading/unavailable states; it never silently searches the underlying file. File-query recents and `path:line` behavior remain separate.
+
+This is local lexical analysis of already-loaded text, not a language server or repository-wide symbol index. Complex syntax can be omitted. Unsupported extensions, no recognized declarations and partial results have explicit states. Analysis is bounded and cancellable; symbol data is discarded with its viewer and never added to metadata, Sync or broker requests.
+
 ## Shared appearance and navigation
 
 - Left/right sidebar, pinning per browser window, hover opening, resizing and labeled collapsed edge tab. The Appearance default is applied when a window first opens Codetree; the pin button updates repository tabs in that window. Session pin states reset on extension/browser restart.

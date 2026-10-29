@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * Owned Quick Open palette over loaded files, with page-local recent paths.
+ * Owned Quick Open palette over loaded files or the current file's symbols, with page-local recent paths.
  * Search never fetches folders or stores source text, history or queries.
  */
 
@@ -28,7 +28,7 @@ export function createQuickOpen(app) {
   const {state} = app;
   const input = el('input', {
     type: 'search',
-    placeholder: 'Find a file… or path:120',
+    placeholder: 'Find a file… path:120 or @symbol',
     'aria-label': 'Quick Open file',
     role: 'combobox',
     'aria-autocomplete': 'list',
@@ -53,7 +53,7 @@ export function createQuickOpen(app) {
       el('div', {class: 'searchbar quick-open-search'}, [icon('search'), input]),
       el('div', {
         class: 'quick-open-hint',
-        text: 'Type a file name or path:line · Enter opens · Ctrl/Cmd-click opens a new tab',
+        text: 'File name or path:line · @ finds symbols in this file · Enter opens · Ctrl/Cmd-click opens a new tab',
       }),
       notice,
       results,
@@ -75,6 +75,26 @@ export function createQuickOpen(app) {
   let pending;
   let activationError = '';
   let previousFocus;
+  let symbolModel;
+  let symbolModal = false;
+
+  /** Reports the captured source honestly; an open dialog never falls back to an inline file. */
+  function symbolIssue() {
+    if (!symbolModel)
+      return symbolModal
+        ? 'Symbols are unavailable for the current View full content.'
+        : 'Open a file to search its symbols.';
+    if (!symbolModel.current()) return 'This file or revision changed. Reopen Quick Open to search its symbols.';
+    if (!symbolModel.supported) return 'Symbol search is not supported for this file type.';
+    return '';
+  }
+
+  /** Labels the exact selected source, including an old name and any parser truncation. */
+  function symbolContext() {
+    if (!symbolModel) return '';
+    const {path, filePath, diff, side, source, limited} = symbolModel;
+    return `${path}${path !== filePath ? ` (${filePath})` : ''} · ${diff ? `${side === 'old' ? 'Old' : 'New'} · ` : ''}${source?.sha?.slice(0, 7) || 'Revision unavailable'}${limited ? ' · Analysis limit reached; symbols may be incomplete.' : ''}`;
+  }
 
   /** Reflects a count or actionable failure without interpreting provider text as HTML. */
   function feedback(text, error = false) {
@@ -113,6 +133,8 @@ export function createQuickOpen(app) {
 
   /** Renders at most the visible result bound; all handlers remain delegated to the owned list. */
   function render() {
+    const symbols = parsed.mode === 'symbols';
+    const issue = symbols ? symbolIssue() : '';
     results.replaceChildren(
       ...matches.map((node, index) =>
         el(
@@ -125,12 +147,19 @@ export function createQuickOpen(app) {
             tabindex: '-1',
             'data-index': index,
             'aria-selected': String(index === active),
-            'aria-label': node.path,
+            'aria-label': symbols
+              ? `${node.symbol.name} · ${node.symbol.kind}${node.symbol.container ? ` · ${node.symbol.container}` : ''} · line ${node.symbol.line}`
+              : node.path,
             disabled: pending ? '' : undefined,
           },
           [
-            el('span', {class: 'quick-open-name', text: node.path.split('/').pop()}),
-            el('span', {class: 'quick-open-path', text: node.path}),
+            el('span', {class: 'quick-open-name', text: symbols ? node.symbol.name : node.path.split('/').pop()}),
+            el('span', {
+              class: 'quick-open-path',
+              text: symbols
+                ? `${node.symbol.kind}${node.symbol.container ? ` · ${node.symbol.container}` : ''} · line ${node.symbol.line}`
+                : node.path,
+            }),
           ],
         ),
       ),
@@ -141,18 +170,31 @@ export function createQuickOpen(app) {
           class: 'quick-open-empty',
           text: parsed.error
             ? 'Check the path and line number.'
-            : scanning
-              ? 'Searching loaded files…'
-              : parsed.query
-                ? 'No loaded files match.'
-                : 'No recent files. Type a file name to search.',
+            : issue
+              ? issue
+              : scanning
+                ? symbols
+                  ? 'Searching current-file symbols…'
+                  : 'Searching loaded files…'
+                : symbols
+                  ? parsed.query
+                    ? 'No symbols match in this file.'
+                    : 'No symbols found in this file.'
+                  : parsed.query
+                    ? 'No loaded files match.'
+                    : 'No recent files. Type a file name to search.',
         }),
       );
     select(active, false);
     if (parsed.error) feedback(parsed.error, true);
+    else if (issue) feedback(issue, true);
     else if (activationError) feedback(activationError, true);
     else if (pending) feedback('Opening file…');
-    else if (scanning) feedback('Searching loaded files…');
+    else if (scanning) feedback(symbols ? 'Searching current-file symbols…' : 'Searching loaded files…');
+    else if (symbols)
+      feedback(
+        `${total} ${total === 1 ? 'symbol' : 'symbols'}${total > maxResults ? ` · first ${maxResults} shown` : ''}`,
+      );
     else
       feedback(
         `${total} ${parsed.query ? (total === 1 ? 'match' : 'matches') : total === 1 ? 'recent file' : 'recent files'}${total > maxResults ? ` · first ${maxResults} shown` : ''}`,
@@ -161,14 +203,35 @@ export function createQuickOpen(app) {
 
   /** Scans loaded paths in yielding chunks, rejecting obsolete query/page work before publishing. */
   async function scan(request) {
-    const files = loadedFiles();
     const found = [];
     if (!parsed.error) {
-      if (!parsed.query) {
+      if (parsed.mode === 'symbols') {
+        if (!symbolIssue()) {
+          let count = 0;
+          for (const symbol of symbolModel.symbols) {
+            const nameScore = parsed.query ? quickOpenScore(symbol.name, parsed.query) : [];
+            const qualified = `${symbol.container ? `${symbol.container}.` : ''}${symbol.name}`;
+            const containerScore = !nameScore && symbol.container ? quickOpenScore(qualified, parsed.query) : null;
+            const score = nameScore
+              ? [0, ...nameScore, symbol.line]
+              : containerScore
+                ? [1, ...containerScore, symbol.line]
+                : null;
+            if (score) found.push({symbol, score, path: qualified});
+            if (++count % 256 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 0));
+              if (!live || !dialog.open || request !== scanGeneration) return;
+            }
+          }
+          if (parsed.query) found.sort(compareQuickOpenMatches);
+        }
+        if (symbolIssue()) found.length = 0;
+      } else if (!parsed.query) {
+        const files = loadedFiles();
         for (const path of recent) if (files.has(path)) found.push(files.get(path));
       } else {
         let count = 0;
-        for (const node of files.values()) {
+        for (const node of loadedFiles().values()) {
           const score = quickOpenScore(node.path, parsed.query);
           if (score) found.push({...node, score});
           if (++count % 256 === 0) {
@@ -203,16 +266,24 @@ export function createQuickOpen(app) {
     scanning = true;
     scanPromise = undefined;
     parsed = parseQuickOpenQuery(input.value.slice(0, 1024));
+    const symbols = parsed.mode === 'symbols';
+    input.setAttribute('aria-label', symbols ? 'Quick Open symbol' : 'Quick Open file');
+    results.setAttribute('aria-label', symbols ? 'Matching symbols' : 'Matching files');
     matches = [];
     active = total = 0;
     results.replaceChildren();
     input.removeAttribute('aria-activedescendant');
-    notice.hidden = !state.lazy;
-    notice.textContent = state.lazy
-      ? 'Search covers loaded files only. Load more folders from the tree to include them.'
-      : '';
+    notice.hidden = symbols ? !symbolModel : !state.lazy;
+    notice.textContent = symbols
+      ? symbolContext()
+      : state.lazy
+        ? 'Search covers loaded files only. Load more folders from the tree to include them.'
+        : '';
     input.setAttribute('aria-busy', 'true');
-    feedback(parsed.error || activationError || 'Searching loaded files…', Boolean(parsed.error || activationError));
+    feedback(
+      parsed.error || activationError || (symbols ? 'Searching current-file symbols…' : 'Searching loaded files…'),
+      Boolean(parsed.error || activationError),
+    );
     if (immediate || parsed.error || !parsed.query) void startScan(request);
     else
       timer = setTimeout(
@@ -225,6 +296,8 @@ export function createQuickOpen(app) {
   function openQuickOpen() {
     if (!live || !state.context) return;
     invalidate();
+    symbolModal = Boolean(app.view.viewer.open);
+    symbolModel = (symbolModal ? app.getViewerSymbols?.() : app.getFileTabSymbols?.()) || null;
     if (!dialog.open) {
       previousFocus = app.view.shadow.activeElement || document.activeElement;
       dialog.showModal();
@@ -239,6 +312,8 @@ export function createQuickOpen(app) {
   function closeQuickOpen(restoreFocus = true) {
     if (!live) return;
     invalidate();
+    symbolModel = null;
+    symbolModal = false;
     if (dialog.open) dialog.close();
     input.setAttribute('aria-expanded', 'false');
     if (restoreFocus && previousFocus?.isConnected) {
@@ -280,6 +355,37 @@ export function createQuickOpen(app) {
   async function activate(index, newTab = false) {
     if (!live || !dialog.open || pending || parsed.error) return;
     const node = matches[index];
+    if (parsed.mode === 'symbols') {
+      if (!node) return;
+      const issue = symbolIssue();
+      if (issue) {
+        matches = [];
+        total = 0;
+        activationError = issue;
+        render();
+        return;
+      }
+      if (newTab) {
+        const url = linePermalink(state.context, symbolModel.source, symbolModel.path, node.symbol.line);
+        if (!url) {
+          activationError = 'A link to this exact source revision is unavailable. Open the symbol here instead.';
+          render();
+          return;
+        }
+        window.open(url, '_blank', 'noopener');
+        activationError = '';
+        render();
+        return;
+      }
+      const model = symbolModel;
+      closeQuickOpen(false);
+      if (!model.go(node.symbol)) {
+        openQuickOpen();
+        activationError = 'This symbol is no longer available. Reopen Quick Open to search the current file.';
+        render();
+      }
+      return;
+    }
     if (!node || !loadedFiles().has(node.path)) return;
     const request = {
       generation,
@@ -411,6 +517,8 @@ export function createQuickOpen(app) {
   listen(dialog, 'close', () => {
     if (dialog.open) return;
     invalidate();
+    symbolModel = null;
+    symbolModal = false;
     input.setAttribute('aria-expanded', 'false');
   });
   createRenderEffect(

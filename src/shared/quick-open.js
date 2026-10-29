@@ -3,18 +3,19 @@
  * Copyright (C) 2026 Anton Ustinoff
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
- * Literal path/line parsing and deterministic fuzzy ranking for Quick Open.
+ * Explicit symbol mode, literal path/line parsing and deterministic fuzzy ranking for Quick Open.
  */
 
 /**
- * Separates an optional trailing source line from a filename query.
+ * Recognizes explicit current-file symbol mode or separates a source line from a filename query.
  * A colon followed by ordinary filename text stays literal.
  *
  * @param {string} value The palette input.
- * @returns {{query: string, line?: number, error?: string}} Parsed path query or actionable validation feedback.
+ * @returns {{query: string, mode?: 'symbols', line?: number, error?: string}} Parsed query or validation feedback.
  */
 export function parseQuickOpenQuery(value) {
   const query = String(value).trim();
+  if (query.startsWith('@')) return {query: query.slice(1).trim(), mode: 'symbols'};
   const separator = query.lastIndexOf(':');
   if (separator < 0) return {query};
   const suffix = query.slice(separator + 1).trim();

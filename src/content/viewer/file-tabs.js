@@ -470,6 +470,11 @@ export function createFileTabs(app) {
     if (contentReady && shell?.body.isConnected && !host.hidden) shell.body.focus({preventScroll: true});
   }
 
+  /** Returns symbols only for the current successfully loaded inline text viewer. */
+  function getFileTabSymbols() {
+    return contentReady && shell?.body.isConnected && !host.hidden ? shell.getSymbols?.() || null : null;
+  }
+
   /** Restores the code workspace when a branch is selected from either Code or review pages. */
   async function selectFileBranch(ref) {
     const context = state.context;
@@ -755,6 +760,7 @@ export function createFileTabs(app) {
     loadFileTabs,
     openFileTab,
     focusFileTab,
+    getFileTabSymbols,
     selectFileBranch,
     rememberFileTabs,
     suspendFileTabs,
