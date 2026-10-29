@@ -22,7 +22,7 @@ Run `npm ci` and `npm run build`, then load `build/` as an unpacked extension in
 - `src/background/`: trusted service worker. `index.js` routes messages; `storage`, `cache`, `http`, `client`, `hosts`, `accounts` and `validate` hold the host-bound broker, bounded caches and request validation.
 - `src/background/providers/`: GitHub REST/GraphQL and GitLab REST adapters, each with its own request handler.
 - `src/background/sync.js`: opt-in, bounded browser Sync for whitelisted preferences/bookmarks; credentials and caches stay local.
-- `src/background/oauth/`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret; registration and live sign-in remain pending until the maintainer supplies IDs.
+- `src/background/oauth/`: public client IDs and trusted OAuth device/PKCE/refresh flows. Never add a client secret. The GitHub and GitLab applications are registered and their public IDs are in `config.js`; live sign-in/refresh in the installed extension remains pending verification (see [OAuth setup](docs/OAUTH.md)).
 - `src/content/`: Shadow DOM sidebar. `app.js` composes feature factories (`createX(app)`) from `sidebar/`, `viewer/` and `native/`; factories receive shared state and functions through `app`, so they run in tests without a page.
 - `src/content/viewer/syntax.js`: original lexical highlighting with bounded tokens, yielding and cancellation; render token ranges as text nodes.
 - `src/content/sidebar.scss`, `styles/_themes.scss`: isolated UI styles and GitHub/GitLab light/dark palettes. `page.scss` styles native controls; `sidebar/layout.js` adds runtime preference values.
