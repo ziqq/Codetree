@@ -314,13 +314,24 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
     restorePosition({top: line * rowHeight, left: position.left});
   }
 
+  /**
+   * Moves to a canonical unified row as one explicit navigation point. Only Outline,
+   * symbol and source-line jumps use it; scrolling, layout, find and change-block
+   * reveals do not create navigation history.
+   */
+  function jump(row) {
+    const from = readPosition();
+    restorePosition({top: row * rowHeight, left: from.left});
+    shell.onScroll?.();
+    shell.onNavigate?.(from);
+  }
+
   /** Reveals a one-based New source line, or an Old line when the file is deleted. */
   function goToLine(line) {
     if (!current()) return;
     const index = Number.isSafeInteger(line) && line > 0 ? rows.findIndex(row => row[lineSide] === line) : -1;
     if (index < 0) throw new Error(`Line ${line} does not exist in this file revision.`);
-    restorePosition({top: index * rowHeight, left: readPosition().left});
-    shell.onScroll?.();
+    jump(index);
   }
 
   /** Reveals a search hit even when its row is not rendered, keeping split panes and tab metadata in sync. */
@@ -349,19 +360,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
   shell.goToLine = goToLine;
   shell.body.replaceChildren(code);
   runWithOwner(shell.owner, () => {
-    const outline = createFileOutline(
-      shell,
-      rows,
-      sources,
-      current,
-      {
-        go: row => {
-          restorePosition({top: row * rowHeight, left: readPosition().left});
-          shell.onScroll?.();
-        },
-      },
-      diff,
-    );
+    const outline = createFileOutline(shell, rows, sources, current, {go: jump}, diff);
     shell.getSymbols = outline.getSymbols;
     selection = createFileSelection(app, shell, rows, sources, current, draw, diff);
     listen(shell.body, 'click', event => {
@@ -379,10 +378,7 @@ function renderRows(app, shell, rows, oldSyntax, newSyntax, current, diff, sourc
         draw,
         reveal,
         row: () => Math.floor(readPosition().top / rowHeight),
-        go: row => {
-          restorePosition({top: row * rowHeight, left: readPosition().left});
-          shell.onScroll?.();
-        },
+        go: jump,
       },
       current,
       diff,

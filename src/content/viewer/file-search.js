@@ -4,7 +4,8 @@
  * https://github.com/ziqq/Codetree/blob/main/LICENSE
  *
  * Owned literal search and line-navigation toolbar over complete viewer rows, independent of DOM virtualization.
- * Matches use original UTF-16 offsets, retain syntax spans and never leave the viewer.
+ * Matches use original UTF-16 offsets, retain syntax spans and never leave the viewer. Match case, Whole word
+ * and the diff revision scope belong to one viewer instance and are never stored.
  */
 
 import {button, el} from '../dom.js';
@@ -17,9 +18,37 @@ import {createFileLine} from './file-line.js';
 const maxMatches = 10000;
 
 /**
+ * Characters that continue a word for Whole word: Unicode letters, combining marks, decimal digits and connector
+ * punctuation such as `_`. Evaluated with the `u` flag, so astral letters count as one code point.
+ */
+const wordCharacter = '[\\p{L}\\p{M}\\p{Nd}\\p{Pc}]';
+
+/** Diff revision scopes in display order; a row is eligible when it has the named source line. */
+const scopes = [
+  ['both', 'Both'],
+  ['newLine', 'New'],
+  ['oldLine', 'Old'],
+];
+
+/**
+ * Builds a literal search pattern. Whole word checks only the characters adjacent to a match, regardless of
+ * whether the query itself starts or ends with a word character, so `(foo` matches in `x (foo)` but not `x(foo)`.
+ *
+ * @param {string} query The literal query.
+ * @param {{matchCase: boolean, wholeWord: boolean}} options Current matching options.
+ * @returns {RegExp} A global Unicode pattern.
+ */
+function searchPattern(query, {matchCase, wholeWord}) {
+  const literal = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const source = wholeWord ? `(?<!${wordCharacter})${literal}(?!${wordCharacter})` : literal;
+  return new RegExp(source, matchCase ? 'gu' : 'giu');
+}
+
+/**
  * Adds a find bar to one loaded file. The modal takes shortcut priority over
  * the inline workspace; native editors keep their own Ctrl/Cmd+F behavior.
  * Context rows are searched once and share their ranges in both split panes.
+ * Diffs can restrict matches to rows of the New or Old revision; alignment gaps are never rows.
  *
  * @param {object} app The content feature context.
  * @param {object} shell The owned viewer shell.
@@ -48,9 +77,58 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
   const label = el('span', {class: 'viewer-line-label', text: 'Line', hidden: ''});
   const field = el('div', {class: 'searchbar viewer-find-field'}, [symbol, label, input, count]);
   const line = createFileLine(rows, viewport, current, diff, input, closeSearch);
+  const options = {matchCase: false, wholeWord: false};
+  const optionGroup = el('div', {
+    class: 'viewer-find-group viewer-find-options',
+    role: 'group',
+    'aria-label': 'Search options',
+  });
+  const optionButtons = [
+    ['matchCase', 'Match case', 'Aa', 'viewer-find-case'],
+    ['wholeWord', 'Whole word', 'ab', 'viewer-find-word'],
+  ].map(([name, label, text, className]) => {
+    const control = el('button', {type: 'button', class: className, text, title: label, 'aria-label': label});
+    listen(
+      control,
+      'click',
+      choose(() => {
+        options[name] = !options[name];
+      }),
+    );
+    optionGroup.append(control);
+    return [name, control];
+  });
+  let scope = 'both';
+  const scopeGroup = diff
+    ? el('div', {class: 'viewer-find-group viewer-find-scope', role: 'group', 'aria-label': 'Search revision'})
+    : null;
+  const scopeButtons = [];
+  if (diff)
+    for (const [value, text] of scopes) {
+      const control = el('button', {
+        type: 'button',
+        text,
+        title: `Search ${text === 'Both' ? 'both revisions' : `the ${text} revision`}`,
+      });
+      listen(
+        control,
+        'click',
+        choose(() => {
+          scope = value;
+        }),
+      );
+      scopeGroup.append(control);
+      scopeButtons.push([value, control]);
+    }
+  const populated = {
+    oldLine: rows.some(row => row.oldLine),
+    newLine: rows.some(row => row.newLine),
+  };
   const bar = el('div', {class: 'viewer-find', role: 'search', hidden: ''}, [
     line.revisions,
+    ...(scopeGroup ? [scopeGroup] : []),
     field,
+    optionGroup,
     previous,
     next,
     close,
@@ -75,6 +153,34 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
   let live = true;
   let lineMode = false;
   let query = '';
+  let started = false;
+  let pending = 0;
+  const run = withOwner((text, request) => scan(text, request));
+
+  /** Whether the selected diff revision has no source rows, so no query can match. */
+  function emptyScope() {
+    return scope !== 'both' && !populated[scope];
+  }
+
+  /** Reflects option and scope state on the toggle buttons. */
+  function pressed() {
+    for (const [name, control] of optionButtons) control.setAttribute('aria-pressed', String(options[name]));
+    for (const [value, control] of scopeButtons) control.setAttribute('aria-pressed', String(scope === value));
+  }
+
+  /**
+   * Wraps an option or scope change: the current query is scanned again at once under a new generation,
+   * so obsolete debounces and yielding scans cannot publish, and focus returns to the shared input.
+   */
+  function choose(apply) {
+    return () => {
+      if (!live || !current()) return;
+      apply();
+      pressed();
+      if (!lineMode) schedule(undefined, true);
+      input.focus();
+    };
+  }
 
   /** Shows the active mode in one persistent input, retaining the separate literal search query. */
   function mode(value) {
@@ -82,7 +188,8 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
     line.revisions.hidden = !value || !diff;
     label.hidden = !value;
     symbol.style.display = value ? 'none' : '';
-    count.hidden = previous.hidden = next.hidden = close.hidden = value;
+    count.hidden = previous.hidden = next.hidden = close.hidden = optionGroup.hidden = value;
+    if (scopeGroup) scopeGroup.hidden = value;
     field.classList.toggle('viewer-line-field', value);
     bar.setAttribute('role', value ? 'group' : 'search');
     bar.setAttribute('aria-label', value ? 'Go to line' : 'Find in file');
@@ -100,11 +207,13 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
 
   /** Updates the count without replacing the focused input or its selection. */
   function update() {
-    count.textContent = searching
-      ? 'Searching…'
-      : input.value
-        ? `${active + 1} / ${matches.length}${limited ? '+' : ''}`
-        : '';
+    count.textContent = emptyScope()
+      ? `${scope === 'oldLine' ? 'Old' : 'New'} revision is empty`
+      : searching
+        ? 'Searching…'
+        : input.value
+          ? `${active + 1} / ${matches.length}${limited ? '+' : ''}`
+          : '';
     count.title = limited ? `Only the first ${maxMatches.toLocaleString('en-US')} matches are listed.` : '';
     previous.disabled = next.disabled = !matches.length || searching;
     input.setAttribute('aria-busy', String(searching));
@@ -114,10 +223,12 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
   function reset() {
     generation++;
     clearTimeout(timer);
+    timer = undefined;
     ranges = new Map();
     matches = [];
     active = -1;
-    limited = searching = false;
+    limited = searching = started = false;
+    pending = 0;
   }
 
   /** Opens this viewer's bar and selects the existing local query for replacement. */
@@ -165,9 +276,28 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
     viewport.reveal(matches[active]);
   }
 
-  /** Scans literal, case-insensitive matches in bounded chunks; stale queries cannot publish results. */
+  /**
+   * Starts the current query's scan before its debounce when Enter needs a result. Enter after publication
+   * steps normally; otherwise the published selection honors Enter (first match at or below the viewport)
+   * or Shift+Enter (the match before it).
+   */
+  function flush(step) {
+    if (!searching) {
+      select(active + step);
+      return;
+    }
+    pending = step;
+    if (started) return;
+    clearTimeout(timer);
+    timer = undefined;
+    started = true;
+    run(query, generation);
+  }
+
+  /** Scans literal matches with the current options and scope in bounded chunks; stale scans cannot publish. */
   async function scan(query, request) {
-    const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
+    const pattern = searchPattern(query, options);
+    const side = scope === 'both' ? null : scope;
     const found = [];
     const indexed = new Map();
     let clipped = false;
@@ -176,7 +306,7 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
       const row = rows[index];
       pattern.lastIndex = 0;
       let match;
-      while ((match = pattern.exec(row.text))) {
+      while ((!side || row[side]) && (match = pattern.exec(row.text))) {
         if (found.length === maxMatches) {
           clipped = true;
           break scanRows;
@@ -199,16 +329,24 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
     limited = clipped;
     searching = false;
     const top = viewport.row();
-    const index = matches.findIndex(match => match.row >= top);
-    if (matches.length) select(index < 0 ? 0 : index);
+    const index = Math.max(
+      0,
+      matches.findIndex(match => match.row >= top),
+    );
+    const step = pending;
+    pending = 0;
+    if (matches.length) select(step < 0 ? index - 1 : index);
     else {
       update();
       viewport.draw();
     }
   }
 
-  /** Debounces input and invalidates old highlights immediately, including while composing text. */
-  function schedule(event) {
+  /**
+   * Debounces input and invalidates old highlights immediately, including while composing text.
+   * Option and scope changes pass `immediate` to scan without waiting for the debounce.
+   */
+  function schedule(event, immediate = false) {
     if (!live || !current()) return;
     if (lineMode) {
       line.update();
@@ -216,15 +354,21 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
     }
     query = input.value.slice(0, 1024);
     reset();
-    searching = Boolean(query);
+    searching = Boolean(query) && !emptyScope();
     update();
     viewport.draw();
-    if (!query || event?.isComposing) return;
+    if (!searching || event?.isComposing) return;
     const request = generation;
-    timer = setTimeout(
-      withOwner(() => scan(query, request)),
-      120,
-    );
+    if (immediate) {
+      started = true;
+      run(query, request);
+      return;
+    }
+    timer = setTimeout(() => {
+      timer = undefined;
+      started = true;
+      run(query, request);
+    }, 120);
   }
 
   /** Routes find/Enter/Escape through the active viewer, respecting closed-shadow input focus. */
@@ -256,7 +400,7 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
         event.preventDefault();
         event.stopPropagation();
         if (lineMode) line.submit();
-        else select(active + (event.shiftKey ? -1 : 1));
+        else flush(event.shiftKey ? -1 : 1);
       }
     }
   }
@@ -269,6 +413,7 @@ export function createFileSearch(app, shell, rows, viewport, current, diff = fal
     reset();
     tools.remove();
   });
+  pressed();
   update();
   return {ranges: row => ranges.get(row) || [], active: () => matches[active]};
 }

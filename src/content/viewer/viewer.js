@@ -7,12 +7,15 @@
  *
  * Each opened view gets a generation number; closing the dialog, opening
  * another file or navigating invalidates replies for the previous view.
+ * Back/Forward history lives for one dialog lifetime and is keyed by the
+ * exact base/head revisions, so a replaced diff cannot restore old entries.
  */
 
 import {button, el, empty} from '../dom.js';
 import {providerName} from '../page.js';
 import {renderDiffFile} from './file-content.js';
 import {createFileReview} from './file-review.js';
+import {createHistoryControls, createNavigationHistory} from './file-history.js';
 import {createAlive, createRoot, getOwner, onCleanup, runWithOwner} from '../reactive.js';
 import {listen} from '../reactive-dom.js';
 
@@ -28,6 +31,7 @@ export function createViewer(app) {
   let generation = 0;
   let disposeViewer;
   let activeShell;
+  const history = createNavigationHistory();
   // `close` fires in a later task; if another view opened the dialog again meanwhile, the event is stale.
   listen(viewer, 'close', () => {
     if (viewer.open) return;
@@ -35,6 +39,7 @@ export function createViewer(app) {
     disposeViewer?.();
     disposeViewer = null;
     activeShell = null;
+    history.clear();
   });
   onCleanup(closeViewer);
 
@@ -44,6 +49,7 @@ export function createViewer(app) {
     disposeViewer?.();
     disposeViewer = null;
     activeShell = null;
+    history.clear();
     if (viewer.open) viewer.close();
   }
 
@@ -94,21 +100,85 @@ export function createViewer(app) {
     );
   }
 
+  /** The history scope of a diff: its exact base and head revisions. */
+  function historyKey(diff) {
+    return `${diff?.base.sha || ''}:${diff?.head.sha || ''}`;
+  }
+
+  /** Returns the loaded diff location of the open dialog, or null while loading, failed or showing comments. */
+  function historyLocation(shell = activeShell) {
+    if (!shell?.historyPath || !shell.readPosition || !isCurrent(shell)) return null;
+    return {key: shell.historyKey, path: shell.historyPath, position: shell.readPosition()};
+  }
+
+  /** Accepts only entries of the diff currently loaded in the page state. */
+  function accept(entry) {
+    return Boolean(state.diff) && entry.key === historyKey(state.diff);
+  }
+
+  /** Re-evaluates the open shell's Back/Forward boundaries. */
+  function updateHistory(shell = activeShell) {
+    if (!shell?.history || !isCurrent(shell)) return;
+    const current = historyLocation(shell);
+    shell.history.back.disabled = !history.canBack(current, accept);
+    shell.history.forward.disabled = !history.canForward(current, accept);
+  }
+
+  /**
+   * Restores one history entry without recording it. Another file is opened
+   * through showDiff; the pointer moves only after the stored position applied.
+   */
+  async function traverse(direction) {
+    const shell = activeShell;
+    if (!shell || !isCurrent(shell)) return;
+    const current = historyLocation(shell);
+    const target = direction < 0 ? history.back(current, accept) : history.forward(current, accept);
+    if (!target) return updateHistory(shell);
+    if (current && target.entry.path === current.path) {
+      shell.restorePosition(target.entry.position);
+      history.commit(target);
+      return updateHistory(shell);
+    }
+    const file = state.diff.files.find(file => file.filename === target.entry.path);
+    if (!file) {
+      app.toast?.(`${target.entry.path} is no longer part of this diff.`);
+      return updateHistory(shell);
+    }
+    await showDiff(diffNode(file), {target});
+  }
+
   /**
    * Shows a whole changed file with highlighted changes and both line numbers.
    *
    * Both revisions are loaded at the exact request revisions and validated
    * against the patch. Rows are virtualized; syntax highlighting is skipped
-   * above its token budget. Previous/next cover every changed file.
+   * above its token budget. Previous/next cover every changed file. A file
+   * opened while the dialog is already showing a diff records a history
+   * point, unless it is the Back/Forward `target` being restored.
+   *
+   * @param {object} node The changed file in tree-node form.
+   * @param {{target?: {index: number, entry: object}}} [options] Internal history restoration.
    */
-  async function showDiff(node) {
+  async function showDiff(node, {target} = {}) {
     const diff = state.diff;
     if (!diff) return;
     app.updateCodeColors?.();
+    const open = viewer.open;
+    // A new dialog lifetime starts an empty history; the start point is recorded after it loads.
+    if (!open) history.clear();
+    const from = open && !target ? historyLocation() : null;
     const shell = viewerShell(
       node.path,
       `${diff.base.sha?.slice(0, 7) || 'empty'} → ${diff.head.sha.slice(0, 7)} · full-file context`,
     );
+    shell.historyKey = historyKey(diff);
+    shell.history = createHistoryControls(
+      run(() => traverse(-1)),
+      run(() => traverse(1)),
+    );
+    // Prepended before the native link and every file control, so Close stays last.
+    shell.actions.prepend(shell.history.element);
+    updateHistory(shell);
     shell.body.replaceChildren(
       empty('Loading file revisions', `Fetching the complete text from ${providerName(state.context)}…`, 'refresh'),
     );
@@ -146,6 +216,19 @@ export function createViewer(app) {
     );
     try {
       await renderDiffFile(app, shell, node, diff, () => isCurrent(shell));
+      if (isCurrent(shell) && shell.readPosition) {
+        shell.historyPath = node.path;
+        if (target) {
+          shell.restorePosition(target.entry.position);
+          history.commit(target);
+        } else history.visit(from, historyLocation(shell));
+        shell.onNavigate = position => {
+          if (!isCurrent(shell)) return;
+          history.visit({...historyLocation(shell), position}, historyLocation(shell));
+          updateHistory(shell);
+        };
+        updateHistory(shell);
+      }
       if (isCurrent(shell))
         runWithOwner(shell.owner, () =>
           createFileReview(
@@ -159,7 +242,11 @@ export function createViewer(app) {
         );
     } catch (error) {
       shell.getSymbols = null;
-      if (isCurrent(shell)) shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff'));
+      if (!isCurrent(shell)) return;
+      shell.body.replaceChildren(empty('Text preview unavailable', error.message, 'diff'));
+      if (target) app.toast?.(`Could not restore ${node.path}: ${error.message}`);
+      else if (from) history.visit(from, null);
+      updateHistory(shell);
     }
   }
 
