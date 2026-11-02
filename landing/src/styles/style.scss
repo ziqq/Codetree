@@ -1,0 +1,347 @@
+/*
+ * https://github.com/ziqq/Codetree
+ * Copyright (C) 2026 Anton Ustinoff
+ * https://github.com/ziqq/Codetree/blob/main/LICENSE
+ *
+ * Shared presentation for the landing homepage and privacy policy. System
+ * fonts only; light and dark palettes follow `prefers-color-scheme`.
+ */
+
+:root {
+  color-scheme: light dark;
+  --background: #fff;
+  --surface: #f6f8fa;
+  --text: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #1f5fd6;
+  --accent-text: #fff;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0d1117;
+    --surface: #151b23;
+    --text: #f0f6fc;
+    --muted: #9198a1;
+    --border: #3d444d;
+    --accent: #4c8dff;
+    --accent-text: #0d1117;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--text);
+}
+
+body {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 28px;
+  background: var(--background);
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+
+a:focus-visible,
+.language-picker:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.site-header,
+nav,
+footer {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.site-header {
+  flex-wrap: wrap;
+  min-height: 88px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.wordmark img {
+  width: 36px;
+  height: 36px;
+}
+
+nav {
+  flex-wrap: wrap;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.language-picker {
+  appearance: none;
+  min-height: 38px;
+  padding: 6px 40px 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    right 12px center / 16px no-repeat;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.hero {
+  max-width: 780px;
+  padding: 72px 0 40px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  margin: 16px 0 24px;
+  font-size: clamp(40px, 7vw, 76px);
+}
+
+h2 {
+  font-size: 24px;
+}
+
+p {
+  margin: 16px 0;
+}
+
+.lead {
+  font-size: 22px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.button {
+  display: inline-block;
+  padding: 11px 20px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button.secondary {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.notice {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.preview {
+  margin: 0 0 40px;
+}
+
+.preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  margin: 48px 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.features p {
+  color: var(--muted);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin-bottom: 48px;
+}
+
+.gallery .preview {
+  margin: 0;
+}
+
+.data-use {
+  max-width: 780px;
+  margin-bottom: 64px;
+}
+
+footer {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.policy {
+  max-width: 800px;
+  margin: 48px auto 64px;
+  overflow-wrap: anywhere;
+}
+
+.policy h1 {
+  font-size: clamp(30px, 8vw, 60px);
+  overflow-wrap: normal;
+  hyphens: auto;
+}
+
+.policy h2 {
+  margin-top: 40px;
+}
+
+.policy li {
+  margin: 10px 0;
+}
+
+.table {
+  overflow-x: auto;
+}
+
+.policy table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.policy th,
+.policy td {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.policy th {
+  background: var(--surface);
+}
+
+.site-preference {
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 0 16px;
+  }
+
+  .site-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 12px 0;
+  }
+
+  .language-picker {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 8px 16px;
+    margin-left: 0;
+  }
+
+  .hero {
+    padding: 28px 0 24px;
+  }
+
+  .lead {
+    font-size: 19px;
+  }
+
+  .features,
+  .gallery {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .gallery {
+    gap: 24px;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+}

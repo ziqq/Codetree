@@ -1,0 +1,21 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Site footer: authorship, license and support links.
+#}
+<footer>
+  <p>
+    {{ t.footer.developer }}
+    <a href="{{ links.license }}">Codetree Source-Available License 1.0</a>.
+  </p>
+  <p>
+    <a href="{{ links.issues }}">{{ t.nav.support }}</a> ·
+    {% if pageKey == 'privacy' %}
+    <a href="{{ links.home }}">{{ t.nav.home }}</a> · <a href="{{ links.policySource }}">{{ t.policy.source }}</a>
+    {% else %}
+    <a href="{{ links.privacy }}">{{ t.footer.privacy }}</a>
+    {% endif %}
+  </p>
+</footer>

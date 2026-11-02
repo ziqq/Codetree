@@ -1,0 +1,13 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Additional lazily loaded screenshots.
+#}
+<section class="gallery" aria-label="{{ t.gallery.label }}">
+  {% for item in t.gallery.items %}
+  {% set image = item.image %}{% set alt = item.alt %}{% set caption = item.caption %}{% set lazy = true %}
+  {% include "partials/_screenshot.njk" %}
+  {% endfor %}
+</section>

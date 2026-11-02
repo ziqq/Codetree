@@ -2,6 +2,8 @@
 
 Values for the Chrome Web Store Developer Dashboard, tab by tab. The upload API does not change listing fields; paste these values manually and keep them consistent with `src/manifest.json`, README and [Privacy](../PRIVACY.md). Do not name other extensions or products in the listing.
 
+Public listing: [Codetree on the Chrome Web Store](https://chromewebstore.google.com/detail/codetree/omfcokfhgbjklkbkbhfadefpolbndjba).
+
 ## Package
 
 Upload `codetree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases). The first upload creates the item; later releases are submitted by the release workflow (see [Publishing](#publishing)).
@@ -72,7 +74,7 @@ Screenshots and promo images are 24-bit PNGs without transparency. Screenshots m
 | Field | Value |
 | --- | --- |
 | Official URL | None (requires a verified domain) |
-| Homepage URL | https://github.com/ziqq/Codetree |
+| Homepage URL | https://codetree.ustinoff.dev/ |
 | Support URL | https://github.com/ziqq/Codetree/issues |
 | Mature content | No |
 
@@ -134,7 +136,7 @@ Check all three certifications: data is not sold or transferred to third parties
 ### Privacy policy URL
 
 ```text
-https://github.com/ziqq/Codetree/blob/main/PRIVACY.md
+https://codetree.ustinoff.dev/privacy.html
 ```
 
 ## Distribution

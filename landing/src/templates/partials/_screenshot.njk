@@ -1,0 +1,21 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  One themed screenshot: the dark capture under prefers-color-scheme: dark,
+  the light capture otherwise. Expects image, alt, caption and lazy.
+#}
+<figure class="preview">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="{{ repo }}docs/store/screenshots/dark/{{ image }}.png" />
+    <img
+      src="{{ repo }}docs/store/screenshots/light/{{ image }}.png"
+      alt="{{ alt }}"
+      width="1280"
+      height="800"
+      {% if lazy %}loading="lazy"{% endif %}
+    />
+  </picture>
+  <figcaption>{{ caption }}</figcaption>
+</figure>
