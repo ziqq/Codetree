@@ -2,7 +2,7 @@
 
 Codetree's public homepage and privacy policy are prepared for `https://codetree.ustinoff.dev/` in English and Russian. The source lives in `landing/` on `main` and is published by a GitHub Actions Pages workflow. No VPS, paid hosting, purchased certificate or Codetree backend is involved. Domain registration and renewal remain the owner's responsibility.
 
-Status, **2 November 2026**: the Vite/Nunjucks source, build script, tests and workflow are updated to TypeScript; all 473 regressions and `npm run verify` passed locally; Pages is configured for Actions and `codetree.ustinoff.dev` is reserved with verified domain protection. The CNAME was saved in REG.RU; publication and HTTPS acceptance are pending. Earlier local preview checks do not establish a live deployment. Nothing in this document is evidence of a live deployment until the acceptance checks below are recorded with dates.
+Status, **2 November 2026**: deployed successfully to [codetree.ustinoff.dev](https://codetree.ustinoff.dev/). All four EN/RU pages return HTTPS 200, and HTTP redirects to HTTPS. The release [0.5.0](https://github.com/ziqq/Codetree/releases/tag/v0.5.0) includes all accumulated features and the new extension homepage URL. Chrome Web Store received 0.5.0 and the updated homepage/policy URLs; its Dashboard reports **Pending review**, not public availability of 0.5.0. See the deployment record below for evidence and verification limits.
 
 The landing page is not part of the extension: it is excluded from the runtime ZIP, cannot access repositories or tokens and changes no OAuth callback. Commits, pushes, Pages settings and DNS changes each need the owner's authorization.
 
@@ -133,12 +133,17 @@ Record in this document: deployed commit and workflow run, DNS delta, authoritat
 - REG.RU confirmed **Внесены изменения зоны** after adding only `CNAME codetree → ziqq.github.io.`. Existing root/www A records, both verification TXT records and mailchecker CNAME were preserved.
 - Local verification: `npm run verify` passed (473 tests); landing build/typecheck, ESLint, Prettier, actionlint and `git diff --check` passed. The 17-file extension ZIP contains no landing files.
 - Browser: EN/RU homepages and policy navigation, language selection, desktop and 375 px mobile layout checked. Current preview used the browser's dark theme; the existing light screenshots remain selected by `prefers-color-scheme`.
-- DNS propagation, deployed commit/workflow and HTTPS acceptance are still pending; do not report the site as live until checked.
+- Deployed commit: `6bf7991f13c0df341de8ba8007eb8433e59e6e2b`; [Pages run 41448625863](https://github.com/ziqq/Codetree/actions/runs/41448625863) succeeded.
+- Authoritative `ns1.reg.ru` and public `1.1.1.1` DNS both returned `CNAME ziqq.github.io.`. GitHub's Pages health check reports valid DNS, the site served by Pages, and HTTPS eligibility.
+- Certificate approved for `codetree.ustinoff.dev`, expiry `2027-01-31`; `https_enforced: true`. `/`, `/privacy.html`, `/ru/` and `/ru/privacy.html` returned HTTPS 200; HTTP returned 301 to HTTPS. These requests used `curl --resolve` with the address returned by public DNS and normal TLS validation, because this workstation's resolver still cached an earlier negative DNS answer. After refreshing the workstation DNS cache, ordinary HTTPS requests also returned 200. A live browser check then opened all four HTTPS pages and verified EN/RU switching and home/policy navigation.
+- Mailchecker Pages remains on `mailchecker.ustinoff.dev`, HTTPS enforced, certificate expiry `2027-01-26`.
+- [Release run 41450944013](https://github.com/ziqq/Codetree/actions/runs/41450944013) succeeded, including package verification, GitHub publication, Chrome Web Store submission and its existing follow-up jobs. Tag `v0.5.0` targets release commit `00106e4901ebe7492b192753b3becb312ac8d584`. The downloaded ZIP matches the local build byte for byte: 17 files, 1,022,477 bytes, SHA-256 `f1e885acc1ab76669be241e441764450f7e56bb5422f9228fc6f6c08ae9ddc24`.
+- The Developer Dashboard confirms **Pending review** after submission. Homepage `https://codetree.ustinoff.dev/` and policy `https://codetree.ustinoff.dev/privacy.html` were saved before the submission. No claim is made that Google has approved 0.5.0 or made those listing changes public.
 
 ## Public links
 
-- [Store listing](STORE_LISTING.md): Homepage URL `https://codetree.ustinoff.dev/`, Privacy policy URL `https://codetree.ustinoff.dev/privacy.html`; paste them into the Chrome Web Store dashboard manually. Support URL stays GitHub issues.
-- Repository homepage: `gh repo edit ziqq/Codetree --homepage https://codetree.ustinoff.dev/`.
-- README links the homepage, hosted policy and Chrome Web Store; the repository copy `PRIVACY.md` remains available. `src/manifest.json` uses the new `homepage_url`. Store listing fields still need saving in the Developer Dashboard; editing documentation alone does not update the public listing.
+- [Store listing](STORE_LISTING.md): Homepage URL `https://codetree.ustinoff.dev/`, Privacy policy URL `https://codetree.ustinoff.dev/privacy.html`; these values were saved in the Chrome Web Store Dashboard and submitted with 0.5.0. Future listing changes must also be saved in the Dashboard. Support URL stays GitHub issues.
+- Repository homepage is set to `https://codetree.ustinoff.dev/`.
+- README links the homepage, hosted policy and Chrome Web Store; the repository copy `PRIVACY.md` remains available. `src/manifest.json` uses the new `homepage_url`. Editing documentation alone does not update the public listing; Google must approve the submitted Dashboard changes.
 
 Google OAuth is out of scope: Codetree uses GitHub and GitLab OAuth only. Do not add Google clients, reuse mailchecker's clients or change GitHub/GitLab callbacks as part of this work.
