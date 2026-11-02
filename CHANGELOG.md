@@ -17,6 +17,8 @@
 - **ADDED**: Ctrl/Cmd+P Quick Open with fuzzy loaded-file matching, recent files and optional `path:line` navigation
 - **ADDED**: draggable file-tab order, Close others/right/all actions and memory-only Reopen closed file with source-position recovery
 - **ADDED**: JS/TS and Dart Outline with Old/New source navigation in file tabs and View full, plus current-file `@name` symbol search in Quick Open
+- **ADDED**: bilingual website and privacy pages at codetree.ustinoff.dev, built from landing/ with Vite, Nunjucks and TypeScript
+- **CHANGED**: extension homepage and store listing URLs point to the website; README includes the Chrome Web Store link
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access

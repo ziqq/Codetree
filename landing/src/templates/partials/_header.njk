@@ -1,0 +1,24 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Site header: wordmark, navigation and the language selector bound by main.ts.
+#}
+<header class="site-header">
+  <a class="wordmark" href="{{ links.home }}"><img src="{{ repo }}docs/store/icon.svg" alt="" width="36" height="36" />Codetree</a>
+  <nav aria-label="{{ t.nav.label }}">
+    {% if pageKey == 'index' %}
+    <a href="{{ links.privacy }}">{{ t.nav.privacy }}</a>
+    {% else %}
+    <a href="{{ links.home }}">{{ t.nav.home }}</a>
+    {% endif %}
+    <a href="{{ links.issues }}">{{ t.nav.support }}</a>
+    <a href="{{ links.repository }}">GitHub</a>
+  </nav>
+  <select id="landing-language" class="language-picker" aria-label="{{ t.nav.language }}">
+    {% for language in languages %}
+    <option value="{{ language.code }}"{% if language.code == locale %} selected{% endif %}>{{ language.label }}</option>
+    {% endfor %}
+  </select>
+</header>

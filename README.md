@@ -4,6 +4,8 @@ A browser extension for exploring and reviewing **GitHub and GitLab** repositori
 
 **Version 0.4.1 · Chrome / Chromium 140+ · Manifest V3**
 
+[Website](https://codetree.ustinoff.dev/) · [Chrome Web Store](https://chromewebstore.google.com/detail/codetree/omfcokfhgbjklkbkbhfadefpolbndjba) · [Privacy policy](https://codetree.ustinoff.dev/privacy.html)
+
 Browse files, switch branches, review PR/MR changes and open the whole changed file without leaving the request. Codetree runs locally and talks directly to your repository host. No Codetree account, subscription or backend is required.
 
 ## Preview
@@ -32,6 +34,10 @@ These screenshots show Codetree 0.3.1 installed from a local build on public pag
 See [Features](docs/FEATURES.md) for provider differences. This is an independent implementation with original code and interface. File and folder icons come from file-icons/atom; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Quick start
+
+Install [Codetree from the Chrome Web Store](https://chromewebstore.google.com/detail/codetree/omfcokfhgbjklkbkbhfadefpolbndjba), then open or refresh a GitHub or GitLab repository page.
+
+To install a release ZIP manually:
 
 1. Download `codetree-<version>.zip` from [GitHub Releases](https://github.com/ziqq/Codetree/releases) and extract it into a folder.
 2. Open `chrome://extensions` and enable **Developer mode**.
@@ -170,6 +176,7 @@ vendor/file-icons/       Vendored file-icons/atom rules, styles and fonts
 scripts/                 Bundling, validation and deterministic packaging
 tests/                   Node.js regression suite
 docs/                    Feature details, releases and verification record
+landing/                 EN/RU website and privacy policy (Vite, Nunjucks, TypeScript)
 ```
 
 Sass compiles the sidebar, native controls and Settings SCSS; esbuild bundles each entry point (`background`, `content`, `options`) into one classic script in `build/`, which is the unpacked extension and the source of the release ZIP. See [Architecture](docs/ARCHITECTURE.md) for contexts, messages, storage and the build.
@@ -186,6 +193,8 @@ npm run verify
 ```
 
 CI checks JavaScript/CSS, manifest/CSP/assets, documentation, workflow syntax, locked dependencies and reproducible packaging on push/PR. Stable tags `vX.Y.Z` or a manual release run repeat the same checks before publishing a GitHub Release containing the runtime ZIP and SHA-256, then submit the ZIP to the Chrome Web Store when configured. Tags must match the manifest/changelog version and publication requires an approved license. See [Checks and releases](docs/RELEASING.md).
+
+For website development and deployment, see [Landing page](docs/LANDING.md).
 
 Automated checks do not exercise Chrome's installed extension environment. Read [Contributing](CONTRIBUTING.md), [Verification](docs/VERIFICATION.md), [Changelog](CHANGELOG.md) and [AGENTS.md](AGENTS.md).
 

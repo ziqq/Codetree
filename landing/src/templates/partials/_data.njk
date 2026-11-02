@@ -1,0 +1,15 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Data-handling summary with a link to the full policy.
+#}
+<section class="data-use" aria-labelledby="data-heading">
+  <p class="eyebrow">{{ t.data.eyebrow }}</p>
+  <h2 id="data-heading">{{ t.data.title }}</h2>
+  {% for paragraph in t.data.paragraphs %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+  <a href="{{ links.privacy }}">{{ t.data.link }}</a>
+</section>

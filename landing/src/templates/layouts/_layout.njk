@@ -1,0 +1,34 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Base document for every landing page. Asset paths are relative to the entry
+  HTML in landing/, which Vite resolves and fingerprints after rendering.
+#}
+<!doctype html>
+<html lang="{{ locale }}">
+  <head>
+    {% set pageSeo = seo[pageKey] %}
+    {% set pageMeta = t.meta[pageKey] %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="{{ pageMeta.description }}" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{{ pageMeta.title }}</title>
+    <link rel="canonical" href="{{ pageSeo.canonical }}" />
+    {% for alternate in pageSeo.alternates %}
+    <link rel="alternate" hreflang="{{ alternate.hreflang }}" href="{{ alternate.href }}" />
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ pageSeo.xDefault }}" />
+    <link rel="icon" href="{{ repo }}docs/store/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="{{ repo }}src/icons/icon48.png" type="image/png" sizes="48x48" />
+    <link rel="stylesheet" href="./src/styles/style.scss" />
+    <script type="module" src="./src/main.ts"></script>
+  </head>
+  <body>
+    {% include "partials/_header.njk" %}
+    {% block content %}{% endblock %}
+    {% include "partials/_footer.njk" %}
+  </body>
+</html>

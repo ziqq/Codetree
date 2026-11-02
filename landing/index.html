@@ -1,0 +1,17 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Homepage entry, rendered once per locale.
+#}
+{% set pageKey = 'index' %}
+{% extends "layouts/_layout.njk" %}
+{% block content %}
+<main>
+  {% include "partials/_hero.njk" %}
+  {% include "partials/_features.njk" %}
+  {% include "partials/_gallery.njk" %}
+  {% include "partials/_data.njk" %}
+</main>
+{% endblock %}
