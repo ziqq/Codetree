@@ -1,12 +1,12 @@
 {
   "name": "codetree",
   "description": "Chrome extension: code tree, file search, PR/MR review and full-file diffs for GitHub and GitLab. Development, bundling and packaging tools; the extension has no runtime dependencies.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "type": "module",
   "author": "Anton Ustinoff <a.a.ustinoff@gmail.com>",
-  "homepage": "https://github.com/ziqq/Codetree",
+  "homepage": "https://codetree.ustinoff.dev/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ziqq/Codetree.git"
@@ -22,10 +22,13 @@
     "lint:css": "node scripts/check-css.mjs",
     "lint": "npm run lint:js && npm run lint:css",
     "test": "node --test tests/*.test.mjs",
-    "check": "npm run format:check && npm run lint && npm test && node scripts/check.mjs",
+    "check": "npm run format:check && npm run lint && npm run landing:typecheck && npm test && node scripts/check.mjs",
     "build": "node scripts/build.mjs",
     "package": "npm run build && python3 scripts/package.py",
-    "verify": "npm run check && npm run package"
+    "verify": "npm run check && npm run package",
+    "landing:dev": "vite --config landing/vite.config.ts",
+    "landing:build": "npm run landing:typecheck && node scripts/landing.mjs",
+    "landing:typecheck": "tsc -p landing/tsconfig.json"
   },
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"
@@ -33,16 +36,22 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@primer/octicons": "19.39.0",
+    "@types/node": "24.19.2",
+    "@types/nunjucks": "3.2.6",
+    "@typescript-eslint/parser": "8.71.1",
     "css-functions-list": "3.3.3",
     "css-tree": "3.2.1",
     "esbuild": "0.28.2",
     "eslint": "10.11.0",
     "globals": "17.13.0",
     "mdn-data": "2.27.1",
+    "nunjucks": "3.2.4",
     "postcss": "8.5.28",
     "postcss-selector-parser": "7.1.6",
     "prettier": "3.9.9",
     "sass": "1.105.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
     "yaml": "2.9.1"
   },
   "keywords": [

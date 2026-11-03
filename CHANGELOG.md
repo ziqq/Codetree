@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **ADDED**: Back/Forward navigation history in file tabs and View full, restoring the file, source revision and exact position in either diff layout
+- **ADDED**: Match case and Whole word options in viewer file search, plus a Both / New / Old revision scope for diffs
+- **FIXED**: pressing Enter right after typing a file-search query searches the latest query and options instead of waiting for the debounce
+
+## 0.5.0
+
 - **ADDED**: Ctrl/Cmd-click opens a file or its native diff in a new tab
 - **ADDED**: changed-file folders show a Viewed indicator when all listed descendant files are viewed
 - **ADDED**: Only unviewed filter and review progress for changed-file trees with available Viewed marks
@@ -17,12 +23,11 @@
 - **ADDED**: Ctrl/Cmd+P Quick Open with fuzzy loaded-file matching, recent files and optional `path:line` navigation
 - **ADDED**: draggable file-tab order, Close others/right/all actions and memory-only Reopen closed file with source-position recovery
 - **ADDED**: JS/TS and Dart Outline with Old/New source navigation in file tabs and View full, plus current-file `@name` symbol search in Quick Open
-- **ADDED**: Back/Forward navigation history in file tabs and View full, restoring the file, source revision and exact position in either diff layout
-- **ADDED**: Match case and Whole word options in viewer file search, plus a Both / New / Old revision scope for diffs
+- **ADDED**: bilingual website and privacy pages at codetree.ustinoff.dev, built from landing/ with Vite, Nunjucks and TypeScript
+- **CHANGED**: extension homepage and store listing URLs point to the website; README includes the Chrome Web Store link
 - **CHANGED**: switching branches from a file page preserves its resolved file path instead of opening the branch root
 - **CHANGED**: enable GitHub device-flow and GitLab PKCE sign-in with Codetree's registered public client IDs
 - **CHANGED**: minimum Chrome version to 140 for trusted-only local and Sync storage access
-- **FIXED**: pressing Enter right after typing a file-search query searches the latest query and options instead of waiting for the debounce
 - **FIXED**: collapsed sidebar handle stays at the window edge and sits lower, independently of GitHub's native navigation
 
 ## 0.4.1

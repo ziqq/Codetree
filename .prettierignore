@@ -5,3 +5,5 @@ vendor/
 package-lock.json
 *.md
 .github/
+# Nunjucks entries; Prettier's HTML parser would reflow template tags.
+landing/*.html

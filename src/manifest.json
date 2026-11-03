@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Codetree",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Explore GitHub and GitLab with a code tree, file search, PR/MR review, full-file diffs and unlimited local bookmarks.",
+  "homepage_url": "https://codetree.ustinoff.dev/",
   "minimum_chrome_version": "140",
   "permissions": ["storage", "scripting"],
   "host_permissions": ["https://github.com/*", "https://api.github.com/*", "https://gitlab.com/*"],

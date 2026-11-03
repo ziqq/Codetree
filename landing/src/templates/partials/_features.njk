@@ -1,0 +1,15 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Three-column feature summary.
+#}
+<section class="features" aria-label="{{ t.features.label }}">
+  {% for item in t.features.items %}
+  <article>
+    <h2>{{ item.title }}</h2>
+    <p>{{ item.text }}</p>
+  </article>
+  {% endfor %}
+</section>

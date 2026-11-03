@@ -1,0 +1,14 @@
+{#
+  https://github.com/ziqq/Codetree
+  Copyright (C) 2026 Anton Ustinoff
+  https://github.com/ziqq/Codetree/blob/main/LICENSE
+
+  Privacy policy page; the localized body is policy/_<locale>.njk.
+#}
+{% extends "layouts/_layout.njk" %}
+{% block content %}
+<main class="policy">
+  <h1>{{ t.policy.title }}</h1>
+  {% include "policy/_" + locale + ".njk" %}
+</main>
+{% endblock %}

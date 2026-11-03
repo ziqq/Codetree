@@ -8,7 +8,8 @@
  * Validates the manifest (version, permissions, CSP and assets of a fresh
  * bundle), version labels, lockfile consistency, the license, JavaScript
  * syntax, line endings, possible committed credentials, local Markdown
- * links, HTML assets, YAML, pinned workflow actions and changelog order.
+ * links, HTML assets, the assembled landing page, YAML, pinned workflow
+ * actions and changelog order.
  *
  * Usage: `node scripts/check.mjs`.
  */
@@ -20,6 +21,7 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {parseDocument} from 'yaml';
 import {buildExtension} from './build.mjs';
+import {buildLanding} from './landing.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const text = path => readFile(resolve(root, path), 'utf8');
@@ -176,7 +178,9 @@ for (const path of files) {
       requireValue(!/<[^>]+\bon\w+\s*=|javascript:/i.test(source), `Inline executable HTML in ${path}`);
       for (const match of source.matchAll(/<(script|link|img)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
         if (path.startsWith('src/')) await extensionAsset(match[2]);
-        else await asset(relative(root, resolve(dirname(resolve(root, path)), match[2])).replaceAll('\\', '/'));
+        // Landing pages reference published paths; buildLanding validates them below.
+        else if (!path.startsWith('landing/'))
+          await asset(relative(root, resolve(dirname(resolve(root, path)), match[2])).replaceAll('\\', '/'));
       }
     }
     if (/\.ya?ml$/.test(path)) {
@@ -215,7 +219,8 @@ for (let index = 0; index < sections.length; index++) {
     previous = current;
   }
 }
+const landing = await buildLanding(join(built, 'landing'));
 await rm(built, {recursive: true, force: true});
 console.log(
-  `Checked ${scripts} JavaScript files, manifest/CSP/bundled assets, ${documents} documents, YAML, lockfile and changelog.`,
+  `Checked ${scripts} JavaScript files, manifest/CSP/bundled assets, ${documents} documents, ${landing.length} landing files, YAML, lockfile and changelog.`,
 );
