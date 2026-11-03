@@ -2,7 +2,7 @@
 
 A browser extension for exploring and reviewing **GitHub and GitLab** repositories from a code tree.
 
-**Version 0.5.0 · Chrome / Chromium 140+ · Manifest V3**
+**Version 0.6.0 · Chrome / Chromium 140+ · Manifest V3**
 
 [Website](https://codetree.ustinoff.dev/) · [Chrome Web Store](https://chromewebstore.google.com/detail/codetree/omfcokfhgbjklkbkbhfadefpolbndjba) · [Privacy policy](https://codetree.ustinoff.dev/privacy.html)
 
