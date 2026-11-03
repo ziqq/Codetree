@@ -1854,11 +1854,24 @@ button:disabled {
   display: grid;
   gap: 6px;
 }
+.compare-select {
+  position: relative;
+}
+.compare-select > .icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  color: var(--muted);
+  pointer-events: none;
+}
 .compare-form select {
+  appearance: none;
+  display: block;
   width: 100%;
   min-width: 0;
   height: 34px;
-  padding: 0 8px;
+  padding: 0 38px 0 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--muted-bg);
@@ -1870,7 +1883,7 @@ button:disabled {
   color: var(--muted);
 }
 .compare-form .small-button {
-  justify-self: start;
+  justify-self: end;
   min-height: 32px;
   padding: 6px 16px;
   margin: 0;
@@ -1883,4 +1896,14 @@ button:disabled {
 
 .viewer[aria-label='Compare branches and tags'] .viewer-inner {
   height: auto;
+}
+
+@media (forced-colors: active) {
+  .compare-form select {
+    appearance: auto;
+    padding-right: 10px;
+  }
+  .compare-select > .icon {
+    display: none;
+  }
 }

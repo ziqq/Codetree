@@ -6,6 +6,7 @@
  * Branch/tag comparison picker using the owned viewer dialog and native comparison routes.
  */
 
+import {icon} from '../../shared/icons.js';
 import {compareURL, validRef} from '../../shared/routes.js';
 import {el, empty} from '../dom.js';
 
@@ -58,8 +59,8 @@ export function createCompare(app) {
       head.value = refs.find(item => item.ref === preferredHead)?.ref || refs[0].ref;
       const submit = el('button', {type: 'submit', class: 'small-button primary', text: 'Compare'});
       const form = el('form', {class: 'compare-form'}, [
-        el('label', {}, [el('span', {text: 'Base'}), base]),
-        el('label', {}, [el('span', {text: 'Head'}), head]),
+        el('label', {}, [el('span', {text: 'Base'}), el('span', {class: 'compare-select'}, [base, icon('chevron')])]),
+        el('label', {}, [el('span', {text: 'Head'}), el('span', {class: 'compare-select'}, [head, icon('chevron')])]),
         el('p', {
           text: 'Branches and tags are resolved to exact commits when the comparison loads. No pull request is created.',
         }),
