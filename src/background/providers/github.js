@@ -12,7 +12,7 @@
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {listBudget} from '../http.js';
 import {saveLocalViewed} from '../storage.js';
-import {filePath, number, sha} from '../validate.js';
+import {commitSHA, filePath, number, ref, sha} from '../validate.js';
 
 /** REST path of the repository. */
 function repoPath(context) {
@@ -94,6 +94,52 @@ async function initialize(context, api) {
   };
 }
 
+/** Lists bounded, distinct branch/tag namespaces for the comparison picker. */
+async function refs(context, api) {
+  const root = repoPath(context);
+  const [branches, tags] = await Promise.all([api.pages(`${root}/branches`), api.pages(`${root}/tags`)]);
+  if (branches.length + tags.length > 10000)
+    throw new Error('More than 10,000 branches and tags. Use the repository website.');
+  return [
+    ...branches.map(item => ({name: item.name, ref: `refs/heads/${item.name}`, type: 'branch'})),
+    ...tags.map(item => ({name: item.name, ref: `refs/tags/${item.name}`, type: 'tag'})),
+  ];
+}
+
+/** Resolves both selected refs first, then requests a comparison pinned to immutable commits. */
+async function compare(context, api, fresh) {
+  const root = repoPath(context);
+  const baseRef = ref(context.baseRef);
+  const headRef = ref(context.headRef);
+  const commits = await Promise.all(
+    (baseRef === headRef ? [baseRef] : [baseRef, headRef]).map(value =>
+      api.json(`${root}/commits/${encodeURIComponent(value)}?per_page=1`, 60000, fresh),
+    ),
+  );
+  const baseSHA = commitSHA(commits[0].sha);
+  const headSHA = commitSHA((commits[1] || commits[0]).sha);
+  const value = await api.json(`${root}/compare/${baseSHA}...${headSHA}?per_page=1`, 60000, fresh);
+  if (!Array.isArray(value.files) || value.files.length > 300)
+    throw new Error('GitHub returned an invalid comparison file list.');
+  const warnings = ['Changes in Head since its common ancestor with Base.'];
+  if (value.files.length === 300)
+    warnings.push(
+      'GitHub comparison lists are limited to 300 files. This list may be incomplete; use the native comparison for the full result.',
+    );
+  return {
+    files: value.files,
+    comments: [],
+    viewed: {},
+    viewedMode: 'none',
+    warnings,
+    title: `${baseRef} → ${headRef}`,
+    number: null,
+    comparison: {baseSHA, headSHA},
+    base: {owner: context.owner, repo: context.repo, sha: commitSHA(value.merge_base_commit?.sha)},
+    head: {owner: context.owner, repo: context.repo, sha: headSHA},
+  };
+}
+
 /** Viewed state of every file in a pull request, 100 files per page. */
 const viewedQuery = `query CodetreeViewed($owner:String!,$repo:String!,$number:Int!,$after:String) {
   repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
@@ -134,6 +180,7 @@ async function viewedFiles(context, api) {
  */
 async function getDiff(context, api, store, fresh) {
   const root = repoPath(context);
+  if (context.kind === 'compare') return compare(context, api, fresh);
   if (context.kind === 'commit') {
     const revision = sha(context.sha);
     return memo(
@@ -334,7 +381,7 @@ async function listPulls(context, api, filter) {
  * `VIEWED` re-checks the head revision against fresh metadata before
  * writing, so a mark never lands on a newer revision than the one shown.
  *
- * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
+ * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'REFS'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
  * @param {Object} context The validated repository context.
  * @param {Object} api The host-bound client.
  * @param {Object} store The stored data.
@@ -366,6 +413,8 @@ export async function handle(message, context, api, store) {
         message.fresh,
       );
     }
+    case 'REFS':
+      return memo(`${api.prefix}${root}:refs`, 60000, () => refs(context, api), message.fresh);
     case 'BRANCHES':
       return memo(`${api.prefix}${root}:branches`, 60000, () => api.pages(`${root}/branches`));
     case 'PULLS':

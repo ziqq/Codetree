@@ -70,7 +70,7 @@ export function createHeaderButtons(app) {
    * Known binary file types get a disabled button.
    */
   function injectHeaderButtons() {
-    if (!['pull', 'commit'].includes(state.context?.kind)) return;
+    if (!['pull', 'commit', 'compare'].includes(state.context?.kind)) return;
     const epoch = state.epoch;
     const cards = new Set(
       document.querySelectorAll(
@@ -182,7 +182,7 @@ export function createHeaderButtons(app) {
     if (!headerFrame)
       headerFrame = requestFrame(() => {
         headerFrame = null;
-        if (['pull', 'commit'].includes(state.context?.kind)) injectHeaderButtons();
+        if (['pull', 'commit', 'compare'].includes(state.context?.kind)) injectHeaderButtons();
       });
   });
   return {clearHeaderButtons, prepareHeaderButtons, scheduleHeaderButtons};

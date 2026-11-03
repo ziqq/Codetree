@@ -77,7 +77,12 @@ export function createView(app) {
   const branchSearch = el('input', {type: 'search', placeholder: 'Find a branch…', 'aria-label': 'Search branches'});
   const branchList = el('div', {class: 'branch-list'});
   const branchPopover = el('div', {class: 'popover', hidden: '', 'aria-label': 'Branches'}, [branchSearch, branchList]);
-  const branchbar = el('div', {class: 'branchbar'}, [branchButton, branchPopover]);
+  const compareButton = button(
+    'diff',
+    'Compare branches and tags',
+    run(() => app.openCompare()),
+  );
+  const branchbar = el('div', {class: 'branchbar'}, [branchButton, compareButton, branchPopover]);
   const tabs = el('div', {class: 'tabs', role: 'tablist', 'aria-label': 'Sidebar sections'});
   const tabButtons = {};
   for (const [id, label, name] of [
@@ -264,6 +269,7 @@ export function createView(app) {
     repository,
     branchLabel,
     branchButton,
+    compareButton,
     branchSearch,
     branchList,
     branchPopover,

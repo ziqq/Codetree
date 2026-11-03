@@ -34,7 +34,7 @@ Pages and Settings send `{type, context?, …}` to the worker and receive `{ok: 
 | `ADD_ACCOUNT`, `REMOVE_ACCOUNT` | Settings | Connect a PAT after verifying it, or remove an account. |
 | `SYNC_SETTINGS` | Settings | Enable, disable or re-run browser Sync. |
 | `OAUTH_*` | Settings | OAuth availability, GitHub device flow, GitLab PKCE sign-in. |
-| `INIT`, `TREE`, `BRANCHES`, `PULLS`, `DIFF`, `FILE`, `VIEWED`, `REFRESH` | page (own host) | Repository data for the page's validated context. |
+| `INIT`, `TREE`, `BRANCHES`, `REFS`, `PULLS`, `DIFF`, `FILE`, `VIEWED`, `REFRESH` | page (own host) | Repository data for the page's validated context. |
 
 Repository requests are dispatched to `providers/github.js` or `providers/gitlab.js` by the configured provider of the host. A page can only request data from its own origin, and only from enabled hosts.
 
@@ -65,6 +65,10 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | session | `fileTabs` | Open file paths, active path, opaque native-route identity and branch/revision scroll positions; no text/comments and no Sync. |
 | sync | `codetreeSyncSnapshot` | Only when Sync is enabled: preferences and bookmark URLs/titles/dates. |
 
+### Repository comparisons
+
+A `compare` route carries bounded `baseRef`/`headRef` values for the same host/repository. `REFS` lists branch/tag identities through the existing bounded client; `DIFF` resolves selected refs to full SHAs, compares immutable revisions and returns the existing diff shape with `comparison: {baseSHA, headSHA}` for pinned native links. GitHub supplies its merge-base identity; GitLab resolves the ancestor before a direct comparison from that exact SHA to Head. Identical refs are resolved once. No PR comments/Viewed state or session workspace metadata is used. GitHub's 300-file cap is disclosed, GitLab timeout results are rejected and existing patch validation still gates full-file rendering.
+
 ## Content script
 
 `app.js` composes the sidebar from feature factories. Each factory `createX(app)` receives the shared `app` object and returns its functions, which are merged into `app`; features call each other through `app` only at run time.
@@ -79,6 +83,7 @@ Repository requests are dispatched to `providers/github.js` or `providers/gitlab
 | `sidebar/files.js`, `tree.js` | Tree loading and lazy folders; virtualized rows, keyboard navigation, Viewed marks. |
 | `viewed.js`, `viewer/file-review.js` | Revision-bound Viewed publication and owned PR/MR Viewed-and-next controls shared by the tree, file tabs and View full. |
 | `sidebar/file-icons.js` | file-icons rule matching and glyph rendering. |
+| `sidebar/compare.js` | Owned Base/Head branch/tag picker and navigation to native comparison routes. |
 | `sidebar/branches.js`, `pulls.js`, `bookmarks.js` | Branch popover, request list and filters, bookmarks. |
 | `viewer/` | Full-file diff and comments dialog; lexical highlighting. |
 | `viewer/file-tabs.js`, `viewer/file-content.js` | In-page workspace lifecycle/metadata and shared bounded, virtualized text/diff rendering. |
@@ -132,6 +137,7 @@ See [Checks and releases](RELEASING.md) for CI and publication.
 
 `npm test` runs Node.js regressions without a browser:
 
+- `compare.test.mjs`: branch/tag identity and native routes, immutable merge-base comparisons, limits/errors, picker disposal/retry, compare-tree/modal navigation and inline-workspace exclusion through production factories/adapters.
 - `core.test.mjs`: full-file diff validation.
 - `split-diff.test.mjs`: View full layout controls, aligned old/new rows, synchronized/clamped scrolling, source-line positions, font/viewport changes and disposal through the production viewer with synthetic geometry.
 - `navigation-history.test.mjs`: history model bounds and deduplication, inline and View full Back/Forward across files, line/Outline/symbol points, non-points (scroll/layout/find), closed-tab reopen, missing files with Retry, stale Back, scope clearing, Old/New exactness across layouts and Close order.

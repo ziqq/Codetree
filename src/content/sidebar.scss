@@ -211,6 +211,8 @@ button:disabled {
   margin-left: auto;
 }
 .branchbar {
+  display: flex;
+  gap: 6px;
   padding: 0 12px 12px;
   position: relative;
 }
@@ -218,7 +220,8 @@ button:disabled {
   height: 30px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1838,4 +1841,46 @@ button:disabled {
 .viewer-history .icon-button {
   width: 24px;
   height: 24px;
+}
+
+.compare-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  max-width: 620px;
+  margin: 0 auto;
+}
+.compare-form label {
+  display: grid;
+  gap: 6px;
+}
+.compare-form select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted-bg);
+  color: var(--text);
+}
+.compare-form p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.compare-form .small-button {
+  justify-self: start;
+  min-height: 32px;
+  padding: 6px 16px;
+  margin: 0;
+}
+
+.viewer[aria-label='Compare branches and tags'] {
+  width: min(560px, 92vw);
+  height: fit-content;
+}
+
+.viewer[aria-label='Compare branches and tags'] .viewer-inner {
+  height: auto;
 }

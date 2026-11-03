@@ -6,7 +6,7 @@
  * Validation of identifiers interpolated into API paths.
  */
 
-import {pathURL} from '../shared/routes.js';
+import {pathURL, validRef} from '../shared/routes.js';
 
 /**
  * Accepts a positive safe integer request number.
@@ -40,4 +40,16 @@ export function filePath(value) {
   if (typeof value !== 'string' || !value || value.split('/').some(part => !part || part === '.' || part === '..'))
     throw new Error('Invalid file path.');
   return pathURL(value);
+}
+
+/** Rejects unbounded refs, traversal, revision expressions and cross-repository syntax before an API request. */
+export function ref(value) {
+  if (!validRef(value)) throw new Error('Invalid comparison branch or tag.');
+  return value;
+}
+
+/** Requires a full immutable commit identity from provider metadata. */
+export function commitSHA(value) {
+  if (typeof value !== 'string' || !/^[a-f\d]{40}$/i.test(value)) throw new Error('Invalid comparison commit SHA.');
+  return value;
 }

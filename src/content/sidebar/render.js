@@ -141,7 +141,9 @@ export function createRender(app) {
       changesOption.textContent =
         state.context?.kind === 'pull'
           ? `${state.context.provider === 'gitlab' ? 'MR !' : 'PR #'}${state.context.number} changes`
-          : 'Commit changes';
+          : state.context?.kind === 'compare'
+            ? 'Comparison changes'
+            : 'Commit changes';
       filterSelect.setAttribute('aria-label', `Filter ${name}s`);
       allOption.textContent = `All open ${name}s`;
     },
@@ -153,7 +155,7 @@ export function createRender(app) {
       toolbar.replaceChildren(
         ...(state.tab === 'files'
           ? [
-              ['pull', 'commit'].includes(state.context?.kind) ? modeSelect : title,
+              ['pull', 'commit', 'compare'].includes(state.context?.kind) ? modeSelect : title,
               count,
               collapse,
               refresh,
@@ -267,12 +269,16 @@ export function createRender(app) {
                   : 'No unviewed files'
                 : state.query
                   ? 'No matching files'
-                  : 'No files',
+                  : state.context?.kind === 'compare' && state.mode === 'changes'
+                    ? 'No changes'
+                    : 'No files',
               state.query
                 ? 'Try a different file or folder name.'
                 : unviewedOnly
                   ? 'All listed changed files are viewed. Turn off Only unviewed to show them.'
-                  : 'This repository has no files to display.',
+                  : state.context?.kind === 'compare' && state.mode === 'changes'
+                    ? 'Head has no changes since its common ancestor with Base.'
+                    : 'This repository has no files to display.',
               'folder',
             ),
           );

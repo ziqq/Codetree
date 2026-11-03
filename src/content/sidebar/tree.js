@@ -11,7 +11,7 @@
  */
 
 import {icon} from '../../shared/icons.js';
-import {blobURL, pullURL, repoURL} from '../../shared/routes.js';
+import {blobURL, compareURL, pullURL, repoURL} from '../../shared/routes.js';
 import {fileKind, flatten} from '../../shared/tree.js';
 import {button, el, highlight} from '../dom.js';
 import {fileIconElement, matchIcon} from './file-icons.js';
@@ -258,6 +258,8 @@ export function createTree(app) {
   async function diffURL(node) {
     const context = state.context;
     const gitlab = context.provider === 'gitlab';
+    if (context.kind === 'compare')
+      return compareURL(context, state.diff.comparison.baseSHA, state.diff.comparison.headSHA);
     if (context.kind === 'commit') return `${repoURL(context)}${gitlab ? '/-' : ''}/commit/${context.sha}`;
     const hash = await crypto.subtle.digest(gitlab ? 'SHA-1' : 'SHA-256', new TextEncoder().encode(node.path));
     const digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -275,7 +277,12 @@ export function createTree(app) {
    * @param {boolean} [newTab=false] Open a separate tab without an opener.
    */
   async function openFile(node, newTab = false) {
-    if (!newTab && state.context?.kind !== 'pull' && node.type !== 'commit' && app.openFileTab) {
+    if (!newTab && state.context?.kind === 'compare' && state.mode === 'changes') {
+      state.selected = node.path;
+      await app.showDiff(node);
+      return;
+    }
+    if (!newTab && !['pull', 'compare'].includes(state.context?.kind) && node.type !== 'commit' && app.openFileTab) {
       await app.openFileTab(node);
       return;
     }
