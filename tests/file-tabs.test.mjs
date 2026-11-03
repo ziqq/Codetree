@@ -73,6 +73,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
   const opened = [];
   const files = [];
   const viewedRequests = [];
+  const workspaceRequests = [];
   const errors = [];
   let app;
   t.after(() => app?.dispose());
@@ -84,6 +85,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
     if (reviewDiff || search) {
       Object.defineProperty(node, 'firstChild', {get: () => node.children[0] || null});
       if (tag === 'dialog') {
+        node.open = false;
         node.showModal = () => {
           node.open = true;
         };
@@ -202,6 +204,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
       return controlled === undefined ? {state: message.viewed ? 'VIEWED' : 'UNVIEWED', mode: review.mode} : controlled;
     }
     if (type === 'FILE_TABS') {
+      workspaceRequests.push({...message, context});
       const accountID = app.fileTabsAccount || '';
       const key = JSON.stringify([
         context.origin,
@@ -227,7 +230,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
         error.status = 404;
         throw error;
       }
-      if (reviewDiff && context.kind === 'pull')
+      if (reviewDiff && ['pull', 'commit'].includes(context.kind))
         return message.source.sha === baseSHA ? reviewDiff.before : reviewDiff.after;
       return longText;
     }
@@ -344,7 +347,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
     const row = app.view.spacer.querySelectorAll('.tree-row').find(row => row.dataset.path === path);
     assert.ok(row, `Expected tree row ${path}`);
     await settle(row.fire('click', values));
-    if (!values.ctrlKey && !values.metaKey)
+    if (!values.ctrlKey && !values.metaKey && app.state.context.kind !== 'pull')
       assert.deepEqual(assigned, [], 'An ordinary file click stays in this page.');
   }
 
@@ -424,6 +427,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
     clock,
     files,
     viewedRequests,
+    workspaceRequests,
     errors,
     metadata,
     assigned,
@@ -443,7 +447,8 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}, quickOpe
     replaceMain,
     removeMain,
     blob: (ref, path) => `${root}${gitlab ? '/-' : ''}/blob/${ref}/${path}`,
-    review: number => `${root}/${gitlab ? '-/merge_requests' : 'pull'}/${number}/${gitlab ? 'diffs' : 'files'}`,
+    commit: number => `${root}${gitlab ? '/-' : ''}/commit/${number.toString(16).padStart(40, '0')}`,
+    pull: number => `${root}/${gitlab ? '-/merge_requests' : 'pull'}/${number}/${gitlab ? 'diffs' : 'files'}`,
   };
 }
 
@@ -528,25 +533,25 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} review workspaces restore their own tabs after another review and Code`, async t => {
+  test(`${provider} commit workspaces restore their own tabs after another review and Code`, async t => {
     const ui = fixture(t, provider);
     await ui.navigate(ui.root);
     await ui.open(paths[2]);
     await ui.scroll(220, 15);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await ui.open(paths[1]);
     await ui.scroll(880, 80);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     await ui.open(paths[0]);
     await ui.scroll(440, 40);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     assert.deepEqual(ui.selection(), {paths: paths.slice(0, 2), active: paths[1]});
     assert.equal(ui.body().scrollTop, 880);
     assert.equal(ui.body().scrollLeft, 80);
     await ui.branch('main');
     assert.deepEqual(ui.selection(), {paths: [paths[2]], active: paths[2]});
     assert.equal(ui.body().scrollTop, 220);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
     assert.equal(ui.body().scrollTop, 440);
     assert.equal(ui.body().scrollLeft, 40);
@@ -568,14 +573,14 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} closing every review tab survives leaving and returning`, async t => {
+  test(`${provider} closing every commit tab survives leaving and returning`, async t => {
     const ui = fixture(t, provider);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await ui.open(paths[0]);
     const workspace = ui.workspace();
     await ui.close(paths[0]);
-    await ui.navigate(ui.review(42));
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(42));
+    await ui.navigate(ui.commit(41));
     assert.equal(workspace.querySelectorAll('.file-tab-name').length, 0);
     const host = globalThis.document.getElementById('codetree-file-workspace');
     assert.ok(!host || host.hidden, 'An intentionally empty review does not reopen a file.');
@@ -599,7 +604,7 @@ for (const provider of ['github', 'gitlab']) {
     ui.app.fileReply = message => (message.path === paths[1] ? previous.promise : undefined);
     const leaving = ui.open(paths[1]);
     await ui.drain();
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     previous.resolve('OLD ROUTE MUST NOT ENTER THE REVIEW');
     await ui.settle(leaving);
     assert.equal(ui.selection().active, paths[0]);
@@ -800,7 +805,7 @@ for (const provider of ['github', 'gitlab']) {
   for (const layout of ['Unified', 'Side-by-side']) {
     test(`${provider} ${layout} change-block navigation counts runs, reveals offscreen rows and cycles`, async t => {
       const ui = fixture(t, provider, changeRevision());
-      await ui.navigate(ui.review(41));
+      await ui.navigate(ui.commit(41));
       const controls = changeControls(ui.workspace());
       await diffLayout(ui, ui.workspace(), layout);
       assert.equal(controls.count.textContent, '0 / 4', 'No change block is initially visible.');
@@ -850,9 +855,9 @@ for (const provider of ['github', 'gitlab']) {
     });
   }
 
-  test(`${provider} change-block counters follow saved source positions across tabs, layouts and PR/MR workspaces`, async t => {
+  test(`${provider} change-block counters follow saved source positions across tabs, layouts and commit workspaces`, async t => {
     const ui = fixture(t, provider, changeRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     let controls = changeControls(ui.workspace());
     await changeStep(ui, controls);
     await changeStep(ui, controls);
@@ -871,11 +876,11 @@ for (const provider of ['github', 'gitlab']) {
       {top: 79 * 22, left: 0},
       {top: 79 * 22, left: 0},
     ]);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     controls = changeControls(ui.workspace());
-    assert.equal(controls.count.textContent, '0 / 4', 'A separate PR/MR has an independent saved source position.');
+    assert.equal(controls.count.textContent, '0 / 4', 'A separate commit has an independent saved source position.');
     for (let index = 0; index < 3; index++) await changeStep(ui, controls);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     assert.equal(changeControls(ui.workspace()).count.textContent, '2 / 4');
     assert.deepEqual(panePositions(ui.body()), [
       {top: 79 * 22, left: 0},
@@ -887,7 +892,7 @@ for (const provider of ['github', 'gitlab']) {
     await ui.open(paths[1]);
     assert.equal(changeControls(ui.workspace()).count.textContent, '3 / 4');
     assert.equal(ui.body().scrollTop, 162 * 22);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.equal(changeControls(ui.workspace()).count.textContent, '3 / 4');
     assert.equal(ui.body().scrollTop, 162 * 22);
     await ui.branch('main');
@@ -902,7 +907,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} change-block counters and positions stay independent in inline tabs and actual View full`, async t => {
     const ui = fixture(t, provider, changeRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const inline = changeControls(ui.workspace());
     await changeStep(ui, inline);
     await changeStep(ui, inline);
@@ -946,9 +951,9 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} change-block controls disposed by tab or PR/MR changes cannot move another file`, async t => {
+  test(`${provider} change-block controls disposed by tab or commit changes cannot move another file`, async t => {
     const ui = fixture(t, provider, changeRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     const old = changeControls(ui.workspace());
     const oldPane = diffPanes(ui.body())[0];
@@ -969,7 +974,7 @@ for (const provider of ['github', 'gitlab']) {
       {top: 79 * 22, left: 0},
     ]);
     assert.deepEqual([...ui.metadata], stored, 'Detached controls cannot save another active file position.');
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     const review = changeControls(ui.workspace());
     assert.equal(review.count.textContent, '0 / 4');
     await changeStep(ui, current);
@@ -986,7 +991,7 @@ for (const provider of ['github', 'gitlab']) {
 for (const provider of ['github', 'gitlab']) {
   test(`${provider} Split diff switches inline layout without refetching and keeps post-change position`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const initialControls = ui.workspace().querySelector('.diff-layout');
     assert.ok(initialControls, 'Changed files expose their layout controls.');
     assert.equal(initialControls.querySelectorAll('button')[0].getAttribute('aria-pressed'), 'true');
@@ -1009,7 +1014,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Split diff preserves the added source line through pairing and a fresh page reload`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await ui.scroll(227, 41); // second added row: unified index 10, split pair index 5, fractional offset 7.
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     assert.deepEqual(panePositions(ui.body()), [
@@ -1042,7 +1047,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Split diff restores each file after pane scrolling, Refresh and reload`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     await paneScroll(ui, diffPanes(ui.body())[1], 1063, 125);
     assert.deepEqual(panePositions(ui.body()), [
@@ -1072,7 +1077,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Split diff keeps independent inline and View full positions while sharing the layout`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await ui.scroll(1107, 75);
     const file = ui.app.state.diff.files[0];
     await ui.settle(ui.app.showDiff({...file, path: file.filename, adds: file.additions, dels: file.deletions}));
@@ -1105,24 +1110,24 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} Split diff review positions remain isolated across PR/MR workspaces and Code`, async t => {
+  test(`${provider} Split diff review positions remain isolated across commit workspaces and Code`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     await paneScroll(ui, diffPanes(ui.body())[0], 1063, 125);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     await paneScroll(ui, diffPanes(ui.body())[1], 1503, 85);
     await ui.branch('main');
     await ui.open(paths[0]);
     assert.equal(ui.workspace().querySelectorAll('.diff-layout').length, 0, 'Plain Code files have no diff layout.');
     await ui.scroll(220, 0);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     assert.deepEqual(panePositions(ui.body()), [
       {top: 1063, left: 125},
       {top: 1063, left: 125},
     ]);
     await diffLayout(ui, ui.workspace(), 'Unified');
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.equal(ui.body().scrollTop, 1547);
     assert.equal(ui.body().scrollLeft, 85);
     assert.deepEqual(ui.errors, []);
@@ -1130,7 +1135,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Split diff disposed file controls preserve the active position and metadata`, async t => {
     const ui = fixture(t, provider, splitRevision());
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     const oldPanes = diffPanes(ui.body());
     const oldUnified = ui.workspace().querySelector('.diff-layout').querySelectorAll('button')[0];
@@ -1309,7 +1314,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Go to line maps Old/New diff lines in both layouts and restores their source anchor across tabs`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const requests = ui.files.length;
     for (const display of ['Unified', 'Side-by-side']) {
       await diffLayout(ui, ui.workspace(), display);
@@ -1341,9 +1346,9 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} Go to line gives View full priority and disposes controls after file and PR/MR switches`, async t => {
+  test(`${provider} Go to line gives View full priority and disposes controls after file and commit switches`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const inline = await openFind(ui, ui.workspace(), ui.body());
     await findText(t, ui, inline, 'source110');
     const inlineTop = ui.body().scrollTop;
@@ -1373,271 +1378,12 @@ for (const provider of ['github', 'gitlab']) {
     const current = await openLine(ui, ui.workspace(), ui.body());
     await submitLine(ui, current, 120, 'New');
     assert.equal(ui.body().scrollTop, 122 * 22);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.equal(current.bar.isConnected, false);
     assert.equal(findControls(ui.workspace()).bar.hidden, true);
-    assert.equal(ui.body().scrollTop, 0, 'A different PR/MR retains its separate position.');
+    assert.equal(ui.body().scrollTop, 0, 'A different commit retains its separate position.');
     await current.input.fire('input');
     assert.equal(ui.body().scrollTop, 0);
-    assert.deepEqual(ui.errors, []);
-  });
-}
-
-/** Reads the inline review action through its visible label and accessible status. */
-function fileReviewControls(ui) {
-  const group = ui.workspace().querySelector('.file-review');
-  assert.ok(group, 'A loaded review file exposes Viewed and next-unviewed navigation.');
-  assert.equal(group.getAttribute('aria-label'), 'File review');
-  const button = group.querySelector('button');
-  const status = group.querySelector('[role="status"]');
-  assert.ok(button?.classList.contains('small-button'), 'Review navigation uses the shared button component.');
-  assert.ok(button.querySelector('svg'), 'The action retains its original check icon.');
-  assert.equal(status?.getAttribute('aria-live'), 'polite');
-  return {group, button, status};
-}
-
-for (const provider of ['github', 'gitlab']) {
-  const mode = provider === 'github' ? 'github' : 'local';
-
-  test(`${provider} Viewed waits for confirmation and wraps through the full list despite sidebar filters`, async t => {
-    const reviewPaths = [paths[0], 'src/viewed.js', paths[1], 'src/also-viewed.js'];
-    const ui = fixture(t, provider, splitRevision(), {
-      review: {mode, paths: reviewPaths, viewed: {[reviewPaths[1]]: 'VIEWED', [reviewPaths[3]]: 'VIEWED'}},
-    });
-    await ui.navigate(ui.review(41));
-    await ui.open(paths[1]);
-    await diffLayout(ui, ui.workspace(), 'Side-by-side');
-    ui.app.state.query = 'also-viewed.js';
-    ui.app.state.unviewedOnly = true;
-    await ui.drain(1);
-    assert.equal(ui.app.state.flat.filter(node => node.type === 'blob').length, 0);
-    const controls = fileReviewControls(ui);
-    const pending = deferred();
-    ui.app.viewedReply = () => pending.promise;
-    assert.equal(controls.button.textContent, 'Viewed & next');
-    const saving = controls.button.fire('click');
-    await ui.drain(1);
-    assert.equal(controls.button.disabled, true);
-    assert.equal(controls.button.textContent, 'Saving…');
-    assert.equal(ui.selection().active, paths[1]);
-    assert.equal(
-      ui.app.state.diff.viewed[paths[1]],
-      undefined,
-      'An unconfirmed write is not published optimistically.',
-    );
-    assert.equal(ui.viewedRequests.length, 1);
-    await controls.button.fire('click');
-    assert.equal(ui.viewedRequests.length, 1, 'A pending action cannot send a duplicate mark.');
-    assert.deepEqual(ui.viewedRequests[0], {
-      context: ui.app.state.context,
-      headSHA: reviewSHA,
-      path: paths[1],
-      viewed: true,
-    });
-    pending.resolve({state: 'VIEWED', mode});
-    await ui.settle(saving);
-    assert.equal(
-      ui.selection().active,
-      paths[0],
-      'Navigation skips viewed files and wraps to the earlier unviewed file.',
-    );
-    assert.equal(ui.app.state.diff.viewed[paths[1]], 'VIEWED');
-    assert.equal(
-      ui.body().querySelectorAll('.split-diff-pane').length,
-      2,
-      'The chosen diff layout survives navigation.',
-    );
-    assert.equal(controls.group.isConnected, false, 'The previous file releases its review control.');
-    assert.equal(fileReviewControls(ui).button.textContent, 'Viewed & next');
-    assert.deepEqual(ui.errors, []);
-  });
-
-  test(`${provider} a failed Viewed write stays on the file, retries and completes the listed review`, async t => {
-    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
-    await ui.navigate(ui.review(41));
-    const controls = fileReviewControls(ui);
-    ui.app.viewedReply = () => Promise.reject(new Error('Viewed could not be saved.'));
-    await ui.settle(controls.button.fire('click'));
-    assert.equal(ui.selection().active, paths[0]);
-    assert.equal(ui.app.state.diff.viewed[paths[0]], undefined);
-    assert.equal(controls.button.disabled, false);
-    assert.equal(controls.button.textContent, 'Viewed & next');
-    assert.equal(controls.status.textContent, 'Viewed could not be saved.');
-    assert.ok(controls.status.classList.contains('error'));
-    ui.app.viewedReply = undefined;
-    await ui.settle(controls.button.fire('click'));
-    assert.equal(ui.selection().active, paths[1]);
-    assert.equal(ui.viewedRequests.length, 2);
-    const final = fileReviewControls(ui);
-    await ui.settle(final.button.fire('click'));
-    assert.equal(ui.selection().active, paths[1], 'Completing the list keeps the final file open.');
-    assert.equal(final.button.disabled, true);
-    assert.equal(final.status.textContent, 'All listed files viewed');
-    assert.equal(ui.viewedRequests.length, 3);
-    assert.deepEqual(ui.app.state.diff.viewed, {[paths[0]]: 'VIEWED', [paths[1]]: 'VIEWED'});
-    assert.deepEqual(ui.errors, []);
-  });
-
-  test(`${provider} failed next-tab metadata preserves a confirmed mark and retries without another Viewed write`, async t => {
-    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
-    await ui.navigate(ui.review(41));
-    const controls = fileReviewControls(ui);
-    ui.app.fileTabsReply = message => {
-      if (message.value.active === paths[1]) throw new Error('File tabs could not be saved.');
-    };
-    await ui.settle(controls.button.fire('click'));
-    assert.deepEqual(ui.selection(), {paths: [paths[0]], active: paths[0]});
-    assert.equal(ui.app.state.diff.viewed[paths[0]], 'VIEWED', 'The successful mark is not rolled back.');
-    assert.equal(ui.viewedRequests.length, 1);
-    assert.equal(controls.button.textContent, 'Next unviewed');
-    assert.equal(controls.status.textContent, 'File tabs could not be saved.');
-    assert.equal(controls.button.disabled, false);
-    ui.app.fileTabsReply = undefined;
-    await ui.settle(controls.button.fire('click'));
-    assert.deepEqual(ui.selection(), {paths: paths.slice(0, 2), active: paths[1]});
-    assert.equal(ui.viewedRequests.length, 1, 'A navigation retry does not repeat the confirmed mark.');
-    assert.deepEqual(ui.errors, []);
-  });
-
-  test(`${provider} scrolling during the next-file save preserves the new active tab and outgoing position`, async t => {
-    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
-    await ui.navigate(ui.review(41));
-    const nextSave = deferred();
-    // The trusted broker serializes writes: later scroll saves complete after
-    // the delayed next-file save, even while the old file remains visible.
-    ui.app.fileTabsReply = () => nextSave.promise;
-    const saving = fileReviewControls(ui).button.fire('click');
-    await ui.drain(1);
-    assert.equal(ui.selection().active, paths[0]);
-    t.mock.timers.enable({apis: ['setTimeout']});
-    try {
-      const body = ui.body();
-      body.scrollTop = 440;
-      body.scrollLeft = 55;
-      await body.fire('scroll');
-      t.mock.timers.tick(150);
-      await Promise.resolve();
-    } finally {
-      t.mock.timers.reset();
-    }
-    await ui.drain(1);
-    nextSave.resolve();
-    await ui.settle(saving);
-    await ui.drain();
-    assert.deepEqual(ui.selection(), {paths: paths.slice(0, 2), active: paths[1]});
-    assert.equal(ui.metadata.size, 1);
-    const saved = [...ui.metadata.values()][0];
-    assert.deepEqual(saved.paths, paths.slice(0, 2), 'A delayed old-file scroll cannot drop the newly opened tab.');
-    assert.equal(saved.active, paths[1], 'The next file is the persisted active tab.');
-    assert.deepEqual(
-      saved.positions.find(position => position.path === paths[0]),
-      {ref: `${baseSHA}:${reviewSHA}`, path: paths[0], top: 440, left: 55},
-      'The outgoing file still retains its latest scroll position.',
-    );
-    assert.equal(ui.viewedRequests.length, 1);
-    assert.deepEqual(ui.errors, []);
-  });
-
-  test(`${provider} sidebar Viewed updates the open file action without refetching or resetting its viewport`, async t => {
-    const ui = fixture(t, provider, splitRevision(), {review: {mode}});
-    await ui.navigate(ui.review(41));
-    await ui.scroll(440, 55);
-    const controls = fileReviewControls(ui);
-    const body = ui.body();
-    const requests = ui.files.length;
-    const checkbox = ui.app.view.spacer
-      .querySelectorAll('.viewed-checkbox')
-      .find(node => node.getAttribute('aria-label') === `Mark ${paths[0]} as viewed`);
-    assert.ok(checkbox, 'The current review file has its real sidebar Viewed checkbox.');
-    checkbox.checked = true;
-    await ui.settle(checkbox.fire('change'));
-    assert.equal(controls.button.textContent, 'Next unviewed');
-    assert.equal(ui.body(), body, 'Publishing the mark retains the currently rendered file.');
-    assert.equal(ui.body().scrollTop, 440);
-    assert.equal(ui.body().scrollLeft, 55);
-    assert.equal(ui.files.length, requests, 'The shared mark must not reload the file text.');
-    assert.equal(ui.selection().active, paths[0]);
-    await ui.settle(controls.button.fire('click'));
-    assert.equal(ui.selection().active, paths[1]);
-    assert.equal(ui.viewedRequests.length, 1, 'Next unviewed skips the mark already confirmed by the checkbox.');
-    assert.deepEqual(ui.errors, []);
-  });
-
-  test(`${provider} manual tab intent wins while Viewed and the manual metadata save are pending`, async t => {
-    const ui = fixture(t, provider, splitRevision(), {review: {mode, paths}});
-    await ui.navigate(ui.review(41));
-    const pendingViewed = deferred();
-    const pendingTab = deferred();
-    ui.app.viewedReply = () => pendingViewed.promise;
-    const saving = fileReviewControls(ui).button.fire('click');
-    await ui.drain(1);
-    ui.app.fileTabsReply = message => (message.value.active === paths[2] ? pendingTab.promise : undefined);
-    const opening = ui.app.openFileTab({path: paths[2]});
-    await ui.drain(1);
-    assert.equal(ui.selection().active, paths[0], 'The manual file has not published before its metadata save.');
-    pendingViewed.resolve({state: 'VIEWED', mode});
-    await ui.settle(saving);
-    assert.equal(ui.app.state.diff.viewed[paths[0]], 'VIEWED');
-    assert.equal(ui.selection().active, paths[0], 'The late mark must not start automatic navigation.');
-    pendingTab.resolve();
-    await ui.settle(opening);
-    assert.deepEqual(ui.selection(), {paths: [paths[0], paths[2]], active: paths[2]});
-    assert.equal(ui.viewedRequests.length, 1);
-    assert.deepEqual(ui.errors, []);
-  });
-
-  for (const replacement of ['review', 'revision', 'disposal']) {
-    test(`${provider} a Viewed reply after ${replacement} cannot update or advance a stale inline viewer`, async t => {
-      const review = {mode};
-      const ui = fixture(t, provider, splitRevision(), {review});
-      await ui.navigate(ui.review(41));
-      const oldDiff = ui.app.state.diff;
-      const controls = fileReviewControls(ui);
-      const pending = deferred();
-      ui.app.viewedReply = () => pending.promise;
-      const saving = controls.button.fire('click');
-      await ui.drain(1);
-      if (replacement === 'review') await ui.navigate(ui.review(42));
-      else if (replacement === 'revision') {
-        review.headSHA = featureSHA;
-        await ui.settle(ui.app.refresh());
-        assert.equal(ui.app.state.diff.head.sha, featureSHA);
-      } else ui.app.dispose();
-      await ui.drain(1);
-      const fileRequests = ui.files.length;
-      const stored = structuredClone([...ui.metadata]);
-      pending.resolve({state: 'VIEWED', mode});
-      await ui.settle(saving);
-      assert.deepEqual(oldDiff.viewed, {}, 'A reply cannot publish a mark after its review or page is obsolete.');
-      assert.equal(controls.group.isConnected, false);
-      assert.equal(ui.files.length, fileRequests, 'A stale completion cannot load another file.');
-      assert.deepEqual([...ui.metadata], stored, 'A stale completion cannot persist a different active file.');
-      if (replacement !== 'disposal') {
-        assert.equal(ui.selection().active, paths[0]);
-        assert.deepEqual(ui.app.state.diff.viewed, {});
-        assert.equal(fileReviewControls(ui).button.textContent, 'Viewed & next');
-      }
-      assert.deepEqual(ui.errors, []);
-    });
-  }
-
-  test(`${provider} Viewed navigation is absent in Code, commits and unsupported review mode`, async t => {
-    const revision = splitRevision();
-    const review = {mode: 'none'};
-    const ui = fixture(t, provider, revision, {review});
-    await ui.navigate(ui.root);
-    await ui.open(paths[0]);
-    assert.equal(ui.workspace().querySelector('.file-review'), null);
-    await ui.navigate(ui.review(41));
-    assert.ok(ui.body().querySelector('.code-row'), 'The unsupported review still renders its diff.');
-    assert.equal(ui.workspace().querySelector('.file-review'), null);
-    review.mode = mode;
-    ui.app.fileReply = (message, context) =>
-      context.kind === 'commit' ? (message.source.sha === baseSHA ? revision.before : revision.after) : undefined;
-    await ui.navigate(`${ui.root}/${provider === 'gitlab' ? '-/' : ''}commit/${reviewSHA}`);
-    assert.ok(ui.body().querySelector('.code-row'), 'The commit still renders its diff.');
-    assert.equal(ui.workspace().querySelector('.file-review'), null);
-    assert.deepEqual(ui.viewedRequests, []);
     assert.deepEqual(ui.errors, []);
   });
 }
@@ -1694,7 +1440,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} file search retains its diff query and active source across Unified and Side-by-side`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const controls = await openFind(ui, ui.workspace(), ui.body(), {metaKey: true});
     const requests = ui.files.length;
     await findText(t, ui, controls, 'search beacon');
@@ -1730,7 +1476,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} file search gives actual View full shortcut priority and keeps its query separate from inline`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const inline = await openFind(ui, ui.workspace(), ui.body());
     await findText(t, ui, inline, 'source110');
     assert.equal(inline.count.textContent, '1 / 1');
@@ -1762,7 +1508,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} file search drops pending queries and detached controls when files or reviews change`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const old = await openFind(ui, ui.workspace(), ui.body());
     const listenerCount = ui.window.listeners.get('keydown').length;
     old.input.value = 'source220';
@@ -1785,9 +1531,9 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(current.bar.hidden, false);
     assert.equal(ui.body().scrollTop, top);
     assert.deepEqual([...ui.metadata], stored, 'Detached controls cannot save another file position.');
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     const nextReview = await openFind(ui, ui.workspace(), ui.body());
-    assert.equal(nextReview.input.value, '', 'A different PR/MR has an independent active file search.');
+    assert.equal(nextReview.input.value, '', 'A different commit has an independent active file search.');
     assert.equal(nextReview.count.textContent, '');
     assert.equal(ui.body().querySelectorAll('.file-match').length, 0);
     assert.equal(
@@ -1866,7 +1612,7 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.errors, []);
   });
 
-  test(`${provider} source selections stay independent in inline and View full and reset on file/PR changes`, async t => {
+  test(`${provider} source selections stay independent in inline and View full and reset on file/commit changes`, async t => {
     const ui = fixture(t, provider, searchRevision(), {search: true});
     installSelectionAttributes(ui.document);
     const copied = [];
@@ -1879,7 +1625,7 @@ for (const provider of ['github', 'gitlab']) {
         },
       },
     });
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     // Changed lines are initially just below the virtual viewport's visible range.
     await ui.scroll(20 * 22);
     ui.clock.flush();
@@ -1919,7 +1665,7 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(selectionControls(ui.workspace()).group.hidden, true, 'Selection is not restored as tab metadata.');
     await selectSource(ui, ui.body(), 'New', 21);
     const previous = selectionControls(ui.workspace());
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.equal(previous.group.isConnected, false);
     assert.equal(selectionControls(ui.workspace()).group.hidden, true);
     await previous.code.fire('click');
@@ -2021,13 +1767,13 @@ for (const provider of ['github', 'gitlab']) {
     assert.equal(ui.body().scrollTop, top);
     await ui.reload();
     assert.deepEqual(ui.selection().paths, [paths[2], paths[0], paths[1]]);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await ui.open(paths[1]);
     await reorderTab(ui, paths[0], paths[1], true);
     assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.deepEqual(ui.selection().paths, [paths[0]]);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
     assert.deepEqual(ui.errors, []);
   });
@@ -2089,7 +1835,7 @@ for (const provider of ['github', 'gitlab']) {
       true,
     );
     await ui.close(paths[0]);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const reviewMenu = await tabMenu(ui, paths[0]);
     assert.equal(
       reviewMenu.querySelectorAll('button').find(node => node.textContent === 'Reopen closed file').disabled,
@@ -2208,7 +1954,7 @@ for (const provider of ['github', 'gitlab']) {
     await ui.open(paths[1]);
     const menu = await tabMenu(ui, paths[0]);
     const old = menu.querySelectorAll('button').find(node => node.textContent === 'Close all');
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     assert.equal(menu.hidden, true);
     await menu.fire('click', {target: old});
     assert.deepEqual(ui.selection().paths, [paths[0]]);
@@ -2347,7 +2093,7 @@ for (const provider of ['github', 'gitlab']) {
     assert.deepEqual(ui.selection().paths, [paths[0]]);
     await ui.navigate(commit('e'.repeat(40)));
     assert.deepEqual(ui.selection().paths, [paths[1], paths[0]]);
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     await diffLayout(ui, ui.workspace(), 'Side-by-side');
     await paneScroll(ui, diffPanes(ui.body())[0], 110 * 22, 0);
     await ui.close(paths[0]);
@@ -2363,14 +2109,14 @@ for (const provider of ['github', 'gitlab']) {
 }
 
 for (const provider of ['github', 'gitlab']) {
-  test(`${provider} tab management new review is usable while an old scope metadata save remains pending`, async t => {
+  test(`${provider} tab management new commit is usable while an old scope metadata save remains pending`, async t => {
     const ui = fixture(t, provider);
     await ui.navigate(ui.root);
     await ui.open(paths[0]);
     const gate = deferred();
     let blocked = true;
     ui.app.fileTabsReply = (message, context) => {
-      if (blocked && context.kind !== 'pull' && !message.value.paths.length) {
+      if (blocked && context.kind !== 'commit' && !message.value.paths.length) {
         blocked = false;
         return gate.promise;
       }
@@ -2380,7 +2126,7 @@ for (const provider of ['github', 'gitlab']) {
       target: oldMenu.querySelectorAll('button').find(node => node.textContent === 'Close all'),
     });
     await ui.drain(2);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.deepEqual(ui.selection().paths, [paths[0]]);
     await tabAction(ui, paths[0], 'Close all');
     assert.equal(ui.workspace().querySelector('.file-tab-recovery').hidden, false);
@@ -2524,7 +2270,7 @@ for (const provider of ['github', 'gitlab']) {
 
   test(`${provider} Outline actual file tabs and View full retain independent source sides in both layouts`, async t => {
     const ui = fixture(t, provider, outlineRevision(), {search: true});
-    await ui.navigate(ui.review(41));
+    await ui.navigate(ui.commit(41));
     const inline = fileOutline(ui.workspace());
     const find = await openFind(ui, ui.workspace(), ui.body());
     await findText(t, ui, find, 'oldOnly');
@@ -2610,11 +2356,169 @@ for (const provider of ['github', 'gitlab']) {
     await ui.open(paths[0]);
     assert.equal(ui.app.getFileTabSymbols(), null);
     assert.match(ui.body().textContent, /File not found/);
-    await ui.navigate(ui.review(42));
+    await ui.navigate(ui.commit(42));
     assert.equal(old.current(), false);
     ui.app.dispose();
     assert.equal(ui.app.getFileTabSymbols(), null);
     assert.equal(ui.window.listeners.get('resize')?.length || 0, 0);
     assert.equal(ui.window.listeners.get('keydown')?.length || 0, 0);
+  });
+}
+
+for (const provider of ['github', 'gitlab']) {
+  test(`${provider} PR/MR ignores saved inline tabs on load, Refresh and native main replacement`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {search: true});
+    await ui.navigate(ui.root);
+    const context = {...ui.app.state.context, kind: 'pull', number: 41};
+    const key = JSON.stringify([context.origin, context.owner, context.repo, 'review', 41, '']);
+    ui.metadata.set(key, {
+      paths: paths.slice(0, 2),
+      active: paths[1],
+      positions: [],
+      page: JSON.stringify(['pull', 'review-41', '']),
+    });
+    await ui.navigate(ui.pull(41));
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.equal(ui.app.view.viewer.open, false, 'Opening a request does not open a full-file dialog either.');
+    assert.deepEqual(ui.files, [], 'Review pages fetch no complete source until View full is requested.');
+    await ui.settle(ui.app.refresh());
+    await ui.reload();
+    ui.replaceMain();
+    await ui.drain();
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.equal(ui.workspaceRequests.filter(request => request.context.kind === 'pull').length, 0);
+    assert.equal(ui.metadata.get(key).active, paths[1], 'Legacy review metadata is left untouched.');
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} PR/MR tree clicks retain native diff anchors and modified browser-tab navigation`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.pull(41));
+    const url = await ui.app.diffURL({path: paths[1]});
+    let revealed = 0;
+    const card = ui.document.createElement('article');
+    card.id = new URL(url).hash.slice(1);
+    card.scrollIntoView = () => revealed++;
+    ui.document.body.append(card);
+    await ui.open(paths[1]);
+    assert.equal(revealed, 1, 'An ordinary click reveals the provider diff on the same page.');
+    assert.equal(ui.app.state.selected, paths[1]);
+    await ui.open(paths[1], {ctrlKey: true});
+    await ui.open(paths[1], {metaKey: true});
+    assert.deepEqual(ui.opened, [
+      [url, '_blank', 'noopener'],
+      [url, '_blank', 'noopener'],
+    ]);
+    assert.deepEqual(ui.assigned, []);
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.deepEqual(ui.files, []);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} PR/MR overview and Quick Open navigate natively without creating inline tabs`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {search: true, quickOpen: true});
+    await ui.navigate(ui.pull(41).replace(/\/(files|diffs)$/, ''));
+    const url = await ui.app.diffURL({path: paths[0]});
+    await ui.open(paths[0]);
+    assert.equal(ui.assigned.pop(), url);
+    await ui.settle(ui.app.openFileTab({path: paths[0]}));
+    assert.equal(ui.assigned.pop(), url, 'Direct palette/tab entry points also use native navigation.');
+    ui.app.openQuickOpen();
+    const palette = ui.app.view.shadow.querySelector('.quick-open');
+    const input = palette.querySelector('input');
+    input.value = paths[0];
+    await input.fire('input');
+    await ui.window.fire('keydown', keyEvent(input, 'Enter', {isTrusted: true}));
+    await ui.drain(20);
+    assert.equal(ui.assigned.pop(), url);
+    assert.equal(palette.open, false);
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.deepEqual(ui.files, []);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} PR/MR Quick Open path:line uses the exact native source revision`, async t => {
+    const ui = fixture(t, provider, splitRevision(), {search: true, quickOpen: true});
+    await ui.navigate(ui.pull(41));
+    ui.app.openQuickOpen();
+    const palette = ui.app.view.shadow.querySelector('.quick-open');
+    const input = palette.querySelector('input');
+    input.value = `${paths[0]}:120`;
+    await input.fire('input');
+    await ui.window.fire('keydown', keyEvent(input, 'Enter', {isTrusted: true}));
+    await ui.drain(20);
+    assert.equal(ui.assigned.pop(), `${ui.blob(reviewSHA, paths[0])}#L120`);
+    assert.equal(palette.open, false);
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.deepEqual(ui.files, []);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  test(`${provider} PR/MR repository-tree mode also keeps file opening native`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.pull(41));
+    ui.app.state.mode = 'files';
+    await ui.settle(ui.app.loadFiles());
+    await ui.open(paths[1]);
+    assert.equal(ui.assigned.pop(), ui.blob(ui.app.state.info.ref, paths[1]));
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    assert.deepEqual(ui.files, []);
+    assert.deepEqual(ui.errors, []);
+  });
+
+  for (const layout of ['Unified', 'Side-by-side']) {
+    test(`${provider} PR/MR View full explicitly opens an independent ${layout} dialog and closes cleanly`, async t => {
+      const ui = fixture(t, provider, splitRevision(), {
+        search: true,
+        review: {mode: provider === 'github' ? 'github' : 'local'},
+      });
+      await ui.navigate(ui.pull(41));
+      assert.deepEqual(ui.files, []);
+      ui.app.state.expanded = new Set(['src']);
+      ui.clock.flush();
+      const full = ui.app.view.spacer.querySelector(`[aria-label="Full-file diff: ${paths[0]}"]`);
+      assert.ok(full, 'The sidebar keeps its explicit full-file action.');
+      await ui.settle(full.fire('click'));
+      await ui.drain(20);
+      const dialog = ui.app.view.viewer;
+      assert.equal(dialog.open, true);
+      assert.equal(dialog.querySelector('.viewer-heading').querySelector('strong').textContent, paths[0]);
+      await diffLayout(ui, dialog, layout);
+      assert.ok(dialog.querySelector('.code-spacer'), 'The modal renders the validated complete diff.');
+      assert.ok(dialog.querySelector('.file-review'), 'Viewed & next remains in View full.');
+      assert.ok(dialog.querySelector('.viewer-find-toggle'), 'Find remains available in the modal.');
+      assert.ok(ui.files.length >= 2, 'Source revisions are requested only after the explicit action.');
+      assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+      const close = dialog.querySelector('[aria-label="Close viewer"]');
+      await ui.settle(close.fire('click'));
+      assert.equal(dialog.open, false);
+      assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+      assert.deepEqual(ui.errors, []);
+    });
+  }
+
+  test(`${provider} PR/MR navigation disposes pending Code content and restores only the Code workspace on return`, async t => {
+    const ui = fixture(t, provider, splitRevision());
+    await ui.navigate(ui.root);
+    await ui.open(paths[0]);
+    await ui.scroll(660, 0);
+    const pending = deferred();
+    ui.app.fileReply = message => (message.path === paths[1] ? pending.promise : undefined);
+    const opening = ui.open(paths[1]);
+    await ui.drain();
+    await ui.navigate(ui.pull(41));
+    pending.resolve('STALE CODE MUST NOT MOUNT ABOVE THE REVIEW');
+    await ui.settle(opening);
+    ui.replaceMain();
+    await ui.drain();
+    assert.equal(ui.document.getElementById('codetree-file-workspace'), null);
+    ui.app.fileReply = undefined;
+    await ui.navigate(ui.root);
+    assert.equal(ui.selection().active, paths[1]);
+    await ui.open(paths[0]);
+    assert.equal(ui.body().scrollTop, 660);
+    assert.equal(ui.body().scrollLeft, 0);
+    assert.doesNotMatch(ui.body().textContent, /STALE CODE MUST NOT/);
+    assert.deepEqual(ui.errors, []);
   });
 }

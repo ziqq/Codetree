@@ -329,7 +329,7 @@ export function createQuickOpen(app) {
     if (dialog.open && !pending) schedule(true);
   }
 
-  /** Resolves an explicit source-line browser-tab request without guessing a moving branch or fork. */
+  /** Resolves native source-line navigation without guessing a moving branch or fork. */
   function sourceLink(node, line) {
     const context = state.context;
     const diff = state.mode === 'changes' ? state.diff : null;
@@ -421,7 +421,11 @@ export function createQuickOpen(app) {
         }
         return;
       }
-      await app.openFileTab({path: node.path, ...(parsed.line ? {line: parsed.line} : {})});
+      if (state.context?.kind === 'pull' && parsed.line) {
+        const url = sourceLink(node, parsed.line);
+        if (!url) throw new Error('A link to this exact source revision is unavailable.');
+        location.assign(url);
+      } else await app.openFileTab({path: node.path, ...(parsed.line ? {line: parsed.line} : {})});
       if (!current()) return;
       closeQuickOpen(false);
       if (app.view.viewer.open) app.closeViewer();
