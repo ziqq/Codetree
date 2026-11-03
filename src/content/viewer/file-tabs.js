@@ -7,6 +7,8 @@
  * Code paths survive branch changes; positions belong to a branch or an
  * exact review revision. Only metadata reaches trusted session storage.
  * File text lives in the current view and is discarded on every switch.
+ * Back/Forward history stays in page memory and is cleared with each
+ * workspace load, so it never crosses a page, branch, account or Refresh.
  */
 
 import {blobURL, treeURL} from '../../shared/routes.js';
@@ -19,6 +21,7 @@ import {diffNode} from './viewer.js';
 import {renderDiffFile, renderTextFile} from './file-content.js';
 import {createFileReview} from './file-review.js';
 import {createTabMenu} from './tab-menu.js';
+import {createHistoryControls, createNavigationHistory} from './file-history.js';
 
 /** Creates the inline workspace and its navigation, persistence and theme actions. */
 export function createFileTabs(app) {
@@ -31,9 +34,18 @@ export function createFileTabs(app) {
   const revision = el('small');
   const native = el('a', {class: 'small-button', target: '_blank', rel: 'noopener noreferrer'});
   const actions = el('div', {class: 'viewer-actions'}, [native]);
+  const history = createNavigationHistory();
+  const historyControls = createHistoryControls(
+    run(() => traverse(-1)),
+    run(() => traverse(1)),
+  );
   const frame = el('section', {class: 'file-workspace', 'aria-label': 'Codetree file workspace'}, [
     tabs,
-    el('div', {class: 'viewer-header'}, [el('div', {class: 'viewer-heading'}, [heading, revision]), actions]),
+    el('div', {class: 'viewer-header'}, [
+      historyControls.element,
+      el('div', {class: 'viewer-heading'}, [heading, revision]),
+      actions,
+    ]),
   ]);
   const reopen = el('button', {type: 'button', class: 'small-button', text: 'Reopen closed file'});
   const recovery = el('div', {class: 'file-tab-recovery', hidden: ''}, [
@@ -60,6 +72,8 @@ export function createFileTabs(app) {
   let closed = [];
   let changes = Promise.resolve();
   let drag;
+  // Suppresses the renderer's navigation callback while an open records its own line jump.
+  let navigating = false;
   const tabControls = new Map();
   const unavailable = new Set();
 
@@ -160,6 +174,7 @@ export function createFileTabs(app) {
     for (const node of Array.from(frame.children))
       if (node.classList.contains('viewer-body') || node.classList.contains('viewer-bottom')) node.remove();
     snapshot = null;
+    history.clear();
     // Old-scope writes may finish, but they must not hold the new workspace's operation queue.
     pendingOpen = null;
     changes = Promise.resolve();
@@ -240,6 +255,7 @@ export function createFileTabs(app) {
     host.style.display = host.hidden ? 'none' : 'block';
     updateFileTabTheme();
     mountFileTabs();
+    updateHistory();
     if (focused || recoveryFocused)
       (
         tabControls.get(focused) ||
@@ -413,8 +429,61 @@ export function createFileTabs(app) {
     );
   }
 
+  /** Returns the loaded file's history location in the current revision scope, or null without content. */
+  function historyLocation() {
+    if (
+      !snapshot ||
+      !shell?.readPosition ||
+      !contentReady ||
+      !host.isConnected ||
+      snapshot.value.active !== renderedPath ||
+      unavailable.has(renderedPath)
+    )
+      return null;
+    return {key: positionRef, path: renderedPath, position: shell.readPosition()};
+  }
+
+  /** Accepts only entries recorded for the current branch or exact review revisions. */
+  function accept(entry) {
+    return entry.key === positionRef;
+  }
+
+  /** Re-evaluates the persistent Back/Forward controls against the current location and scope. */
+  function updateHistory() {
+    const current = historyLocation();
+    historyControls.back.disabled = !snapshot || !history.canBack(current, accept);
+    historyControls.forward.disabled = !snapshot || !history.canForward(current, accept);
+  }
+
+  /**
+   * Restores the previous/next history entry. Same-file targets only move the
+   * viewport; other files use the ordinary open path without recording, and the
+   * pointer moves only after that render succeeds and is still the latest intent.
+   */
+  async function traverse(direction) {
+    if (!snapshot) return;
+    const current = historyLocation();
+    const target = direction < 0 ? history.back(current, accept) : history.forward(current, accept);
+    if (!target) return updateHistory();
+    if (current && target.entry.path === current.path) {
+      shell.restorePosition(target.entry.position);
+      shell.onScroll?.();
+      history.commit(target);
+      return updateHistory();
+    }
+    await openFile({path: target.entry.path}, target);
+  }
+
   /** Opens or focuses a path without changing the provider URL or hijacking modified browser clicks. */
-  async function openFileTab(node) {
+  function openFileTab(node) {
+    return openFile(node);
+  }
+
+  /**
+   * Opens a path as a recorded navigation, or restores a history `target` without recording.
+   * Closed targets reopen like Quick Open and respect the same tab limit.
+   */
+  async function openFile(node, target) {
     const epoch = state.epoch;
     if (!snapshot) await loadFileTabs();
     if (epoch !== state.epoch) return;
@@ -425,6 +494,9 @@ export function createFileTabs(app) {
     capturePosition();
     const previous = snapshot.value;
     const paths = previous.paths;
+    // Re-opening the active file without a line is not a navigation point.
+    const record = !target && (node.path !== previous.active || node.line !== undefined);
+    const from = record ? historyLocation() : null;
     const existing = paths.includes(node.path);
     if (!existing && paths.length >= maxFileTabs)
       throw new Error(`Close a file tab before opening another (maximum ${maxFileTabs}).`);
@@ -458,11 +530,36 @@ export function createFileTabs(app) {
     await renderActiveFile();
     if (epoch !== state.epoch || snapshot !== currentSnapshot || request !== opening || renderedPath !== node.path)
       return;
+    if (target) {
+      if (!contentReady || !shell?.restorePosition) {
+        app.toast(`Could not go to ${node.path}: its text preview is unavailable.`);
+        return updateHistory();
+      }
+      shell.restorePosition(target.entry.position);
+      shell.onScroll?.();
+      history.commit(target);
+      return updateHistory();
+    }
+    let failure;
     if (node.line !== undefined) {
       if (!contentReady || !shell?.goToLine)
-        throw new Error('This file has no available text preview for line navigation.');
-      shell.goToLine(node.line);
+        failure = new Error('This file has no available text preview for line navigation.');
+      else {
+        navigating = true;
+        try {
+          shell.goToLine(node.line);
+        } catch (error) {
+          failure = error;
+        } finally {
+          navigating = false;
+        }
+      }
     }
+    if (record) {
+      history.visit(from, historyLocation());
+      updateHistory();
+    }
+    if (failure) throw failure;
   }
 
   /** Focuses the current owned viewport after a file-opening dialog has closed. */
@@ -495,6 +592,7 @@ export function createFileTabs(app) {
     const epoch = state.epoch;
     const filesGeneration = state.filesGeneration;
     const load = ++generation;
+    history.clear();
     const saved = rememberFileTabs();
     disposeContent?.();
     shell = null;
@@ -652,6 +750,14 @@ export function createFileTabs(app) {
             ),
             150,
           );
+        }),
+      );
+      shell.onNavigate = runWithOwner(shell.owner, () =>
+        withOwner(position => {
+          if (!current() || navigating) return;
+          const here = historyLocation();
+          if (here) history.visit({...here, position}, here);
+          updateHistory();
         }),
       );
       runWithOwner(shell.owner, () => listen(shell.body, 'scroll', shell.onScroll, {passive: true}));

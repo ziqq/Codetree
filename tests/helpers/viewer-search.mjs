@@ -14,7 +14,7 @@ function columns(text) {
 }
 
 /** Collects the rendered text before a descendant without using the search query or match metadata. */
-function precedingText(root, target) {
+export function precedingText(root, target) {
   let text = '';
   let found = false;
   /** Visits source leaves in DOM order, stopping at the requested rendered mark. */

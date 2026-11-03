@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **ADDED**: Back/Forward navigation history in file tabs and View full, restoring the file, source revision and exact position in either diff layout
+- **ADDED**: Match case and Whole word options in viewer file search, plus a Both / New / Old revision scope for diffs
+- **FIXED**: pressing Enter right after typing a file-search query searches the latest query and options instead of waiting for the debounce
+
 ## 0.5.0
 
 - **ADDED**: Ctrl/Cmd-click opens a file or its native diff in a new tab

@@ -1217,7 +1217,8 @@ button:disabled {
   white-space: nowrap;
 }
 .diff-layout,
-.viewer-line-revision {
+.viewer-line-revision,
+.viewer-find-group {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 2px;
@@ -1227,7 +1228,8 @@ button:disabled {
   background: var(--muted-bg);
 }
 .diff-layout button,
-.viewer-line-revision button {
+.viewer-line-revision button,
+.viewer-find-group button {
   min-height: 24px;
   padding: 4px 8px;
   border: 0;
@@ -1239,12 +1241,14 @@ button:disabled {
   white-space: nowrap;
 }
 .diff-layout button:hover,
-.viewer-line-revision button:hover {
+.viewer-line-revision button:hover,
+.viewer-find-group button:hover {
   background: var(--hover);
   color: var(--text);
 }
 .diff-layout button[aria-pressed='true'],
-.viewer-line-revision button[aria-pressed='true'] {
+.viewer-line-revision button[aria-pressed='true'],
+.viewer-find-group button[aria-pressed='true'] {
   background: var(--selected);
   color: var(--accent);
 }
@@ -1293,8 +1297,17 @@ button:disabled {
 .viewer-find[hidden],
 .viewer-find-toggle[hidden],
 .viewer-find > .icon-button[hidden],
-.viewer-line-revision[hidden] {
+.viewer-line-revision[hidden],
+.viewer-find-group[hidden] {
   display: none;
+}
+.viewer-find-options button {
+  min-width: 26px;
+  padding: 4px 6px;
+}
+.viewer-find-word {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .viewer-find-field {
   margin: 0;
@@ -1810,4 +1823,18 @@ button:disabled {
   height: 2px;
   border-radius: 2px;
   background: currentColor;
+}
+.viewer-history {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted-bg);
+}
+.viewer-history .icon-button {
+  width: 24px;
+  height: 24px;
 }
