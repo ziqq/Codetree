@@ -796,7 +796,8 @@ button:disabled {
 }
 .handle {
   position: fixed;
-  bottom: 17%;
+  top: 50%;
+  transform: translateY(-50%);
   pointer-events: auto;
   display: flex;
   flex-direction: column;
