@@ -275,7 +275,7 @@ export function createTree(app) {
    * @param {boolean} [newTab=false] Open a separate tab without an opener.
    */
   async function openFile(node, newTab = false) {
-    if (!newTab && node.type !== 'commit' && app.openFileTab) {
+    if (!newTab && state.context?.kind !== 'pull' && node.type !== 'commit' && app.openFileTab) {
       await app.openFileTab(node);
       return;
     }

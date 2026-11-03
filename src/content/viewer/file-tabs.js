@@ -474,8 +474,9 @@ export function createFileTabs(app) {
     await openFile({path: target.entry.path}, target);
   }
 
-  /** Opens or focuses a path without changing the provider URL or hijacking modified browser clicks. */
+  /** Opens an inline Code/commit tab, delegating PR/MR files to native diff navigation. */
   function openFileTab(node) {
+    if (state.context?.kind === 'pull') return app.openFile(node);
     return openFile(node);
   }
 
@@ -588,6 +589,11 @@ export function createFileTabs(app) {
   async function loadFileTabs() {
     const context = state.context;
     const info = state.info;
+    // PR/MR pages keep their native review layout; View full owns the separate diff dialog.
+    if (context?.kind === 'pull') {
+      suspendFileTabs();
+      return;
+    }
     if (!context || !info || state.filesLoading) return;
     const epoch = state.epoch;
     const filesGeneration = state.filesGeneration;
