@@ -223,7 +223,7 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
         error.status = 404;
         throw error;
       }
-      if (reviewDiff && context.kind === 'pull')
+      if (reviewDiff && ['pull', 'commit'].includes(context.kind))
         return message.source.sha === baseSHA ? reviewDiff.before : reviewDiff.after;
       return longText;
     }
@@ -438,7 +438,8 @@ function fixture(t, provider, reviewDiff, {search = false, review = {}} = {}) {
     replaceMain,
     removeMain,
     blob: (ref, path) => `${root}${gitlab ? '/-' : ''}/blob/${ref}/${path}`,
-    review: number => `${root}/${gitlab ? '-/merge_requests' : 'pull'}/${number}/${gitlab ? 'diffs' : 'files'}`,
+    commit: number => `${root}${gitlab ? '/-' : ''}/commit/${number.toString(16).padStart(40, '0')}`,
+    pull: number => `${root}/${gitlab ? '-/merge_requests' : 'pull'}/${number}/${gitlab ? 'diffs' : 'files'}`,
   };
 }
 
@@ -664,7 +665,7 @@ test('inline Outline/symbol jumps and source-line opens are points; reopening th
 
 test('inline scrolling, layout switches and find reveals create no navigation points', async t => {
   const ui = fixture(t, 'github', pairedRevision(), {search: true});
-  await ui.navigate(ui.review(41));
+  await ui.navigate(ui.commit(41));
   assert.equal(ui.selection().active, paths[0]);
   await ui.scroll(660, 0);
   await layout(ui, ui.workspace(), 'Side-by-side');
@@ -775,7 +776,7 @@ test('inline history is cleared by branch changes and Refresh', async t => {
 
 test('inline entries recorded for other review revisions are not applied', async t => {
   const ui = fixture(t, 'github');
-  await ui.navigate(ui.review(41));
+  await ui.navigate(ui.commit(41));
   await ui.scroll(660, 0);
   await ui.open(paths[1]);
   assert.deepEqual(available(ui.workspace()), [true, false]);
