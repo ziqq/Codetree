@@ -24,6 +24,7 @@ export function createCompare(app) {
       'Changes in Head since its common ancestor with Base.',
       'Compare branches and tags',
     );
+    shell.bottom.remove();
     const generation = state.refreshGeneration;
     const current = () => app.isCurrent(shell) && state.epoch === epoch && state.refreshGeneration === generation;
     shell.body.replaceChildren(
