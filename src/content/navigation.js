@@ -59,7 +59,7 @@ export function createNavigation(app) {
       state.query = '';
       state.searchRegex = false;
       state.unviewedOnly = false;
-      state.mode = context?.kind === 'pull' || context?.kind === 'commit' ? 'changes' : 'files';
+      state.mode = ['pull', 'commit', 'compare'].includes(context?.kind) ? 'changes' : 'files';
       state.tab = 'files';
       state.selected = '';
       state.focus = 0;
@@ -100,11 +100,12 @@ export function createNavigation(app) {
 
   /** Renders header data from one consistent context/info/public snapshot. */
   function updateHeader() {
-    const {repository, tabButtons, branchLabel, branchButton, accountSelect, bookmarkButton} = app.view;
+    const {repository, tabButtons, branchLabel, branchButton, compareButton, accountSelect, bookmarkButton} = app.view;
     const context = state.context;
     if (!context) {
       repository?.replaceChildren();
       branchButton.disabled = true;
+      if (compareButton) compareButton.disabled = true;
       return;
     }
     repository.replaceChildren(
@@ -116,8 +117,12 @@ export function createNavigation(app) {
     tabButtons.pulls.querySelector('span').textContent =
       context.provider === 'gitlab' ? 'Merge requests' : 'Pull requests';
     if (state.info?.repository.private) repository.append(el('span', {class: 'privacy', text: 'Private'}));
-    branchLabel.textContent = state.info?.ref || 'Branch';
+    branchLabel.textContent =
+      context.kind === 'compare'
+        ? `${context.baseRef.replace(/^refs\/(heads|tags)\//, '')}…${context.headRef.replace(/^refs\/(heads|tags)\//, '')}`
+        : state.info?.ref || 'Branch';
     branchButton.disabled = !state.info;
+    if (compareButton) compareButton.disabled = !state.info || Boolean(state.info.repository.empty);
     accountSelect.replaceChildren(el('option', {value: 'auto', text: `Auto · ${providerName(context)} account`}));
     for (const account of state.public?.accounts || []) {
       if (account.origin === context.origin)

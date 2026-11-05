@@ -421,7 +421,7 @@ export function createQuickOpen(app) {
         }
         return;
       }
-      if (state.context?.kind === 'pull' && parsed.line) {
+      if (['pull', 'compare'].includes(state.context?.kind) && parsed.line) {
         const url = sourceLink(node, parsed.line);
         if (!url) throw new Error('A link to this exact source revision is unavailable.');
         location.assign(url);

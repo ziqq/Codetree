@@ -24,6 +24,14 @@ The same Codetree sidebar serves both providers. This table describes the implem
 
 Both providers require a token for review-state filters. GitLab reviewer/approvals APIs and states depend on server version, edition and permissions. Failures remain visible; an unsupported filter is not silently returned as an empty list.
 
+## Compare branches and tags
+
+The comparison button next to the branch switcher opens **Base** and **Head** selectors with separate Branches and Tags groups. Equal branch/tag names retain their full ref namespaces. Choosing **Compare** opens the provider's native comparison page; it creates no PR/MR. Native same-repository three-dot comparison URLs are supported too.
+
+The sidebar lists changes in Head since its common ancestor with Base, matching the native merge-base comparison. The broker resolves both selections to full commit SHAs before loading changes; the full-file viewer reads the exact ancestor and Head revisions, including previous names on renames. Identical refs resolve once. Click a changed file or its full-diff action to open the separate View full dialog with Unified/Side-by-side, search and source navigation. Compare pages do not mount inline file tabs or expose request Viewed mutations. Ctrl/Cmd-click opens the pinned native comparison in another browser tab.
+
+Both providers use the current host/account and existing request/body/file limits. The picker is bounded to 10,000 combined branches/tags. GitHub returns at most 300 comparison files; reaching that boundary displays a potentially incomplete-list warning. GitLab server limits are disclosed; a timed-out comparison is rejected rather than displayed as complete, and omitted patches retain the existing unavailable-preview behavior. Empty comparisons show **No changes**. Refresh resolves refs again through the existing cache invalidation. Selection/results are not persisted or synced, and no permission or dependency is added. Cross-repository/fork comparisons and native direct/two-dot comparisons are outside this workflow.
+
 ## Full-file review
 
 The native button is inserted into a changed file's header. A rerendered header gets one button; a route change clears the old bindings. The sidebar can stay closed. Headers with a native file path receive the button even when API access fails; clicking offers account connection/retry guidance. Website sign-in and extension API authentication are separate. Text previews include all unchanged context, additions and removals, old/new line numbers and previous/next file navigation.

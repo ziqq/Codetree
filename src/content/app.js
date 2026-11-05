@@ -15,6 +15,7 @@ import {shortcutMatches} from '../shared/preferences.js';
 import {createHeaderButtons} from './native/header-buttons.js';
 import {createNavigation} from './navigation.js';
 import {createBookmarks} from './sidebar/bookmarks.js';
+import {createCompare} from './sidebar/compare.js';
 import {createBranches} from './sidebar/branches.js';
 import {createFiles} from './sidebar/files.js';
 import {createLayout} from './sidebar/layout.js';
@@ -105,6 +106,7 @@ export function mount() {
           createFiles,
           createTree,
           createBranches,
+          createCompare,
           createPulls,
           createBookmarks,
           createRender,

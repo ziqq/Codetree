@@ -13,7 +13,7 @@
 import * as C from '../../shared/routes.js';
 import {clearCache, memo, treeMemo} from '../cache.js';
 import {saveLocalViewed} from '../storage.js';
-import {sha} from '../validate.js';
+import {commitSHA, ref, sha} from '../validate.js';
 
 /** REST path of the project (`owner/repo` encoded as one ID). */
 const projectPath = context => `/projects/${encodeURIComponent(`${context.owner}/${context.repo}`)}`;
@@ -107,6 +107,69 @@ async function initialize(context, api) {
   };
 }
 
+/** Lists branches and tags separately so equal names remain unambiguous in the picker. */
+async function refs(context, api) {
+  const root = projectPath(context);
+  const [branches, tags] = await Promise.all([
+    api.pages(`${root}/repository/branches`),
+    api.pages(`${root}/repository/tags`),
+  ]);
+  if (branches.length + tags.length > 10000)
+    throw new Error('More than 10,000 branches and tags. Use the repository website.');
+  return [
+    ...branches.map(item => ({name: item.name, ref: `refs/heads/${item.name}`, type: 'branch'})),
+    ...tags.map(item => ({name: item.name, ref: `refs/tags/${item.name}`, type: 'tag'})),
+  ];
+}
+
+/** Pins selected refs, finds their common ancestor and compares that exact tree to Head. */
+async function compare(context, api, fresh) {
+  const root = projectPath(context);
+  const baseRef = ref(context.baseRef);
+  const headRef = ref(context.headRef);
+  const commits = await Promise.all(
+    (baseRef === headRef ? [baseRef] : [baseRef, headRef]).map(value =>
+      api.json(`${root}/repository/commits/${encodeURIComponent(value)}`, 60000, fresh),
+    ),
+  );
+  const baseSHA = commitSHA(commits[0].id);
+  const headSHA = commitSHA((commits[1] || commits[0]).id);
+  const ancestor = await api.json(
+    `${root}/repository/merge_base?refs%5B%5D=${baseSHA}&refs%5B%5D=${headSHA}`,
+    60000,
+    fresh,
+  );
+  const mergeSHA = commitSHA(ancestor.id);
+  const value = await api.json(`${root}/repository/compare?from=${mergeSHA}&to=${headSHA}&straight=true`, 60000, fresh);
+  if (value.compare_timeout)
+    throw new Error(
+      'GitLab comparison timed out or exceeded server limits. Use the native comparison; the file list may be incomplete.',
+    );
+  if (!Array.isArray(value.diffs) || value.diffs.length > 10000)
+    throw new Error('GitLab returned an invalid comparison file list.');
+  const namespace = `${context.owner}/${context.repo}`;
+  const warnings = [
+    'Changes in Head since its common ancestor with Base.',
+    'GitLab server diff limits apply to this comparison.',
+  ];
+  if (value.diffs.some(item => item.too_large || item.collapsed))
+    warnings.push(
+      'Some patches were omitted by GitLab. Full-file previews require complete patches when the text changed.',
+    );
+  return {
+    files: value.diffs.map(file),
+    comments: [],
+    viewed: {},
+    viewedMode: 'none',
+    warnings,
+    title: `${baseRef} → ${headRef}`,
+    number: null,
+    comparison: {baseSHA, headSHA},
+    base: {project: namespace, sha: mergeSHA},
+    head: {project: namespace, sha: headSHA},
+  };
+}
+
 /** Lists one folder at a revision; subfolders load when opened. */
 async function tree(context, api, message) {
   if (!/^[a-f\d]{7,40}$/i.test(message.sha || '')) throw new Error('Invalid repository revision.');
@@ -180,6 +243,7 @@ async function readComments(path, api, warnings) {
  */
 async function diff(context, api, memo, fresh) {
   const root = projectPath(context);
+  if (context.kind === 'compare') return compare(context, api, fresh);
   if (context.kind === 'commit') {
     const revision = context.sha;
     if (!/^[a-f\d]{7,40}$/i.test(revision || '')) throw new Error('Invalid commit SHA.');
@@ -365,7 +429,7 @@ async function source(api, message) {
 /**
  * Handles a repository request from a GitLab page.
  *
- * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
+ * @param {Object} message `{type: 'INIT'|'TREE'|'BRANCHES'|'REFS'|'PULLS'|'DIFF'|'FILE'|'VIEWED'|'REFRESH', …}`.
  * @param {Object} context The validated repository context.
  * @param {Object} api The host-bound client.
  * @param {Object} store The stored data.
@@ -382,13 +446,15 @@ export async function handle(message, context, api, store) {
         () => tree(context, api, message),
         message.fresh,
       );
+    case 'REFS':
+      return memo(`${api.prefix}${root}:refs`, 60000, () => refs(context, api), message.fresh);
     case 'BRANCHES':
       return memo(`${api.prefix}${root}:branches`, 60000, () => api.pages(`${root}/repository/branches`));
     case 'PULLS':
       return pulls(context, api, memo, message.filter || 'all');
     case 'DIFF': {
       const value = await diff(context, api, memo, message.fresh);
-      if (context.kind === 'commit') return value;
+      if (context.kind !== 'pull') return value;
       return {
         ...value,
         viewed: store.localViewed?.[`${api.prefix}:${root}:${context.number}:${value.head.sha}`] || {},

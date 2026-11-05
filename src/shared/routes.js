@@ -8,7 +8,7 @@
  * Pure functions shared by the service worker, the content script and
  * Settings. A *context* is the parsed route of a repository page:
  * `{origin, provider, owner, repo, kind, tail, path, number?, sha?, refHint?}`,
- * where `kind` is `repo`, `tree`, `blob`, `blame`, `raw`, `pull` or `commit`.
+ * where `kind` is `repo`, `tree`, `blob`, `blame`, `raw`, `pull`, `commit` or `compare`.
  */
 
 /**
@@ -97,6 +97,15 @@ export function route(url, provider = 'github') {
       } else if (view === 'merge_requests' && /^\d+$/.test(parts[separator + 2] || '')) {
         result.kind = 'pull';
         result.number = Number(parts[separator + 2]);
+      } else if (view === 'compare') {
+        if (parsed.searchParams.get('straight') === 'true') return null;
+        const refs = parts
+          .slice(separator + 2)
+          .join('/')
+          .split('...');
+        if (refs.length !== 2 || !refs.every(validRef)) return null;
+        result.kind = 'compare';
+        [result.baseRef, result.headRef] = refs;
       } else if (view === 'commit' && /^[a-f\d]{7,40}$/i.test(parts[separator + 2] || '')) {
         result.kind = 'commit';
         result.sha = parts[separator + 2];
@@ -143,6 +152,11 @@ export function route(url, provider = 'github') {
   } else if (parts[2] === 'pull' && /^\d+$/.test(parts[3] || '')) {
     result.kind = 'pull';
     result.number = Number(parts[3]);
+  } else if (parts[2] === 'compare') {
+    const refs = parts.slice(3).join('/').split('...');
+    if (refs.length !== 2 || !refs.every(validRef)) return null;
+    result.kind = 'compare';
+    [result.baseRef, result.headRef] = refs;
   } else if (parts[2] === 'commit' && /^[a-f\d]{7,40}$/i.test(parts[3] || '')) {
     result.kind = 'commit';
     result.sha = parts[3];
@@ -203,4 +217,26 @@ export function blobURL(context, ref, path, type = 'blob') {
  */
 export function pullURL(context, number) {
   return `${repoURL(context)}/${context.provider === 'gitlab' ? '-/merge_requests' : 'pull'}/${number}`;
+}
+
+/** Accepts a bounded same-repository branch/tag ref, excluding Git revision expressions and traversal. */
+export function validRef(value) {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    !Array.from(value).some(
+      char => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127 || '~^:?*[\\'.includes(char),
+    ) &&
+    !value.includes('..') &&
+    !value.includes('@{') &&
+    !value.endsWith('.') &&
+    value.split('/').every(part => part && !part.startsWith('.') && !part.endsWith('.lock'))
+  );
+}
+
+/** Builds a native, same-repository merge-base comparison URL, retaining branch/tag namespaces. */
+export function compareURL(context, baseRef, headRef) {
+  if (!validRef(baseRef) || !validRef(headRef)) throw new Error('Choose a valid Base and Head branch or tag.');
+  return `${repoURL(context)}${context.provider === 'gitlab' ? '/-' : ''}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headRef)}`;
 }

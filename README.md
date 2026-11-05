@@ -22,6 +22,7 @@ These screenshots show Codetree 0.3.1 installed from a local build on public pag
 
 - Repository file tree with file/folder search, keyboard navigation and branch switching.
 - In-page file tabs with saved branch/review positions and separate commit workspaces.
+- Compare branches and tags with Base/Head selection, a changed-file tree and full-file previews.
 - Changed-file tree for PRs, MRs and commits, with additions/deletions aggregated by folder.
 - Inline review comments with authors and links to their discussions.
 - **View full** in native file headers: complete UTF-8 text, highlighted changes and both revision line numbers. Works with a closed sidebar, collapsed files, additions, deletions and unchanged renames.

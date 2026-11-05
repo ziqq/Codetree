@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **ADDED**: compare repository branches and tags with Base/Head selection, a changed-file tree and separate full-file diffs on GitHub and GitLab
+
 ## 0.6.0
 
 - **ADDED**: Back/Forward navigation history in file tabs and View full, restoring the file, source revision and exact position in either diff layout

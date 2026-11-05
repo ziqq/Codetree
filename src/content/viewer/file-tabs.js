@@ -476,7 +476,7 @@ export function createFileTabs(app) {
 
   /** Opens an inline Code/commit tab, delegating PR/MR files to native diff navigation. */
   function openFileTab(node) {
-    if (state.context?.kind === 'pull') return app.openFile(node);
+    if (['pull', 'compare'].includes(state.context?.kind)) return app.openFile(node);
     return openFile(node);
   }
 
@@ -590,7 +590,7 @@ export function createFileTabs(app) {
     const context = state.context;
     const info = state.info;
     // PR/MR pages keep their native review layout; View full owns the separate diff dialog.
-    if (context?.kind === 'pull') {
+    if (['pull', 'compare'].includes(context?.kind)) {
       suspendFileTabs();
       return;
     }
